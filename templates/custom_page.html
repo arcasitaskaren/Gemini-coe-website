@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    body { background-color: #f5f5f5; }
+    
+    .page-header {
+        background: linear-gradient(135deg, #1c2790 0%, #1d293d 50%, #0f1d3d 100%);
+        color: white;
+        padding: 100px 20px;
+        position: relative;
+        overflow: hidden;
+        min-height: 400px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .page-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(to bottom, 
+            rgba(28, 39, 144, 0.75) 0%,
+            rgba(28, 39, 144, 0.65) 50%,
+            rgba(15, 29, 61, 0.8) 100%);
+        z-index: 1;
+    }
+
+    .page-header::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: 
+            radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.2) 0%, transparent 40%),
+            radial-gradient(circle at 80% 50%, rgba(251, 191, 36, 0.15) 0%, transparent 40%);
+        z-index: 2;
+    }
+
+    .page-header > * {
+        position: relative;
+        z-index: 3;
+    }
+
+    .page-header-inner {
+        text-align: center;
+        max-width: 900px;
+        width: 100%;
+    }
+
+    .page-header h1 {
+        font-size: 3.5rem;
+        font-weight: 800;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        letter-spacing: -0.5px;
+        margin: 0 0 16px 0;
+    }
+
+    .page-content {
+        max-width: 900px;
+        margin: 40px auto;
+        background: white;
+        padding: 40px;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    }
+
+    .back-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #1c2790;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        margin-bottom: 20px;
+        cursor: pointer;
+    }
+
+    .back-button:hover {
+        background-color: #f0f9ff;
+    }
+
+    .block-heading {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1c2790;
+        margin: 32px 0 16px 0;
+    }
+
+    .block-heading.center {
+        text-align: center;
+    }
+
+    .block-heading.right {
+        text-align: right;
+    }
+
+    .block-text {
+        font-size: 1.05rem;
+        line-height: 1.8;
+        color: #333;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        margin: 16px 0;
+    }
+
+    .block-divider {
+        height: 2px;
+        background: linear-gradient(90deg, #e5e7eb, #1c2790, #e5e7eb);
+        margin: 40px 0;
+        border: none;
+    }
+
+    .block-image {
+        max-width: 100%;
+        height: auto;
+        margin: 20px 0;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .block-image-caption {
+        font-size: 0.95rem;
+        color: #666;
+        font-style: italic;
+        text-align: center;
+        margin-top: 8px;
+    }
+
+    .block-button {
+        display: inline-block;
+        background: linear-gradient(135deg, #1c2790 0%, #2a3fa3 100%);
+        color: white;
+        padding: 12px 32px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        margin: 16px 0;
+        border: none;
+        cursor: pointer;
+    }
+
+    .block-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(28, 39, 144, 0.3);
+    }
+
+    .block-card {
+        background: linear-gradient(135deg, #f0f9ff 0%, #f5f3ff 100%);
+        border: 2px solid #1c2790;
+        border-radius: 12px;
+        padding: 24px;
+        margin: 24px 0;
+    }
+
+    .block-card-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1c2790;
+        margin-bottom: 12px;
+    }
+
+    .block-card-description {
+        color: #333;
+        line-height: 1.6;
+    }
+
+    .two-columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+        margin: 24px 0;
+    }
+
+    .two-columns > div {
+        padding: 20px;
+        background: #f9fafb;
+        border-radius: 8px;
+    }
+
+    .image-gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+        margin: 24px 0;
+    }
+
+    .gallery-item {
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .gallery-item:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    }
+
+    .gallery-item img {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+        display: block;
+    }
+
+    .gallery-caption {
+        padding: 12px;
+        background: #f9f9f9;
+        border-top: 1px solid #e0e0e0;
+        font-size: 0.95rem;
+        color: #555;
+        text-align: center;
+    }
+
+    @media (max-width: 768px) {
+        .page-header h1 {
+            font-size: 2rem;
+        }
+
+        .two-columns {
+            grid-template-columns: 1fr;
+        }
+
+        .page-content {
+            padding: 20px;
+        }
+
+        .block-heading {
+            font-size: 1.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<header class="fixed top-0 left-0 w-full z-50 bg-[#f5f5f5] shadow-sm">
+    <div class="max-w-7xl mx-auto flex items-center justify-between px-6 py-3">
+        <a href="/" class="flex items-center ml-[-20px]">
+            <img src="{{ url_for('static', filename=logo_image) }}" class="h-10 w-auto object-contain" alt="Logo">
+        </a>
+        <nav class="hidden lg:flex items-center space-x-6 text-sm font-semibold text-[#0a0a0a]">
+            {% for link in nav_links %}
+                <a href="/nav-page/{{ link.id }}" class="hover:text-[#1c2790] whitespace-nowrap">{{ link.link_text }}</a>
+            {% endfor %}
+        </nav>
+    </div>
+</header>
+
+<div class="pt-20">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="page-header-inner">
+            <a href="/" class="back-button" style="justify-content: center;">
+                <i class="fas fa-arrow-left"></i>
+                Back to Home
+            </a>
+            <h1>{{ page.title }}</h1>
+        </div>
+    </div>
+
+    <!-- Page Content -->
+    <div class="page-content">
+        {% for block in blocks %}
+            <!-- Heading Block -->
+            {% if block.block_type == 'heading' %}
+                <h2 class="block-heading {% if block.text_alignment %}{{ block.text_alignment }}{% endif %}">
+                    {{ block.heading }}
+                </h2>
+
+            <!-- Text Block -->
+            {% elif block.block_type == 'text' %}
+                <div class="block-text">{{ block.content }}</div>
+
+            <!-- Image Block -->
+            {% elif block.block_type == 'image' %}
+                <div style="margin: 24px 0;">
+                    <img src="{{ url_for('static', filename='images/' + block.image_url) }}" 
+                         alt="{{ block.image_alt_text or block.heading or 'Image' }}" 
+                         class="block-image">
+                    {% if block.image_caption %}
+                        <div class="block-image-caption">{{ block.image_caption }}</div>
+                    {% endif %}
+                </div>
+
+            <!-- Button Block -->
+            {% elif block.block_type == 'button' %}
+                <div style="margin: 24px 0;">
+                    <a href="{{ block.content }}" class="block-button">{{ block.card_title }}</a>
+                </div>
+
+            <!-- Divider Block -->
+            {% elif block.block_type == 'divider' %}
+                <hr class="block-divider">
+
+            <!-- Card Block -->
+            {% elif block.block_type == 'card' %}
+                <div class="block-card">
+                    <div class="block-card-title">{{ block.card_title }}</div>
+                    <div class="block-card-description">{{ block.card_description }}</div>
+                </div>
+
+            <!-- Two Columns Block -->
+            {% elif block.block_type == 'two_columns' %}
+                <div class="two-columns">
+                    <div>
+                        <h3 style="color: #1c2790; font-weight: 600; margin-bottom: 12px;">Left Column</h3>
+                        <div style="color: #333; line-height: 1.6;">{{ block.content }}</div>
+                    </div>
+                    <div>
+                        <h3 style="color: #1c2790; font-weight: 600; margin-bottom: 12px;">Right Column</h3>
+                        <div style="color: #333; line-height: 1.6;">{{ block.heading }}</div>
+                    </div>
+                </div>
+
+            <!-- Image Gallery Block -->
+            {% elif block.block_type == 'image_gallery' %}
+                {% set images = (block.content or '').split(',') %}
+                {% if images|length > 0 and images[0].strip() %}
+                    <div class="image-gallery">
+                        {% for img in images %}
+                            {% if img.strip() %}
+                                <div class="gallery-item">
+                                    <img src="{{ url_for('static', filename='images/' + img.strip()) }}" 
+                                         alt="Gallery image" 
+                                         style="width: 100%; height: 200px; object-fit: cover;">
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+<footer class="bg-gradient-to-r from-slate-800 to-slate-900 text-white text-sm mt-20">
+    <div class="py-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto px-4">
+        <div class="footer-section">
+            <img src="{{ url_for('static', filename=logo_image) }}" alt="Logo" class="h-10 mb-3 brightness-0 invert hover:scale-105 transition-transform duration-300">
+            <div class="font-bold text-base mb-2">Development Academy of The Philippines</div>
+            <address class="not-italic text-xs leading-relaxed text-slate-300">
+                DAP Building, San Miguel Avenue, Pasig City 1500<br>
+                Tel: +632 631 0921 to 30<br>
+                Email: <a href="mailto:coe_psp@dap.edu.ph" class="text-blue-400 hover:text-blue-300">coe_psp@dap.edu.ph</a>
+            </address>
+        </div>
+    </div>
+</footer>
+{% endblock %}

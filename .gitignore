@@ -1,0 +1,10 @@
+.env
+venv/
+__pycache__/
+*.pyc
+*.db
+cache/
+instance/
+nohup.out
+*.log
+static/images/

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Login - COE CMS{% endblock %}
+
+{% block extra_css %}
+<style>
+    body { background: linear-gradient(135deg, #1c2790 0%, #0f1a4f 50%, #1a1a2e 100%); }
+    .login-card { backdrop-filter: blur(10px); }
+    .input-field:focus { box-shadow: 0 0 0 3px rgba(28, 39, 144, 0.1); }
+    .logo-container { animation: float 3s ease-in-out infinite; }
+    @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
+    .submit-btn { transition: all 0.3s ease; }
+    .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(28, 39, 144, 0.3); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-md">
+        <div class="login-card bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-white/20">
+            <div class="text-center mb-8">
+                <div class="logo-container mb-6 flex justify-center">
+                    <img src="static/images/logo.png" alt="COE Logo" class="h-20 w-auto">                </div>
+                <h1 class="text-3xl font-bold text-gray-800">Admin Portal</h1>
+                <p class="text-gray-600 mt-2">COE Public-Sector Productivity</p>
+                <p class="text-sm text-gray-500 mt-1">Content Management System</p>
+            </div>
+
+            {% if login_error %}
+                <div class="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg flex items-start gap-3">
+                    <i class="fas fa-exclamation-circle text-red-500 mt-0.5"></i>
+                    <div>
+                        <p class="text-red-800 font-semibold text-sm">Login Failed</p>
+                        <p class="text-red-700 text-sm">{{ login_error }}</p>
+                    </div>
+                </div>
+            {% endif %}
+
+            <form method="POST" class="space-y-5">
+                <div>
+                    <label class="block text-gray-700 font-semibold text-sm mb-2">
+                        <i class="fas fa-user mr-2 text-blue-600"></i>Username
+                    </label>
+                    <input type="text" name="username" required autocomplete="username"
+                           class="input-field w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 outline-none transition"
+                           placeholder="Enter your username">
+                </div>
+
+                <div>
+                    <label class="block text-gray-700 font-semibold text-sm mb-2">
+                        <i class="fas fa-lock mr-2 text-blue-600"></i>Password
+                    </label>
+                    <input type="password" name="password" required autocomplete="current-password"
+                           class="input-field w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 outline-none transition"
+                           placeholder="Enter your password">
+                </div>
+
+                <button type="submit"
+                        class="submit-btn w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 flex items-center justify-center gap-2 mt-6">
+                    <i class="fas fa-sign-in-alt"></i>Sign In
+                </button>
+            </form>
+
+            <div class="mt-8 pt-6 border-t border-gray-200">
+                <p class="text-center text-gray-600 text-xs">
+                    <i class="fas fa-shield-alt text-green-600 mr-1"></i>
+                    Secure login • Your credentials are protected
+                </p>
+            </div>
+        </div>
+
+        <div class="mt-6 text-center">
+            <a href="/" class="text-white/70 hover:text-white transition inline-flex items-center gap-2 text-sm">
+                <i class="fas fa-home"></i>Back to Website
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

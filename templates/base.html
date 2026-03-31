@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}COE Public-Sector Productivity{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo.png') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Inter', sans-serif; }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #1c2790 0%, #1d293d 100%); border-radius: 4px; border: 1px solid #f1f5f9; }
+        ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #cdae2c 0%, #FACC15 100%); }
+        
+        .floating { animation: floating 6s ease-in-out infinite; }
+        @keyframes floating { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-15px) rotate(3deg); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .skeleton-bar {
+            background: linear-gradient(90deg, #5f6d8f 25%, #7a88a8 50%, #5f6d8f 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s ease-in-out infinite;
+            border-radius: 12px;
+            height: 48px;
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        .sparkle-icon {
+            display: inline-block;
+            animation: sparkle 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes sparkle {
+            0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+            50% { transform: scale(1.2) rotate(180deg); opacity: 0.8; }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="font-inter">
+    {% block content %}{% endblock %}
+</body>
+</html>

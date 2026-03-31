@@ -1,0 +1,1839 @@
+{% extends "base.html" %}
+
+{% block title %}Admin — COE CMS{% endblock %}
+
+{% block extra_css %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   RESET & TOKENS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  /* palette */
+  --ink:       #111016;
+  --ink-2:     #2D2B38;
+  --ink-3:     #4A4759;
+  --muted:     #8C8A99;
+  --ghost:     #C2C0CC;
+  --line:      #E8E6F0;
+  --wash:      #F5F4F9;
+  --surface:   #FFFFFF;
+
+  /* accents */
+  --blue:      #2B52E8;
+  --blue-dim:  #EBF0FE;
+  --blue-2:    #1A3EC8;
+  --green:     #0F9E5A;
+  --green-dim: #E6F6EE;
+  --amber:     #C47A00;
+  --amber-dim: #FEF4E0;
+  --red:       #DC3545;
+  --red-dim:   #FDEAEC;
+  --purple:    #7C3AED;
+  --purple-dim:#F3EDFE;
+  --teal:      #0D9488;
+  --teal-dim:  #E6F7F5;
+
+  /* layout */
+  --sidebar:   256px;
+  --header:    60px;
+  --r:         8px;
+  --r-lg:      14px;
+  --r-xl:      20px;
+
+  /* type */
+  --font-head: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Plus Jakarta Sans', sans-serif;
+
+  /* shadows */
+  --s1: 0 1px 3px rgba(17,16,22,.06), 0 1px 2px rgba(17,16,22,.04);
+  --s2: 0 4px 16px rgba(17,16,22,.08), 0 2px 6px rgba(17,16,22,.05);
+  --s3: 0 12px 40px rgba(17,16,22,.12), 0 4px 12px rgba(17,16,22,.06);
+
+  --ease: cubic-bezier(.4,0,.2,1);
+  --t: 160ms;
+}
+
+html, body { height: 100%; }
+body {
+  font-family: var(--font-body);
+  background: var(--wash);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   SCROLLBAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--ghost); border-radius: 99px; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   TOPBAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 300;
+  height: var(--header);
+  background: var(--ink);
+  display: flex; align-items: center;
+  padding: 0 20px 0 0;
+  gap: 0;
+}
+
+.topbar-logo {
+  width: var(--sidebar);
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 11px;
+  padding: 0 20px;
+  border-right: 1px solid rgba(255,255,255,.07);
+  height: 100%;
+}
+
+.topbar-logo img { height: 28px; filter: brightness(0) invert(1); opacity: .85; }
+
+.topbar-logo-text { display: flex; flex-direction: column; }
+.topbar-logo-name { font-family: var(--font-head); font-size: 14px; font-weight: 700; color: #fff; letter-spacing: -0.1px; line-height: 1.2; }
+.topbar-logo-sub  { font-size: 10px; color: rgba(255,255,255,.38); letter-spacing: .6px; text-transform: uppercase; margin-top: 1px; }
+
+.topbar-body { flex: 1; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
+
+.topbar-breadcrumb { display: flex; align-items: center; gap: 6px; }
+.breadcrumb-sep { color: rgba(255,255,255,.2); font-size: 13px; }
+.breadcrumb-item { font-size: 13px; color: rgba(255,255,255,.5); }
+.breadcrumb-item.current { color: rgba(255,255,255,.85); font-weight: 500; }
+
+.topbar-actions { display: flex; align-items: center; gap: 8px; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   TOPBAR BUTTONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.tbtn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--r);
+  font-size: 12.5px; font-weight: 500; font-family: var(--font-body);
+  cursor: pointer; text-decoration: none; border: none;
+  transition: all var(--t) var(--ease);
+  white-space: nowrap;
+}
+.tbtn-ghost {
+  background: rgba(255,255,255,.07);
+  color: rgba(255,255,255,.7);
+  border: 1px solid rgba(255,255,255,.09);
+}
+.tbtn-ghost:hover { background: rgba(255,255,255,.13); color: #fff; }
+
+.tbtn-preview {
+  background: var(--green);
+  color: #fff;
+  border: 1px solid transparent;
+}
+.tbtn-preview:hover { background: #0b8a4e; }
+.tbtn-preview.is-on { background: var(--red); }
+.tbtn-preview.is-on:hover { background: #c0303f; }
+
+.tbtn-danger {
+  background: rgba(220,53,69,.12);
+  color: #f87171;
+  border: 1px solid rgba(220,53,69,.18);
+}
+.tbtn-danger:hover { background: rgba(220,53,69,.22); }
+
+/* notification bell */
+.notif-btn {
+  position: relative;
+  width: 34px; height: 34px;
+  border-radius: var(--r);
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.09);
+  color: rgba(255,255,255,.6);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 14px;
+  transition: all var(--t) var(--ease);
+}
+.notif-btn:hover { background: rgba(255,255,255,.13); color: #fff; }
+.notif-badge {
+  position: absolute; top: 5px; right: 5px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #f87171;
+  border: 1.5px solid var(--ink);
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   SIDEBAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.sidebar {
+  position: fixed; top: var(--header); left: 0;
+  width: var(--sidebar);
+  height: calc(100vh - var(--header));
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+  display: flex; flex-direction: column;
+  overflow-y: auto; z-index: 200;
+}
+
+.sidebar-section { padding: 20px 12px 4px; }
+.sidebar-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .9px;
+  text-transform: uppercase; color: var(--ghost);
+  padding: 0 8px; margin-bottom: 4px; display: block;
+}
+
+.nav-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px;
+  border-radius: var(--r);
+  cursor: pointer; color: var(--ink-3);
+  font-size: 13.5px; font-weight: 500;
+  margin-bottom: 1px;
+  border: 1px solid transparent;
+  text-decoration: none;
+  transition: all var(--t) var(--ease);
+  position: relative;
+}
+.nav-item i { width: 16px; text-align: center; font-size: 12px; flex-shrink: 0; }
+.nav-item:hover { background: var(--wash); color: var(--ink); border-color: var(--line); }
+.nav-item.active {
+  background: var(--blue-dim);
+  color: var(--blue);
+  border-color: rgba(43,82,232,.15);
+  font-weight: 600;
+}
+.nav-item.active i { color: var(--blue); }
+
+.nav-badge {
+  margin-left: auto;
+  background: var(--blue);
+  color: #fff;
+  font-size: 10px; font-weight: 700;
+  padding: 1px 6px; border-radius: 99px;
+}
+
+.nav-item-builder {
+  background: linear-gradient(135deg, var(--teal), #0a6b60) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+  font-weight: 600;
+}
+.nav-item-builder:hover { filter: brightness(1.08); }
+.nav-item-builder i { color: #fff !important; }
+
+.sidebar-divider {
+  height: 1px; background: var(--line);
+  margin: 10px 12px;
+}
+
+.sidebar-footer {
+  margin-top: auto; padding: 12px;
+  border-top: 1px solid var(--line);
+}
+.cms-status {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  background: var(--wash);
+  border-radius: var(--r);
+  font-size: 12px; color: var(--ink-3);
+}
+.status-pulse {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 2.5px rgba(15,158,90,.2);
+  animation: pulse 2.5s ease infinite;
+  flex-shrink: 0;
+}
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 0 2.5px rgba(15,158,90,.2); }
+  50% { box-shadow: 0 0 0 5px rgba(15,158,90,.08); }
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   MAIN AREA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.main {
+  margin-left: var(--sidebar);
+  padding-top: var(--header);
+  min-height: 100vh;
+}
+.main-inner {
+  padding: 28px 28px 48px;
+  max-width: 1120px;
+}
+
+/* section visibility */
+.tab-pane { display: none; animation: fadeSlide .2s var(--ease); }
+.tab-pane.active { display: block; }
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   PAGE TITLE ROW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.page-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.page-heading { display: flex; align-items: center; gap: 12px; }
+.page-icon {
+  width: 40px; height: 40px; border-radius: var(--r);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0;
+}
+.pi-blue   { background: var(--blue-dim);   color: var(--blue);   }
+.pi-green  { background: var(--green-dim);  color: var(--green);  }
+.pi-purple { background: var(--purple-dim); color: var(--purple); }
+.pi-amber  { background: var(--amber-dim);  color: var(--amber);  }
+
+.page-title    { font-family: var(--font-head); font-size: 19px; font-weight: 700; letter-spacing: -0.2px; line-height: 1.2; }
+.page-subtitle { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   STATS STRIP (dashboard)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+  display: flex; align-items: center; gap: 14px;
+  transition: box-shadow var(--t) var(--ease), border-color var(--t) var(--ease);
+}
+.stat-card:hover { box-shadow: var(--s2); border-color: var(--ghost); }
+.stat-icon {
+  width: 44px; height: 44px; border-radius: var(--r);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.stat-body { flex: 1; min-width: 0; }
+.stat-num  { font-family: var(--font-head); font-size: 32px; font-weight: 700; line-height: 1; letter-spacing: -0.5px; }
+.stat-lbl  { font-size: 11.5px; color: var(--muted); margin-top: 3px; text-transform: uppercase; letter-spacing: .5px; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   SEARCH BAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.search-wrap { position: relative; flex: 1; max-width: 300px; }
+.search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--ghost); font-size: 12px; pointer-events: none; }
+.search-box {
+  width: 100%;
+  padding: 8px 34px 8px 32px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  font-size: 13px; font-family: var(--font-body);
+  color: var(--ink);
+  transition: all var(--t) var(--ease);
+  outline: none;
+}
+.search-box:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,82,232,.08); }
+.search-box::placeholder { color: var(--ghost); }
+.search-clear {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer;
+  color: var(--ghost); font-size: 14px; line-height: 1; padding: 3px;
+  border-radius: 4px; transition: color var(--t) var(--ease);
+  display: none;
+}
+.search-clear:hover { color: var(--red); }
+.search-clear.show { display: block; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   CARD (edit block)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 22px;
+  margin-bottom: 16px;
+  transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease);
+}
+.card:hover { border-color: var(--ghost); box-shadow: var(--s1); }
+
+.card-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 18px;
+}
+.card-eyebrow {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .7px; color: var(--ghost); margin-bottom: 2px;
+}
+.card-name {
+  font-family: var(--font-head); font-size: 14.5px; font-weight: 700;
+  color: var(--ink); letter-spacing: -0.1px;
+}
+.card-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* inline status chips */
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 99px;
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.chip-blue   { background: var(--blue-dim);   color: var(--blue);   }
+.chip-green  { background: var(--green-dim);  color: var(--green);  }
+.chip-amber  { background: var(--amber-dim);  color: var(--amber);  }
+.chip-red    { background: var(--red-dim);    color: var(--red);    }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   FORM ELEMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.field { margin-bottom: 16px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.grid2 .field { margin-bottom: 0; }
+
+label, .field-label {
+  display: block;
+  font-size: 11.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .55px;
+  color: var(--ink-3);
+  margin-bottom: 6px;
+}
+
+input[type=text], input[type=url], input[type=email], input[type=password], textarea, select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  font-family: var(--font-body); font-size: 13.5px;
+  color: var(--ink); background: var(--wash);
+  transition: all var(--t) var(--ease); outline: none;
+}
+input:hover, textarea:hover { border-color: var(--ghost); background: var(--surface); }
+input:focus, textarea:focus, select:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(43,82,232,.08);
+  background: var(--surface);
+}
+input::placeholder, textarea::placeholder { color: var(--ghost); }
+textarea { resize: vertical; min-height: 108px; }
+
+.field-hint {
+  display: flex; align-items: flex-start; gap: 5px;
+  font-size: 11.5px; color: var(--muted); margin-top: 5px; line-height: 1.5;
+}
+.field-hint i { flex-shrink: 0; margin-top: 1px; }
+
+/* character counter */
+.field-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+.char-count { font-size: 11px; color: var(--ghost); font-variant-numeric: tabular-nums; }
+.char-count.warn { color: var(--amber); }
+.char-count.over { color: var(--red); }
+
+/* inline group (link with prefix) */
+.input-affix {
+  display: flex; align-items: center;
+  border: 1px solid var(--line); border-radius: var(--r);
+  overflow: hidden; background: var(--wash);
+  transition: border-color var(--t) var(--ease);
+}
+.input-affix:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,82,232,.08); }
+.input-prefix {
+  padding: 9px 10px;
+  background: var(--line);
+  color: var(--muted); font-size: 12px; white-space: nowrap;
+  border-right: 1px solid var(--line);
+}
+.input-affix input {
+  border: none; background: transparent; box-shadow: none;
+  flex: 1; padding: 9px 12px;
+}
+.input-affix input:focus { box-shadow: none; border-color: transparent; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   BUTTONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 16px;
+  border: 1px solid transparent; border-radius: var(--r);
+  font-size: 13px; font-weight: 600; font-family: var(--font-body);
+  cursor: pointer; text-decoration: none; white-space: nowrap;
+  transition: all var(--t) var(--ease);
+}
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-sm { padding: 5px 11px; font-size: 12px; }
+.btn-xs { padding: 3px 8px; font-size: 11px; }
+
+.btn-primary {
+  background: var(--blue); color: #fff; border-color: var(--blue);
+  box-shadow: 0 1px 3px rgba(43,82,232,.3);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--blue-2); border-color: var(--blue-2);
+  box-shadow: 0 4px 12px rgba(43,82,232,.35);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: var(--surface); color: var(--ink-3); border-color: var(--line);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--wash); border-color: var(--ghost); color: var(--ink); }
+
+.btn-ghost {
+  background: transparent; color: var(--muted); border-color: transparent;
+}
+.btn-ghost:hover:not(:disabled) { background: var(--wash); color: var(--ink); border-color: var(--line); }
+
+.btn-danger {
+  background: var(--red-dim); color: var(--red); border-color: rgba(220,53,69,.2);
+}
+.btn-danger:hover:not(:disabled) { background: rgba(220,53,69,.15); }
+
+.btn-success {
+  background: var(--green); color: #fff; border-color: var(--green);
+  box-shadow: 0 1px 3px rgba(15,158,90,.3);
+}
+.btn-success:hover:not(:disabled) { background: #0b8a4e; transform: translateY(-1px); }
+
+.btn-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding-top: 14px; margin-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   SECTION SUBHEAD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.subhead {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .8px; color: var(--ghost);
+  display: flex; align-items: center; gap: 8px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--line);
+  margin: 20px 0 12px;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   INSET PANEL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.inset {
+  background: var(--wash);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 14px;
+  margin-top: 12px;
+}
+.inset.blue {
+  background: rgba(43,82,232,.03);
+  border-color: rgba(43,82,232,.14);
+}
+.inset.amber {
+  background: rgba(196,122,0,.03);
+  border-color: rgba(196,122,0,.18);
+}
+.inset.green {
+  background: rgba(15,158,90,.03);
+  border-color: rgba(15,158,90,.14);
+}
+.inset label, .inset .field-label { color: var(--ink-3); }
+.inset.blue label { color: var(--blue); }
+.inset.amber label { color: var(--amber); }
+.inset.green label { color: var(--green); }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   FILE UPLOAD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.upload-zone {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 7px; padding: 18px 16px;
+  background: var(--wash);
+  border: 1.5px dashed var(--ghost);
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: all var(--t) var(--ease);
+  text-align: center;
+}
+.upload-zone:hover { border-color: var(--blue); background: var(--blue-dim); }
+.upload-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; z-index: 1; }
+.upload-zone-icon { font-size: 20px; color: var(--ghost); transition: color var(--t) var(--ease); }
+.upload-zone:hover .upload-zone-icon { color: var(--blue); }
+.upload-zone-text { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.upload-zone:hover .upload-zone-text { color: var(--blue); }
+.upload-zone-sub { font-size: 11px; color: var(--ghost); }
+
+.img-preview {
+  width: 100%; max-width: 260px; height: 150px;
+  object-fit: cover; border-radius: var(--r);
+  border: 1px solid var(--line); margin-top: 6px;
+  display: block;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   GALLERY GRID
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.gallery-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.gallery-thumb {
+  position: relative;
+  width: 88px; height: 88px;
+  border-radius: var(--r);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--wash);
+}
+.gallery-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gallery-remove {
+  position: absolute; top: 3px; right: 3px;
+  width: 21px; height: 21px; border-radius: 50%;
+  background: var(--red); color: #fff; border: none;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; cursor: pointer;
+  transition: transform var(--t) var(--ease);
+  opacity: 0; transition: opacity .15s;
+}
+.gallery-thumb:hover .gallery-remove { opacity: 1; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   ACCORDION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.acc-wrap {
+  background: var(--wash);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 4px;
+  margin-top: 12px;
+}
+.acc {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  margin: 3px;
+  overflow: hidden;
+}
+.acc-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 14px;
+  cursor: pointer; font-size: 13px; font-weight: 600;
+  color: var(--ink); background: var(--surface);
+  user-select: none;
+  transition: background var(--t) var(--ease);
+}
+.acc-head:hover { background: var(--wash); }
+.acc-head.open { background: var(--blue); color: #fff; }
+.acc-head.open .acc-chevron { color: rgba(255,255,255,.7); transform: rotate(180deg); }
+.acc-chevron { font-size: 10px; color: var(--ghost); transition: transform var(--t) var(--ease), color var(--t) var(--ease); }
+.acc-head-left { display: flex; align-items: center; gap: 8px; }
+.acc-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--blue); flex-shrink: 0; }
+.acc-head.open .acc-dot { background: rgba(255,255,255,.6); }
+.acc-body { display: none; padding: 16px; border-top: 1px solid var(--line); background: var(--surface); }
+.acc-body.open { display: block; animation: fadeSlide .15s var(--ease); }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   CAPTION EDITOR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.caption-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+.caption-item img { width: 44px; height: 44px; object-fit: cover; border-radius: 5px; flex-shrink: 0; }
+.caption-item input { flex: 1; padding: 6px 8px; border: 1px solid var(--line); border-radius: 5px; font-size: 12px; background: var(--wash); }
+.caption-item input:focus { border-color: var(--blue); background: var(--surface); box-shadow: 0 0 0 2px rgba(43,82,232,.08); }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   TOAST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+#toastContainer {
+  position: fixed;
+  top: calc(var(--header) + 14px);
+  right: 18px; z-index: 9999;
+  width: 310px;
+  display: flex; flex-direction: column; gap: 7px;
+  pointer-events: none;
+}
+.toast {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--s3);
+  font-size: 13px; pointer-events: all;
+  animation: toastIn .2s var(--ease) forwards;
+}
+.toast.success { border-left: 3px solid var(--green); }
+.toast.error   { border-left: 3px solid var(--red); }
+.toast.info    { border-left: 3px solid var(--blue); }
+.toast-ico { font-size: 13px; flex-shrink: 0; }
+.toast.success .toast-ico { color: var(--green); }
+.toast.error   .toast-ico { color: var(--red); }
+.toast.info    .toast-ico { color: var(--blue); }
+.toast-msg { color: var(--ink); font-weight: 500; flex: 1; }
+@keyframes toastIn  { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+@keyframes toastOut { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(16px); } }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   PREVIEW PANEL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.preview-panel {
+  position: fixed;
+  right: 0; top: var(--header);
+  width: 340px;
+  height: calc(100vh - var(--header));
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  box-shadow: -6px 0 20px rgba(17,16,22,.06);
+  overflow-y: auto; padding: 20px;
+  transform: translateX(100%);
+  transition: transform .28s var(--ease);
+  z-index: 150;
+}
+.preview-panel.open { transform: none; }
+.preview-title {
+  font-family: var(--font-head);
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .6px; color: var(--muted);
+  padding-bottom: 12px; border-bottom: 1px solid var(--line);
+  margin-bottom: 16px;
+  display: flex; align-items: center; gap: 7px;
+}
+.pv-card {
+  background: var(--wash); border: 1px solid var(--line);
+  border-radius: var(--r); padding: 12px; margin-bottom: 10px;
+}
+.pv-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--ghost); margin-bottom: 7px; }
+.pv-row { display: flex; gap: 6px; font-size: 12px; margin-bottom: 4px; }
+.pv-row strong { color: var(--blue); font-weight: 600; flex-shrink: 0; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   ACTIVITY FEED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.activity-feed { display: flex; flex-direction: column; gap: 0; }
+.act-item {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.act-item:last-child { border-bottom: none; }
+.act-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  margin-top: 5px;
+}
+.act-dot.blue   { background: var(--blue); }
+.act-dot.green  { background: var(--green); }
+.act-dot.amber  { background: var(--amber); }
+.act-dot.red    { background: var(--red); }
+.act-body { flex: 1; }
+.act-text { font-size: 13px; color: var(--ink-2); }
+.act-time { font-size: 11px; color: var(--ghost); margin-top: 2px; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   QUICK ACTIONS GRID
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.qa-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+.qa-card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-lg); padding: 16px;
+  cursor: pointer; text-align: center;
+  transition: all var(--t) var(--ease);
+  text-decoration: none; display: block;
+}
+.qa-card:hover { border-color: var(--blue); box-shadow: var(--s2); transform: translateY(-2px); }
+.qa-card:hover .qa-icon { background: var(--blue); color: #fff; }
+.qa-icon {
+  width: 40px; height: 40px; border-radius: var(--r);
+  margin: 0 auto 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; background: var(--wash);
+  color: var(--muted); transition: all var(--t) var(--ease);
+}
+.qa-label { font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   TWO-COLUMN LAYOUT (dashboard)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.dash-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.dash-col { display: flex; flex-direction: column; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   CONFIRM DIALOG
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.confirm-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  background: rgba(17,16,22,.45);
+  backdrop-filter: blur(4px);
+  display: none; align-items: center; justify-content: center;
+}
+.confirm-overlay.show { display: flex; animation: fadeIn .18s var(--ease); }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.confirm-box {
+  background: var(--surface); border-radius: var(--r-xl);
+  padding: 28px; max-width: 380px; width: calc(100% - 40px);
+  box-shadow: var(--s3);
+  animation: popIn .2s var(--ease);
+}
+@keyframes popIn { from { transform: scale(.94); opacity: 0; } to { transform: none; opacity: 1; } }
+.confirm-icon {
+  width: 48px; height: 48px; border-radius: var(--r-lg);
+  background: var(--red-dim); color: var(--red);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; margin: 0 auto 16px;
+}
+.confirm-title { font-family: var(--font-head); font-size: 17px; font-weight: 700; text-align: center; margin-bottom: 6px; }
+.confirm-msg { font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 22px; }
+.confirm-btns { display: flex; gap: 8px; }
+.confirm-btns .btn { flex: 1; justify-content: center; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   RESPONSIVE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+@media (max-width: 960px) {
+  .stats-strip { grid-template-columns: repeat(2, 1fr); }
+  .dash-row { grid-template-columns: 1fr; }
+  .qa-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 860px) {
+  :root { --sidebar: 0px; }
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform .26s var(--ease);
+    width: 256px; z-index: 500;
+    box-shadow: var(--s3);
+  }
+  .sidebar.open { transform: none; }
+  .main { margin-left: 0; }
+  .topbar-logo { width: auto; border: none; }
+  .grid2 { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .main-inner { padding: 16px 16px 40px; }
+  .stats-strip { grid-template-columns: 1fr 1fr; }
+  .qa-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ═══════════════════ TOPBAR ═══════════════════ -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="DAP Logo">
+    <div class="topbar-logo-text">
+      <span class="topbar-logo-name">COE Admin</span>
+      <span class="topbar-logo-sub">CMS Dashboard</span>
+    </div>
+  </div>
+  <div class="topbar-body">
+    <div class="topbar-breadcrumb">
+      <span class="breadcrumb-item">Admin</span>
+      <span class="breadcrumb-sep">/</span>
+      <span class="breadcrumb-item current" id="bc-current">Dashboard</span>
+    </div>
+    <div class="topbar-actions">
+      <div class="notif-btn" title="Notifications" onclick="showNotifications()">
+        <i class="fas fa-bell"></i>
+        <div class="notif-badge"></div>
+      </div>
+      <button id="preview-btn" class="tbtn tbtn-preview" onclick="togglePreview()">
+        <i class="fas fa-eye"></i> Preview
+      </button>
+      <a href="/" target="_blank" class="tbtn tbtn-ghost">
+        <i class="fas fa-external-link-alt"></i> View Site
+      </a>
+      <a href="{{ url_for('admin_logout') }}" class="tbtn tbtn-danger">
+        <i class="fas fa-sign-out-alt"></i> Logout
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ SIDEBAR ═══════════════════ -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-section">
+    <span class="sidebar-label">Overview</span>
+    <div class="nav-item active" data-tab="dashboard" onclick="switchTab('dashboard', this)">
+      <i class="fas fa-th-large"></i> Dashboard
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <span class="sidebar-label">Content</span>
+    <div class="nav-item" data-tab="content" onclick="switchTab('content', this)">
+      <i class="fas fa-file-alt"></i> Text Sections
+      <span class="nav-badge" id="badge-content">{{ content_sections|length }}</span>
+    </div>
+    <div class="nav-item" data-tab="cards" onclick="switchTab('cards', this)">
+      <i class="fas fa-layer-group"></i> Cards
+      <span class="nav-badge" id="badge-cards">{{ cards|length }}</span>
+    </div>
+    <div class="nav-item" data-tab="navigation" onclick="switchTab('navigation', this)">
+      <i class="fas fa-bars"></i> Navigation
+      <span class="nav-badge" id="badge-nav">{{ nav_links|length }}</span>
+    </div>
+  </div>
+
+  <div class="sidebar-divider"></div>
+
+  <div class="sidebar-section">
+    <span class="sidebar-label">Tools</span>
+    <a href="/admin/page-builder" class="nav-item nav-item-builder">
+      <i class="fas fa-magic"></i> Page Builder
+    </a>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="cms-status">
+      <div class="status-pulse"></div>
+      <span>CMS Online</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MAIN ═══════════════════ -->
+<div class="main">
+  <div class="main-inner">
+
+    <!-- TOAST -->
+    <div id="toastContainer"></div>
+
+    <!-- ── DASHBOARD ── -->
+    <div id="tab-dashboard" class="tab-pane active">
+      <div class="page-row">
+        <div class="page-heading">
+          <div class="page-icon pi-blue"><i class="fas fa-th-large"></i></div>
+          <div>
+            <div class="page-title">Dashboard</div>
+            <div class="page-subtitle">Overview of your CMS content</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-strip">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--blue-dim); color:var(--blue);"><i class="fas fa-file-alt"></i></div>
+          <div class="stat-body">
+            <div class="stat-num" style="color:var(--blue);">{{ content_sections|length }}</div>
+            <div class="stat-lbl">Text Sections</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--green-dim); color:var(--green);"><i class="fas fa-layer-group"></i></div>
+          <div class="stat-body">
+            <div class="stat-num" style="color:var(--green);">{{ cards|length }}</div>
+            <div class="stat-lbl">Stacked Cards</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--purple-dim); color:var(--purple);"><i class="fas fa-bars"></i></div>
+          <div class="stat-body">
+            <div class="stat-num" style="color:var(--purple);">{{ nav_links|length }}</div>
+            <div class="stat-lbl">Nav Links</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--amber-dim); color:var(--amber);"><i class="fas fa-mouse-pointer"></i></div>
+          <div class="stat-body">
+            <div class="stat-num" style="color:var(--amber);" id="dash-btn-count">—</div>
+            <div class="stat-lbl">Total Buttons</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="card" style="margin-bottom:16px;">
+        <div style="font-family:var(--font-head); font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:14px;">Quick Actions</div>
+        <div class="qa-grid">
+          <div class="qa-card" onclick="switchTab('content', document.querySelector('[data-tab=content]'))">
+            <div class="qa-icon"><i class="fas fa-pen-nib"></i></div>
+            <div class="qa-label">Edit Content</div>
+          </div>
+          <div class="qa-card" onclick="switchTab('cards', document.querySelector('[data-tab=cards]'))">
+            <div class="qa-icon"><i class="fas fa-layer-group"></i></div>
+            <div class="qa-label">Manage Cards</div>
+          </div>
+          <div class="qa-card" onclick="switchTab('navigation', document.querySelector('[data-tab=navigation]'))">
+            <div class="qa-icon"><i class="fas fa-bars"></i></div>
+            <div class="qa-label">Edit Nav</div>
+          </div>
+          <div class="qa-card" onclick="window.open('/','_blank')">
+            <div class="qa-icon"><i class="fas fa-external-link-alt"></i></div>
+            <div class="qa-label">View Site</div>
+          </div>
+          <div class="qa-card" onclick="togglePreview()">
+            <div class="qa-icon"><i class="fas fa-eye"></i></div>
+            <div class="qa-label">Live Preview</div>
+          </div>
+          <div class="qa-card" onclick="window.location.href='/admin/page-builder'">
+            <div class="qa-icon" style="background:var(--teal-dim); color:var(--teal);"><i class="fas fa-magic"></i></div>
+            <div class="qa-label">Page Builder</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom row -->
+      <div class="dash-row">
+        <!-- Recent items -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-eyebrow">Content</div>
+              <div class="card-name">Recent Sections</div>
+            </div>
+            <span class="chip chip-blue">{{ content_sections|length }} items</span>
+          </div>
+          <div class="activity-feed">
+            {% for section in content_sections[:5] %}
+            <div class="act-item">
+              <div class="act-dot blue"></div>
+              <div class="act-body">
+                <div class="act-text" style="font-weight:600;">{{ section.content_key.replace('_', ' ').title() }}</div>
+                <div class="act-time" style="color:var(--muted); font-size:11px; margin-top:1px;">
+                  {{ section.content_value[:60] }}{% if section.content_value|length > 60 %}…{% endif %}
+                </div>
+              </div>
+              <button class="btn btn-ghost btn-xs" onclick="switchTab('content', document.querySelector('[data-tab=content]')); setTimeout(()=>{ document.querySelector('textarea[data-key=\'{{ section.content_key }}\']')?.scrollIntoView({behavior:'smooth',block:'center'}); },200)">
+                Edit
+              </button>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Cards overview -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-eyebrow">Layout</div>
+              <div class="card-name">Card Overview</div>
+            </div>
+            <span class="chip chip-green">{{ cards|length }} cards</span>
+          </div>
+          <div class="activity-feed">
+            {% for card in cards %}
+            <div class="act-item">
+              <div class="act-dot green"></div>
+              <div class="act-body">
+                <div class="act-text" style="font-weight:600;">{{ card.title }}</div>
+                <div class="act-time">
+                  {% set bl = card.buttons|fromjson if card.buttons else [] %}
+                  {{ bl|length }} button{{ 's' if bl|length != 1 }} · {{ card.image }}
+                </div>
+              </div>
+              <button class="btn btn-ghost btn-xs" onclick="switchTab('cards', document.querySelector('[data-tab=cards]'))">
+                Edit
+              </button>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div><!-- /dashboard -->
+
+    <!-- ── CONTENT SECTIONS ── -->
+    <div id="tab-content" class="tab-pane">
+      <div class="page-row">
+        <div class="page-heading">
+          <div class="page-icon pi-blue"><i class="fas fa-pen-nib"></i></div>
+          <div>
+            <div class="page-title">Text Sections</div>
+            <div class="page-subtitle">Edit content displayed across the site</div>
+          </div>
+        </div>
+        <div class="search-wrap">
+          <i class="fas fa-search search-icon"></i>
+          <input class="search-box" id="contentSearch" type="text" placeholder="Search sections…" oninput="filterContent(this.value)">
+          <button class="search-clear" id="searchClear" onclick="clearSearch()">✕</button>
+        </div>
+      </div>
+
+      {% for section in content_sections %}
+      <div class="card content-card" data-key="{{ section.content_key }}">
+        <div class="card-head">
+          <div>
+            <div class="card-eyebrow">Section</div>
+            <div class="card-name">
+              <i class="fas fa-tag" style="color:var(--blue); margin-right:6px; font-size:11px;"></i>
+              {{ section.content_key.replace('_', ' ').title() }}
+            </div>
+          </div>
+          <span class="chip chip-blue">{{ section.content_key }}</span>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <textarea class="content-textarea" data-key="{{ section.content_key }}"
+            placeholder="Enter content…" rows="3"
+            oninput="updateCharCount(this)">{{ section.content_value }}</textarea>
+          <div class="field-meta">
+            <div class="field-hint"><i class="fas fa-info-circle"></i> HTML tags are supported</div>
+            <span class="char-count" id="cc-{{ section.content_key }}">{{ section.content_value|length }} chars</span>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary btn-sm" onclick="saveContent('{{ section.content_key }}')">
+            <i class="fas fa-save"></i> Save
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="copyToClipboard('{{ section.content_key }}')">
+            <i class="fas fa-copy"></i> Copy
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+    </div><!-- /content -->
+
+    <!-- ── CARDS ── -->
+    <div id="tab-cards" class="tab-pane">
+      <div class="page-row">
+        <div class="page-heading">
+          <div class="page-icon pi-green"><i class="fas fa-layer-group"></i></div>
+          <div>
+            <div class="page-title">Stacked Cards</div>
+            <div class="page-subtitle">Manage card titles, images, and button configurations</div>
+          </div>
+        </div>
+      </div>
+
+      {% for card in cards %}
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-eyebrow">Card #{{ card.id }}</div>
+            <div class="card-name">{{ card.title }}</div>
+            <div class="card-sub">
+              {% set bl = card.buttons|fromjson if card.buttons else [] %}
+              {{ bl|length }} button{{ 's' if bl|length != 1 }}
+              · Image: {{ card.image }}
+            </div>
+          </div>
+          <div style="display:flex; gap:7px; align-items:center; flex-shrink:0;">
+            <span class="chip chip-green">Active</span>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="field">
+            <label><i class="fas fa-heading" style="color:var(--blue); margin-right:5px;"></i> Card Title</label>
+            <input type="text" class="card-title" data-card-id="{{ card.id }}"
+              value="{{ card.title }}" placeholder="Card title">
+          </div>
+          <div class="field">
+            <label><i class="fas fa-image" style="color:var(--green); margin-right:5px;"></i> Image Filename</label>
+            <input type="text" class="card-image" data-card-id="{{ card.id }}"
+              value="{{ card.image }}" placeholder="e.g. slide1.png">
+          </div>
+        </div>
+
+        <div class="btn-row" style="border-top:none; padding-top:0; margin-top:0; margin-bottom:4px;">
+          <button class="btn btn-secondary btn-sm" onclick="saveCardTitle({{ card.id }})">
+            <i class="fas fa-save"></i> Save Title
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="saveCardImage({{ card.id }})">
+            <i class="fas fa-save"></i> Save Image
+          </button>
+        </div>
+
+        {% set buttons_list             = card.buttons|fromjson if card.buttons else [] %}
+        {% set button_links             = card.button_links|default('{}', true)|fromjson %}
+        {% set button_contents          = card.button_contents|default('{}', true)|fromjson %}
+        {% set button_images            = card.button_images|default('{}', true)|fromjson %}
+        {% set button_background_images = card.button_background_images|default('{}', true)|fromjson %}
+
+        <div class="subhead">
+          <i class="fas fa-mouse-pointer" style="color:var(--blue);"></i> Button Settings
+          <span class="chip chip-blue" style="font-size:10px; padding:2px 7px;">{{ buttons_list|length }} buttons</span>
+        </div>
+
+        <div class="acc-wrap">
+          {% for button in buttons_list %}
+          <div class="acc">
+            <div class="acc-head" onclick="toggleAcc(this)">
+              <div class="acc-head-left">
+                <div class="acc-dot"></div>
+                {{ button }}
+              </div>
+              <i class="fas fa-chevron-down acc-chevron"></i>
+            </div>
+            <div class="acc-body">
+
+              <div class="field">
+                <label style="color:var(--blue);">External Link <span style="font-weight:400; color:var(--muted); text-transform:none; letter-spacing:0;">(takes priority)</span></label>
+                <div class="input-affix">
+                  <span class="input-prefix">https://</span>
+                  <input type="url" class="button-link"
+                    data-card-id="{{ card.id }}" data-button-index="{{ loop.index0 }}"
+                    value="{{ button_links.get(loop.index0|string, '') }}"
+                    placeholder="example.com/page">
+                </div>
+                <div class="field-hint"><i class="fas fa-info-circle"></i> If set, clicking the button opens this URL.</div>
+              </div>
+
+              <div class="field">
+                <label style="color:var(--green);">Content <span style="font-weight:400; color:var(--muted); text-transform:none; letter-spacing:0;">(shown if no link)</span></label>
+                <textarea class="button-content"
+                  data-card-id="{{ card.id }}" data-button-index="{{ loop.index0 }}"
+                  placeholder="Text/HTML displayed when button clicked…">{{ button_contents.get(loop.index0|string, '') }}</textarea>
+              </div>
+
+              <div class="inset blue">
+                <label><i class="fas fa-image" style="margin-right:5px;"></i> Button Background Image</label>
+                <div class="upload-zone" style="margin-bottom:8px;">
+                  <input type="file" id="button-bg-{{ card.id }}-{{ loop.index0 }}"
+                    class="button-bg-upload"
+                    data-card-id="{{ card.id }}" data-button-index="{{ loop.index0 }}"
+                    accept="image/*">
+                  <div class="upload-zone-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+                  <div class="upload-zone-text">Click to upload background image</div>
+                  <div class="upload-zone-sub">PNG, JPG, WEBP supported</div>
+                </div>
+                <input type="text" class="button-bg-image"
+                  data-card-id="{{ card.id }}" data-button-index="{{ loop.index0 }}"
+                  value="{{ button_background_images.get(loop.index0|string, '') }}"
+                  placeholder="filename.jpg (auto-filled on upload)">
+                <div class="field-hint" style="margin-top:6px;"><i class="fas fa-info-circle"></i> Shown as background when button content displays.</div>
+              </div>
+
+              <div class="inset amber" style="margin-top:10px;">
+                <label><i class="fas fa-images" style="margin-right:5px;"></i> Gallery Images</label>
+                <div class="upload-zone" style="margin-bottom:8px;">
+                  <input type="file" id="button-gallery-{{ card.id }}-{{ loop.index0 }}"
+                    class="button-gallery-upload"
+                    data-card-id="{{ card.id }}" data-button-index="{{ loop.index0 }}"
+                    accept="image/*" multiple>
+                  <div class="upload-zone-icon"><i class="fas fa-images"></i></div>
+                  <div class="upload-zone-text">Select multiple images</div>
+                  <div class="upload-zone-sub">Hold Ctrl/Cmd to select multiple</div>
+                </div>
+                <div id="gallery-preview-{{ card.id }}-{{ loop.index0 }}" class="gallery-grid"></div>
+                <textarea class="button-images"
+                  data-card-id="{{ card.id }}" data-button-index="{{ loop.index0 }}"
+                  style="display:none;" placeholder='[{"src":"img.jpg","caption":"Caption"}]'>{{ button_images.get(loop.index0|string, '')|tojson if button_images.get(loop.index0|string) else '' }}</textarea>
+              </div>
+
+              <div class="inset blue" id="caption-editor-{{ card.id }}-{{ loop.index0 }}" style="margin-top:10px;">
+                <label><i class="fas fa-pen" style="margin-right:5px;"></i> Image Captions</label>
+                <div id="captions-list-{{ card.id }}-{{ loop.index0 }}" style="display:flex; flex-direction:column; gap:6px; margin-top:8px;">
+                  <p style="color:var(--muted); font-size:12px; text-align:center; padding:10px; background:rgba(255,255,255,.5); border-radius:var(--r);">
+                    <i class="fas fa-info-circle"></i> Upload images above to add captions
+                  </p>
+                </div>
+              </div>
+
+              <div class="btn-row">
+                <button class="btn btn-primary btn-sm" onclick="saveButton({{ card.id }}, {{ loop.index0 }})">
+                  <i class="fas fa-save"></i> Save Button
+                </button>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-success" onclick="saveCard({{ card.id }})">
+            <i class="fas fa-save"></i> Save All Card Changes
+          </button>
+          <button class="btn btn-secondary" onclick="confirmReset({{ card.id }})">
+            <i class="fas fa-undo"></i> Discard
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+    </div><!-- /cards -->
+
+    <!-- ── NAVIGATION ── -->
+    <div id="tab-navigation" class="tab-pane">
+      <div class="page-row">
+        <div class="page-heading">
+          <div class="page-icon pi-purple"><i class="fas fa-bars"></i></div>
+          <div>
+            <div class="page-title">Navigation Links</div>
+            <div class="page-subtitle">Manage site navigation, linked pages, and content</div>
+          </div>
+        </div>
+      </div>
+
+      {% for nav in nav_links %}
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-eyebrow">Nav #{{ nav.id }}</div>
+            <div class="card-name">{{ nav.link_text }}</div>
+          </div>
+          <span class="chip {% if nav.link_url %}chip-blue{% else %}chip-amber{% endif %}">
+            {% if nav.link_url %}External Link{% else %}Page Content{% endif %}
+          </span>
+        </div>
+
+        <div class="grid2">
+          <div class="field">
+            <label>Link Text</label>
+            <input type="text" class="nav-text" data-nav-id="{{ nav.id }}"
+              value="{{ nav.link_text }}" placeholder="Navigation label">
+          </div>
+          <div class="field">
+            <label>Navigation Image</label>
+            <input type="text" class="nav-image" data-nav-id="{{ nav.id }}"
+              value="{{ nav.image or '' }}" placeholder="Image filename">
+          </div>
+        </div>
+
+        <div class="inset" style="margin-bottom:12px;">
+          <label>External Link URL <span style="font-weight:400; color:var(--muted); text-transform:none; letter-spacing:0;">(optional)</span></label>
+          <div class="input-affix">
+            <span class="input-prefix"><i class="fas fa-link"></i></span>
+            <input type="url" class="nav-link" data-nav-id="{{ nav.id }}"
+              value="{{ nav.link_url or '' }}" placeholder="https://...">
+          </div>
+          <div class="field-hint"><i class="fas fa-info-circle"></i> If set, navigation item opens this URL instead of page content.</div>
+        </div>
+
+        <div class="field">
+          <label>Page Content <span style="font-weight:400; color:var(--muted); text-transform:none; letter-spacing:0;">(shown when no URL)</span></label>
+          <textarea class="nav-content" data-nav-id="{{ nav.id }}"
+            placeholder="HTML or text displayed when this nav item is clicked…">{{ nav.page_content or '' }}</textarea>
+        </div>
+
+        <div class="inset blue">
+          <label><i class="fas fa-image" style="margin-right:5px;"></i> Background Image</label>
+          <div class="upload-zone" style="margin-bottom:8px;">
+            <input type="file" id="nav-bg-{{ nav.id }}" class="nav-bg-upload"
+              data-nav-id="{{ nav.id }}" accept="image/*">
+            <div class="upload-zone-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+            <div class="upload-zone-text">Click to upload background image</div>
+            <div class="upload-zone-sub">Used as page background image</div>
+          </div>
+          {% if nav.background_image %}
+          <img src="{{ url_for('static', filename='images/' + nav.background_image) }}"
+            class="img-preview" alt="Background preview">
+          {% endif %}
+          <input type="text" class="nav-background-image" data-nav-id="{{ nav.id }}"
+            value="{{ nav.background_image or '' }}"
+            placeholder="Background image filename" style="margin-top:6px;">
+        </div>
+
+        <div class="inset amber" style="margin-top:10px;">
+          <label><i class="fas fa-images" style="margin-right:5px;"></i> Gallery Images with Captions</label>
+          <div class="upload-zone" style="margin-bottom:8px;">
+            <input type="file" id="nav-gallery-{{ nav.id }}" class="nav-gallery-upload"
+              data-nav-id="{{ nav.id }}" accept="image/*" multiple>
+            <div class="upload-zone-icon"><i class="fas fa-images"></i></div>
+            <div class="upload-zone-text">Select multiple images</div>
+            <div class="upload-zone-sub">Gallery shown on the nav page</div>
+          </div>
+          <div id="gallery-preview-nav-{{ nav.id }}" class="gallery-grid"></div>
+          <textarea class="nav-images" data-nav-id="{{ nav.id }}"
+            style="display:none;"
+            placeholder='[{"src":"img.jpg","caption":"Caption"}]'>{{ nav.images|tojson if nav.images else '[]' }}</textarea>
+        </div>
+
+        <div class="inset blue" id="caption-editor-nav-{{ nav.id }}" style="margin-top:10px;">
+          <label><i class="fas fa-pen" style="margin-right:5px;"></i> Edit Image Captions</label>
+          <div id="captions-list-nav-{{ nav.id }}" style="display:flex; flex-direction:column; gap:6px; margin-top:8px;">
+            <p style="color:var(--muted); font-size:12px; text-align:center; padding:10px; background:rgba(255,255,255,.5); border-radius:var(--r);">
+              <i class="fas fa-info-circle"></i> Upload images above to edit captions
+            </p>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-success" onclick="saveNavLink({{ nav.id }})">
+            <i class="fas fa-save"></i> Save Navigation
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+    </div><!-- /navigation -->
+
+  </div><!-- /main-inner -->
+</div><!-- /main -->
+
+<!-- PREVIEW PANEL -->
+<div class="preview-panel" id="previewPanel">
+  <div class="preview-title">
+    <i class="fas fa-eye" style="color:var(--blue);"></i> Live Preview
+  </div>
+  <div id="previewContent"></div>
+</div>
+
+<!-- CONFIRM DIALOG -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <div class="confirm-icon"><i class="fas fa-exclamation-triangle"></i></div>
+    <div class="confirm-title" id="confirmTitle">Discard Changes?</div>
+    <div class="confirm-msg" id="confirmMsg">This will reload the original values from the database. Unsaved changes will be lost.</div>
+    <div class="confirm-btns">
+      <button class="btn btn-secondary" onclick="closeConfirm()">Cancel</button>
+      <button class="btn btn-danger" id="confirmOk">Discard</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════════
+     JAVASCRIPT — all original logic preserved + new features
+═════════════════════════════════════════════════════════════════ -->
+<script>
+/* ═══════ NAVIGATION ═══════ */
+const BC_LABELS = {
+  dashboard: 'Dashboard',
+  content: 'Text Sections',
+  cards: 'Stacked Cards',
+  navigation: 'Navigation Links'
+};
+
+function switchTab(tab, el) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('tab-' + tab)?.classList.add('active');
+  if (el) el.classList.add('active');
+  document.getElementById('bc-current').textContent = BC_LABELS[tab] || tab;
+}
+
+/* ═══════ ACCORDION ═══════ */
+function toggleAcc(header) {
+  const body = header.nextElementSibling;
+  header.classList.toggle('open');
+  body.classList.toggle('open');
+}
+
+/* ═══════ TOAST ═══════ */
+function showToast(msg, type = 'success') {
+  const c = document.getElementById('toastContainer');
+  const icons = { success: 'check-circle', error: 'exclamation-circle', info: 'info-circle' };
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.innerHTML = `<i class="fas fa-${icons[type]||'info-circle'} toast-ico"></i><span class="toast-msg">${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(() => {
+    t.style.animation = 'toastOut .2s var(--ease) forwards';
+    setTimeout(() => t.remove(), 220);
+  }, 3200);
+}
+
+/* ═══════ PREVIEW ═══════ */
+let previewOn = false;
+function togglePreview() {
+  previewOn = !previewOn;
+  const panel = document.getElementById('previewPanel');
+  const btn   = document.getElementById('preview-btn');
+  panel.classList.toggle('open', previewOn);
+  btn.classList.toggle('is-on', previewOn);
+  btn.innerHTML = previewOn
+    ? '<i class="fas fa-eye-slash"></i> Preview ON'
+    : '<i class="fas fa-eye"></i> Preview';
+  if (previewOn) {
+    updatePreview();
+    document.querySelectorAll('.card-title, .card-image, .button-link, .button-content')
+      .forEach(el => el.addEventListener('input', updatePreview));
+  }
+}
+
+function updatePreview() {
+  if (!previewOn) return;
+  const pc = document.getElementById('previewContent');
+  let html = '';
+  document.querySelectorAll('#tab-cards .card').forEach((card, i) => {
+    const ti = card.querySelector('.card-title');
+    const im = card.querySelector('.card-image');
+    if (!ti || !im) return;
+    html += `<div class="pv-card"><div class="pv-lbl">Card ${i+1}</div>
+      <div class="pv-row"><strong>Title</strong>${ti.value||'—'}</div>
+      <div class="pv-row"><strong>Image</strong>${im.value||'—'}</div>`;
+    card.querySelectorAll('.button-link').forEach((b, bi) => {
+      html += `<div class="pv-row"><strong>Btn ${bi+1}</strong>${b.value||'(no link)'}</div>`;
+    });
+    html += '</div>';
+  });
+  pc.innerHTML = html || '<p style="color:var(--muted);font-size:12px;text-align:center;padding:20px;">Switch to Cards tab to see preview</p>';
+}
+
+/* ═══════ SEARCH ═══════ */
+function filterContent(term) {
+  const clr = document.getElementById('searchClear');
+  clr.classList.toggle('show', term.length > 0);
+  document.querySelectorAll('.content-card').forEach(card => {
+    const key  = card.dataset.key?.toLowerCase() || '';
+    const val  = card.querySelector('textarea')?.value.toLowerCase() || '';
+    card.style.display = (key.includes(term.toLowerCase()) || val.includes(term.toLowerCase())) ? '' : 'none';
+  });
+}
+function clearSearch() {
+  const inp = document.getElementById('contentSearch');
+  inp.value = '';
+  filterContent('');
+  inp.focus();
+}
+
+/* ═══════ CHAR COUNT ═══════ */
+function updateCharCount(el) {
+  const key = el.dataset.key;
+  const cc  = document.getElementById('cc-' + key);
+  if (!cc) return;
+  const n = el.value.length;
+  cc.textContent = n + ' chars';
+  cc.className = 'char-count' + (n > 2000 ? ' over' : n > 1000 ? ' warn' : '');
+}
+
+/* ═══════ COPY CONTENT ═══════ */
+function copyToClipboard(key) {
+  const ta = document.querySelector(`textarea[data-key="${key}"]`);
+  if (!ta) return;
+  navigator.clipboard.writeText(ta.value).then(() => showToast('Copied to clipboard', 'info'));
+}
+
+/* ═══════ DISCARD CONFIRM ═══════ */
+let confirmCb = null;
+function confirmReset(cardId) {
+  confirmCb = () => { location.reload(); };
+  document.getElementById('confirmOverlay').classList.add('show');
+}
+document.getElementById('confirmOk').addEventListener('click', () => {
+  closeConfirm();
+  if (confirmCb) confirmCb();
+});
+function closeConfirm() {
+  document.getElementById('confirmOverlay').classList.remove('show');
+}
+
+/* ═══════ NOTIFICATIONS (stub) ═══════ */
+function showNotifications() {
+  showToast('No new notifications', 'info');
+}
+
+/* ═══════ DASHBOARD BUTTON COUNT ═══════ */
+document.addEventListener('DOMContentLoaded', () => {
+  let total = 0;
+  document.querySelectorAll('.acc').forEach(() => total++);
+  document.getElementById('dash-btn-count').textContent = total;
+});
+
+/* ═══════ SAVE FUNCTIONS (all original logic) ═══════ */
+function saveContent(key) {
+  const ta = document.querySelector(`textarea[data-key="${key}"]`);
+  const fd = new FormData();
+  fd.append('key', key);
+  fd.append('value', ta.value);
+  fetch('/admin/api/update-content', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => showToast(d.success ? 'Content saved' : 'Error saving content', d.success ? 'success' : 'error'))
+    .catch(e => showToast('Error: ' + e.message, 'error'));
+}
+
+function saveCardTitle(cardId) {
+  const fd = new FormData();
+  fd.append('id', cardId);
+  fd.append('title', document.querySelector(`.card-title[data-card-id="${cardId}"]`).value);
+  fetch('/admin/api/update-card-title', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => showToast(d.success ? 'Title saved' : 'Error', d.success ? 'success' : 'error'))
+    .catch(e => showToast('Error: ' + e.message, 'error'));
+}
+
+function saveCardImage(cardId) {
+  const fd = new FormData();
+  fd.append('id', cardId);
+  fd.append('image', document.querySelector(`.card-image[data-card-id="${cardId}"]`).value);
+  fetch('/admin/api/update-card-image', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => showToast(d.success ? 'Image saved' : 'Error', d.success ? 'success' : 'error'))
+    .catch(e => showToast('Error: ' + e.message, 'error'));
+}
+
+function saveButton(cardId, buttonIndex) {
+  const link  = document.querySelector(`.button-link[data-card-id="${cardId}"][data-button-index="${buttonIndex}"]`);
+  const cont  = document.querySelector(`.button-content[data-card-id="${cardId}"][data-button-index="${buttonIndex}"]`);
+  const bgImg = document.querySelector(`.button-bg-image[data-card-id="${cardId}"][data-button-index="${buttonIndex}"]`);
+  const imgs  = document.querySelector(`.button-images[data-card-id="${cardId}"][data-button-index="${buttonIndex}"]`);
+  let images = [];
+  if (imgs?.value.trim()) { try { images = JSON.parse(imgs.value); } catch(e){} }
+  fetch('/admin/api/update-button', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      card_id: cardId, button_index: buttonIndex,
+      link_url: link.value.trim(), content: cont.value,
+      background_image: bgImg.value.trim(), images
+    })
+  }).then(r => r.json())
+    .then(d => showToast(d.success ? 'Button saved' : 'Error saving button', d.success ? 'success' : 'error'))
+    .catch(e => showToast('Error: ' + e.message, 'error'));
+}
+
+function saveCard(cardId) {
+  const title  = document.querySelector(`.card-title[data-card-id="${cardId}"]`);
+  const image  = document.querySelector(`.card-image[data-card-id="${cardId}"]`);
+  const bgImg  = document.querySelector(`.card-background-image[data-card-id="${cardId}"]`);
+  const fd = new FormData();
+  fd.append('id', cardId);
+  fd.append('title', title.value);
+  fd.append('image', image.value);
+  fd.append('background_image', bgImg ? bgImg.value : '');
+  const btnContents = {}, btnImages = {};
+  document.querySelectorAll(`.button-content[data-card-id="${cardId}"]`).forEach(t => {
+    if (t.value.trim()) btnContents[t.dataset.buttonIndex] = t.value.trim();
+  });
+  document.querySelectorAll(`.button-images[data-card-id="${cardId}"]`).forEach(t => {
+    if (t.value.trim()) { try { btnImages[t.dataset.buttonIndex] = JSON.parse(t.value); } catch(e){} }
+  });
+  fd.append('button_contents', JSON.stringify(btnContents));
+  fd.append('button_images', JSON.stringify(btnImages));
+  document.querySelectorAll(`.button-link[data-card-id="${cardId}"]`).forEach(inp => {
+    const url = inp.value.trim();
+    if (url) {
+      fetch('/admin/api/update-button-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ card_id: cardId, button_index: parseInt(inp.dataset.buttonIndex), link_url: url })
+      });
+    }
+  });
+  fetch('/admin/api/update-card', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => showToast(d.success ? 'Card saved successfully' : 'Error saving card', d.success ? 'success' : 'error'))
+    .catch(e => showToast('Error: ' + e.message, 'error'));
+}
+
+function saveNavLink(navId) {
+  const txt  = document.querySelector(`.nav-text[data-nav-id="${navId}"]`);
+  const lnk  = document.querySelector(`.nav-link[data-nav-id="${navId}"]`);
+  const cont = document.querySelector(`.nav-content[data-nav-id="${navId}"]`);
+  const bgI  = document.querySelector(`.nav-background-image[data-nav-id="${navId}"]`);
+  const img  = document.querySelector(`.nav-image[data-nav-id="${navId}"]`);
+  const imgs = document.querySelector(`.nav-images[data-nav-id="${navId}"]`);
+  const linkUrl = lnk.value.trim();
+  let images = [];
+  if (imgs?.value.trim()) { try { images = JSON.parse(imgs.value); } catch(e){} }
+  fetch('/admin/api/update-nav-link', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      nav_id: navId,
+      link_text: txt.value,
+      link_url: linkUrl,
+      page_content: cont.value,
+      background_image: bgI ? bgI.value : '',
+      image: img ? img.value : '',
+      images
+    })
+  }).then(r => r.json())
+    .then(d => showToast(d.success ? (linkUrl ? 'Link saved' : 'Content saved') : 'Error', d.success ? 'success' : 'error'))
+    .catch(e => showToast('Error: ' + e.message, 'error'));
+}
+
+/* ═══════ FILE UPLOAD HELPERS ═══════ */
+function uploadImage(file) {
+  const fd = new FormData();
+  fd.append('file', file);
+  return fetch('/admin/api/upload-image', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success && d.filename) return d.filename;
+      throw new Error(d.error || 'Upload failed');
+    });
+}
+
+document.querySelectorAll('.nav-bg-upload').forEach(inp => {
+  inp.addEventListener('change', function(e) {
+    const navId = this.dataset.navId;
+    const file  = e.target.files[0];
+    if (!file) return;
+    uploadImage(file).then(fn => {
+      document.querySelector(`.nav-background-image[data-nav-id="${navId}"]`).value = fn;
+      const existing = document.querySelector(`#nav-bg-${navId}`)?.parentElement?.querySelector('.img-preview');
+      if (existing) { existing.src = `/static/images/${fn}`; }
+      else {
+        const img = document.createElement('img');
+        img.src = `/static/images/${fn}`; img.className = 'img-preview';
+        document.querySelector(`#nav-bg-${navId}`)?.closest('.upload-zone')?.insertAdjacentElement('afterend', img);
+      }
+      showToast('Background image uploaded');
+    }).catch(e => showToast(e.message, 'error'));
+  });
+});
+
+document.querySelectorAll('.button-bg-upload').forEach(inp => {
+  inp.addEventListener('change', function(e) {
+    const { cardId, buttonIndex } = this.dataset;
+    const file = e.target.files[0];
+    if (!file) return;
+    uploadImage(file).then(fn => {
+      document.querySelector(`.button-bg-image[data-card-id="${cardId}"][data-button-index="${buttonIndex}"]`).value = fn;
+      showToast('Background image uploaded');
+    }).catch(e => showToast(e.message, 'error'));
+  });
+});
+
+document.querySelectorAll('.button-gallery-upload').forEach(inp => {
+  inp.addEventListener('change', function(e) {
+    const { cardId, buttonIndex } = this.dataset;
+    const files = e.target.files;
+    if (!files.length) return;
+    Promise.all(Array.from(files).map(f =>
+      uploadImage(f).then(fn => ({ src: fn, caption: f.name.split('.')[0] }))
+    )).then(newImgs => {
+      const ta = document.querySelector(`.button-images[data-card-id="${cardId}"][data-button-index="${buttonIndex}"]`);
+      let existing = [];
+      if (ta.value.trim()) { try { existing = JSON.parse(ta.value); } catch(e){} }
+      const all = [...existing, ...newImgs];
+      ta.value = JSON.stringify(all, null, 2);
+      rebuildGallery(`button-gallery-${cardId}-${buttonIndex}`, all, `gallery-preview-${cardId}-${buttonIndex}`);
+      updateCaptionEditor(cardId, buttonIndex, all);
+      showToast(`${files.length} image(s) uploaded`);
+    }).catch(e => showToast(e.message, 'error'));
+  });
+});
+
+document.querySelectorAll('.nav-gallery-upload').forEach(inp => {
+  inp.addEventListener('change', function(e) {
+    const navId = this.dataset.navId;
+    const files = e.target.files;
+    if (!files.length) return;
+    Promise.all(Array.from(files).map(f =>
+      uploadImage(f).then(fn => ({ src: fn, caption: f.name.split('.')[0] }))
+    )).then(newImgs => {
+      const ta = document.querySelector(`.nav-images[data-nav-id="${navId}"]`);
+      let existing = [];
+      if (ta.value.trim()) { try { existing = JSON.parse(ta.value); } catch(e){} }
+      const all = [...existing, ...newImgs];
+      ta.value = JSON.stringify(all, null, 2);
+      rebuildNavGallery(navId, all);
+      updateNavCaptionEditor(navId, all);
+      showToast(`${files.length} image(s) uploaded`);
+    }).catch(e => showToast(e.message, 'error'));
+  });
+});
+
+/* ═══════ GALLERY HELPERS ═══════ */
+function rebuildGallery(uploaderId, images, containerId) {
+  const c = document.getElementById(containerId);
+  if (!c) return;
+  c.innerHTML = '';
+  images.forEach((img, idx) => {
+    const item = document.createElement('div');
+    item.className = 'gallery-thumb';
+    item.innerHTML = `<img src="/static/images/${img.src}" alt="${img.caption}"><button type="button" class="gallery-remove" onclick="removeGalleryImage('${uploaderId}', ${idx})"><i class="fas fa-times"></i></button>`;
+    c.appendChild(item);
+  });
+}
+
+function rebuildNavGallery(navId, images) {
+  const c = document.getElementById(`gallery-preview-nav-${navId}`);
+  if (!c) return;
+  c.innerHTML = '';
+  images.forEach((img, idx) => {
+    const item = document.createElement('div');
+    item.className = 'gallery-thumb';
+    item.innerHTML = `<img src="/static/images/${img.src}" alt="${img.caption}"><button type="button" class="gallery-remove" onclick="removeGalleryImage('nav-gallery-${navId}', ${idx})"><i class="fas fa-times"></i></button>`;
+    c.appendChild(item);
+  });
+}
+
+function removeGalleryImage(uploaderId, index) {
+  let ta = null, previewId = null;
+  if (uploaderId.includes('button-gallery')) {
+    const m = uploaderId.match(/button-gallery-(\d+)-(\d+)/);
+    if (m) {
+      ta = document.querySelector(`.button-images[data-card-id="${m[1]}"][data-button-index="${m[2]}"]`);
+      previewId = `gallery-preview-${m[1]}-${m[2]}`;
+    }
+  } else if (uploaderId.includes('nav-gallery')) {
+    const m = uploaderId.match(/nav-gallery-(\d+)/);
+    if (m) {
+      ta = document.querySelector(`.nav-images[data-nav-id="${m[1]}"]`);
+      previewId = `gallery-preview-nav-${m[1]}`;
+    }
+  }
+  if (!ta || !previewId) return;
+  try {
+    let imgs = JSON.parse(ta.value);
+    imgs.splice(index, 1);
+    ta.value = JSON.stringify(imgs, null, 2);
+    if (uploaderId.includes('button-gallery')) {
+      const m = uploaderId.match(/button-gallery-(\d+)-(\d+)/);
+      if (m) fetch('/admin/api/delete-gallery-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ card_id: m[1], button_index: m[2], image_index: index }) }).catch(()=>{});
+    }
+    const c = document.getElementById(previewId);
+    if (!c) return;
+    c.innerHTML = '';
+    imgs.forEach((img, idx) => {
+      const item = document.createElement('div');
+      item.className = 'gallery-thumb';
+      item.innerHTML = `<img src="/static/images/${img.src}" alt="${img.caption}"><button type="button" class="gallery-remove" onclick="removeGalleryImage('${uploaderId}', ${idx})"><i class="fas fa-times"></i></button>`;
+      c.appendChild(item);
+    });
+    showToast('Image removed');
+  } catch(e) { showToast('Error removing image', 'error'); }
+}
+
+/* ═══════ CAPTION EDITORS ═══════ */
+function updateCaptionEditor(cardId, buttonIndex, images) {
+  const c = document.querySelector(`#captions-list-${cardId}-${buttonIndex}`);
+  if (!c) return;
+  c.innerHTML = '';
+  if (!images?.length) {
+    c.innerHTML = '<p style="color:var(--muted);font-size:12px;text-align:center;padding:10px;background:rgba(255,255,255,.5);border-radius:var(--r);"><i class="fas fa-info-circle"></i> Upload images above to add captions</p>';
+    return;
+  }
+  images.forEach((img, idx) => {
+    const el = document.createElement('div');
+    el.className = 'caption-item';
+    el.innerHTML = `<img src="/static/images/${img.src}" alt="${img.caption}"><input type="text" value="${img.caption}" placeholder="Enter caption">`;
+    el.querySelector('input').addEventListener('input', e => {
+      const ta = document.querySelector(`.button-images[data-card-id="${cardId}"][data-button-index="${buttonIndex}"]`);
+      try { let a = JSON.parse(ta.value); a[idx].caption = e.target.value; ta.value = JSON.stringify(a, null, 2); } catch(err){}
+    });
+    c.appendChild(el);
+  });
+}
+
+function updateNavCaptionEditor(navId, images) {
+  const c = document.querySelector(`#captions-list-nav-${navId}`);
+  if (!c) return;
+  c.innerHTML = '';
+  if (!images?.length) {
+    c.innerHTML = '<p style="color:var(--muted);font-size:12px;text-align:center;padding:10px;background:rgba(255,255,255,.5);border-radius:var(--r);"><i class="fas fa-info-circle"></i> Upload images above to add captions</p>';
+    return;
+  }
+  images.forEach((img, idx) => {
+    const el = document.createElement('div');
+    el.className = 'caption-item';
+    el.innerHTML = `<img src="/static/images/${img.src}" alt="${img.caption}"><input type="text" value="${img.caption}" placeholder="Enter caption">`;
+    el.querySelector('input').addEventListener('input', e => {
+      const ta = document.querySelector(`.nav-images[data-nav-id="${navId}"]`);
+      try { let a = JSON.parse(ta.value); a[idx].caption = e.target.value; ta.value = JSON.stringify(a, null, 2); } catch(err){}
+    });
+    c.appendChild(el);
+  });
+}
+
+/* ═══════ INIT GALLERIES ON LOAD ═══════ */
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.button-images').forEach(ta => {
+    const { cardId, buttonIndex } = ta.dataset;
+    if (!ta.value.trim()) return;
+    try {
+      const imgs = JSON.parse(ta.value);
+      rebuildGallery(`button-gallery-${cardId}-${buttonIndex}`, imgs, `gallery-preview-${cardId}-${buttonIndex}`);
+      updateCaptionEditor(cardId, buttonIndex, imgs);
+    } catch(e){}
+  });
+  document.querySelectorAll('.nav-images').forEach(ta => {
+    const navId = ta.dataset.navId;
+    if (!ta.value.trim()) return;
+    try {
+      const imgs = JSON.parse(ta.value);
+      rebuildNavGallery(navId, imgs);
+      updateNavCaptionEditor(navId, imgs);
+    } catch(e){}
+  });
+  // init char counters
+  document.querySelectorAll('.content-textarea').forEach(ta => updateCharCount(ta));
+});
+</script>
+{% endblock %}
