@@ -2,374 +2,183 @@
 
 {% block extra_css %}
 <style>
-        html, body { height: 100%; scroll-behavior: smooth; }
-        body { display: flex; flex-direction: column; }
-        main { flex: 1; }
-        footer { margin-top: auto; }
-        .stack-container { position: relative; height: 220vh; padding-bottom: 100px; }
-        .stack-card {position: sticky;top: 120px;margin: 0 auto 80px;padding: 30px;
-            background: white;border-radius: 20px;box-shadow: 0 10px 50px rgba(0,0,0,0.35);
-            min-height: 420px;width: 85%;transition: transform 0.3s ease; }
-        .stack-card.active { transform: translateY(-20px) scale(1.03); z-index: 50; }
-        .stack-card:not(.active) { transform: translateY(10px); z-index: 10; }
-        .card-content { display: flex; gap: 20px; align-items: flex-start; }
-        .card-img { width: 350px; height: 350px; object-fit: cover; border-radius: 16px; }
-        .stack-card h3 { font-size: 2.6rem; font-weight: 700; color: #1c2790; margin-bottom: 12px; }
-        .search-section {display: flex;flex-direction: column;align-items: center;justify-content: flex-start;min-height: auto;padding: 40px 20px;margin-top: 0;position: relative;z-index: 100;transition: min-height 0.3s ease;background: transparent;}
-        .search-section.has-results { min-height: auto; padding: 40px 20px; }
-        #resultsContainer {width: 100%;max-width: 900px;margin-top: 24px;position: relative;z-index: 1000 !important;pointer-events: auto;}
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #1c2790 0%, #1d293d 100%); border-radius: 4px; border: 1px solid #f1f5f9; }
-        ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #cdae2c 0%, #FACC15 100%); }
-        .floating { animation: floating 6s ease-in-out infinite; }
-        @keyframes floating { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-15px) rotate(3deg); } }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-        .skeleton-bar {
-            background: linear-gradient(90deg, #5f6d8f 25%, #7a88a8 50%, #5f6d8f 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s ease-in-out infinite;
-            border-radius: 12px;
-            height: 48px;}
-        @keyframes shimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; } }
-        .sparkle-icon {
-            display: inline-block;
-            animation: sparkle 1.5s ease-in-out infinite;}
-        @keyframes sparkle {
-            0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
-            50% { transform: scale(1.2) rotate(180deg); opacity: 0.8; }}
-        /* Results Box Enhancement */
-        #resultsDisplay > div {
-            background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.95) 100%);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.12), 0 8px 24px rgba(0,0,0,0.08);
-            border: 1px solid rgba(255,255,255,0.8);
-            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
-        #resultsDisplay > div:hover {
-            box-shadow: 0 24px 72px rgba(0,0,0,0.15), 0 12px 32px rgba(0,0,0,0.1);
-            transform: translateY(-2px);}
-        /* AI Badge Enhancement */
-        .absolute.-top-5 {
-            background: linear-gradient(135deg, #f7c948 0%, #facc15 100%);
-            box-shadow: 0 8px 24px rgba(247, 201, 72, 0.35);
-            border: 2px solid rgba(255,255,255,0.9);}
-        /* Key Points Box Styling */
-        .bg-\[\#f2f6ff\] {
-            background: linear-gradient(135deg, rgba(242, 246, 255, 0.95) 0%, rgba(219, 230, 255, 0.95) 100%);
-            border: 2px solid rgba(155, 175, 220, 0.4);}
-        /* Related Topics Section */
-        #suggestionsSection {
-            animation: slideIn 0.6s ease-out 0.2s backwards; }
-        @keyframes slideIn {
-            from {opacity: 0;transform: translateY(10px); }
-            to {opacity: 1;transform: translateY(0);}}
-        /* Quick Actions Section */
-        #navigationSection {
-            animation: slideIn 0.6s ease-out 0.4s backwards;}
-        /* Suggestion and Navigation Button Styling */
-        #suggestionsList button,
-        #navigationList button {
-            background: linear-gradient(135deg, rgba(28, 39, 144, 0.08) 0%, rgba(155, 175, 220, 0.08) 100%);
-            border: 2px solid rgba(28, 39, 144, 0.15);
-            transition: all 0.3s ease;}
-        #suggestionsList button:hover,
-        #navigationList button:hover {
-            background: linear-gradient(135deg, rgba(28, 39, 144, 0.15) 0%, rgba(155, 175, 220, 0.15) 100%);
-            border-color: rgba(28, 39, 144, 0.3);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(28, 39, 144, 0.12); }
-        @media (max-width: 1024px) {
-            .stack-container { height: 260vh; }
-            .card-img { width: 280px; height: 280px; }
-            .stack-card h3 { font-size: 2.2rem; }}
-        @media (max-width: 768px) {
-            .stack-container { height: 300vh; }
-            .card-content { flex-direction: column; align-items: center; text-align: center; }
-            .card-img { width: 100%; max-width: 420px; height: auto; aspect-ratio: 16/9; }
-            .stack-card { padding: 20px; min-height: auto; }
-            .stack-card h3 { font-size: 1.8rem; }
-            .stack-card button { width: 100% !important; }}
-        @media (max-width: 400px) {
-            .stack-container { height: 320vh; }
-            .stack-card h3 { font-size: 1.5rem; }}
-        #suggestionsSection { overflow: visible !important; }
-        #suggestionsList { overflow: visible !important; }
-        #navigationSection { overflow: visible !important; }
-        #resultsDisplay { overflow: visible !important; }
-        #suggestionsList button, #navigationList button {
-            white-space: normal;
-            word-wrap: break-word;
-            overflow: visible; }
-        /* Glassmorphism Overlay */
-        #overlayBackdrop {position: fixed;top: 0; left: 0;width: 100%;height: 100%;background: rgba(0, 0, 0, 0.4);backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px); z-index: 999;opacity: 0; pointer-events: none;transition: opacity 0.3s ease;}
-        #overlayBackdrop.active {opacity: 1;pointer-events: auto;}
-        #searchOverlay { position: fixed;top: 0;left: 0;width: 100%;height: 100%;z-index: 1001; display: flex;flex-direction: column;align-items: center;justify-content: center;padding: 30px;opacity: 0;pointer-events: none;transition: opacity 0.3s ease;overflow-y: auto;}
-        #searchOverlay.active {opacity: 1;pointer-events: auto;}
-        .overlay-search-container { width: 100%;max-width: 900px;padding: 0;display: flex;flex-direction: column;align-items: center;justify-content: center;overflow: visible; }
-        .overlay-close-btn {position: absolute;top: 20px;right: 20px;width: 40px;height: 40px;border-radius: 50%; background: rgba(255, 255, 255, 0.2);backdrop-filter: blur(10px);border: 1px solid rgba(255, 255, 255, 0.3);color: white;font-size: 24px;cursor: pointer;display: flex; align-items: center;justify-content: center;transition: all 0.2s ease;z-index: 1002;}
-        .overlay-close-btn:hover {background: rgba(255, 255, 255, 0.3);border-color: rgba(255, 255, 255, 0.5);}
-        /* Hide search bar and label in overlay, show only suggestions box */
-        #searchOverlay .flex.items-center.justify-center.gap-2 {display: none;}
-        #overlay-search-form {display: none !important;}
-        #overlayResultsContainer {width: 100%;padding: 25px 20px; border-radius: 24px;box-sizing: border-box;overflow: visible;display: block;max-height: 85vh;overflow-y: auto;}
-        /* Responsive overlay sizing */
-        @media (max-width: 900px) {
-            #searchOverlay {padding: 20px;}
-            .overlay-search-container {max-width: 650px;}
-            #overlayResultsContainer {padding: 20px 15px;max-height: 85vh;}}
-        @media (max-width: 768px) {
-            #searchOverlay {padding: 15px;}
-            .overlay-search-container {max-width: 92%;}
-            #overlayResultsContainer {
-                padding: 18px 14px;
-                font-size: 0.9rem;
-                max-height: 82vh;
-            }
-        }
-
-        @media (max-width: 480px) {
-            #searchOverlay {
-                padding: 10px;
-            }
-            .overlay-search-container {
-                max-width: 95%;
-            }
-            #overlayResultsContainer {
-                padding: 15px 12px;
-                font-size: 0.85rem;
-                max-height: 70vh;
-            }
-        }
-
-        /* Related Images Section Styling */
-        #relatedImagesSection {
-            animation: slideIn 0.6s ease-out 0.8s backwards;
-        }
-
-        .related-image-card {
-            position: relative;
-            overflow: hidden;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-            aspect-ratio: 4/3;
-        }
-
-        .related-image-card img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.3s ease;
-        }
-
-        .related-image-card:hover {
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-            transform: translateY(-4px);
-        }
-
-        .related-image-card:hover img {
-            transform: scale(1.05);
-        }
-
-        .image-overlay {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
-            padding: 12px;
-            color: white;
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-
-        /* Related Links Section Styling */
-        #relatedLinksSection {
-            animation: slideIn 0.6s ease-out 1s backwards;
-        }
-
-        .related-link-item {
-            padding: 14px 16px;
-            background: linear-gradient(135deg, rgba(250, 204, 21, 0.08) 0%, rgba(250, 204, 21, 0.04) 100%);
-            border: 1px solid rgba(250, 204, 21, 0.3);
-            border-radius: 10px;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .related-link-item:hover {
-            background: linear-gradient(135deg, rgba(250, 204, 21, 0.15) 0%, rgba(250, 204, 21, 0.08) 100%);
-            border-color: rgba(250, 204, 21, 0.6);
-            padding-left: 20px;
-        }
-
-        .link-icon {
-            flex-shrink: 0;
-            width: 20px;
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(28, 39, 144, 0.15);
-            border-radius: 6px;
-            color: #1c2790;
-            font-size: 0.75rem;
-        }
-
-        .link-content {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .link-title {
-            font-weight: 600;
-            color: #1c2790;
-            margin-bottom: 2px;
-            word-break: break-word;
-        }
-
-        .link-context {
-            font-size: 0.8rem;
-            color: #666;
-            margin: 0;
-        }
-
-        .external-link-icon {
-            flex-shrink: 0;
-            width: 16px;
-            height: 16px;
-            color: #FACC15;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .related-link-item:hover .external-link-icon {
-            opacity: 1;
-        }
-
-        /* Loading State */
-        .loading-spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(28, 39, 144, 0.1);
-            border-top-color: #1c2790;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+    html, body { height: 100%; scroll-behavior: smooth; }
+    body { display: flex; flex-direction: column; }
+    main { flex: 1; }
+    footer { margin-top: auto; }
+    .stack-container { position: relative; height: 220vh; padding-bottom: 100px; }
+    .stack-card { position: sticky; top: 120px; margin: 0 auto 80px; padding: 30px;
+        background: white; border-radius: 20px; box-shadow: 0 10px 50px rgba(0,0,0,0.35);
+        min-height: 420px; width: 85%; transition: transform 0.3s ease; }
+    .stack-card.active { transform: translateY(-20px) scale(1.03); z-index: 50; }
+    .stack-card:not(.active) { transform: translateY(10px); z-index: 10; }
+    .card-content { display: flex; gap: 20px; align-items: flex-start; }
+    .card-img { width: 350px; height: 350px; object-fit: cover; border-radius: 16px; }
+    .stack-card h3 { font-size: 2.6rem; font-weight: 700; color: #1c2790; margin-bottom: 12px; }
+    #resultsContainer { width: 100%; max-width: 900px; margin-top: 24px; position: relative; z-index: 1000 !important; pointer-events: auto; }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #1c2790 0%, #1d293d 100%); border-radius: 4px; border: 1px solid #f1f5f9; }
+    ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #cdae2c 0%, #FACC15 100%); }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+    .skeleton-bar { background: linear-gradient(90deg, #5f6d8f 25%, #7a88a8 50%, #5f6d8f 75%); background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite; border-radius: 12px; height: 48px; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .sparkle-icon { display: inline-block; animation: sparkle 1.5s ease-in-out infinite; }
+    @keyframes sparkle { 0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; } 50% { transform: scale(1.2) rotate(180deg); opacity: 0.8; } }
+    /* Results Box Enhancement */
+    #resultsDisplay > div {
+        background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.95) 100%);
+        box-shadow: 0 20px 60px rgba(0,0,0,0.12), 0 8px 24px rgba(0,0,0,0.08);
+        border: 1px solid rgba(255,255,255,0.8);
+        transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    #resultsDisplay > div:hover {
+        box-shadow: 0 24px 72px rgba(0,0,0,0.15), 0 12px 32px rgba(0,0,0,0.1);
+        transform: translateY(-2px); }
+    #suggestionsSection { animation: slideIn 0.6s ease-out 0.2s backwards; overflow: visible !important; }
+    #suggestionsList { overflow: visible !important; }
+    #navigationSection { animation: slideIn 0.6s ease-out 0.4s backwards; overflow: visible !important; }
+    #resultsDisplay { overflow: visible !important; }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    #suggestionsList button, #navigationList button {
+        background: linear-gradient(135deg, rgba(28,39,144,0.08) 0%, rgba(155,175,220,0.08) 100%);
+        border: 2px solid rgba(28,39,144,0.15); transition: all 0.3s ease;
+        white-space: normal; word-wrap: break-word; overflow: visible; }
+    #suggestionsList button:hover, #navigationList button:hover {
+        background: linear-gradient(135deg, rgba(28,39,144,0.15) 0%, rgba(155,175,220,0.15) 100%);
+        border-color: rgba(28,39,144,0.3); transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(28,39,144,0.12); }
+    @media (max-width: 1024px) { .stack-container { height: 260vh; } .card-img { width: 280px; height: 280px; } .stack-card h3 { font-size: 2.2rem; } }
+    @media (max-width: 768px) {
+        .stack-container { height: 300vh; }
+        .card-content { flex-direction: column; align-items: center; text-align: center; }
+        .card-img { width: 100%; max-width: 420px; height: auto; aspect-ratio: 16/9; }
+        .stack-card { padding: 20px; min-height: auto; }
+        .stack-card h3 { font-size: 1.8rem; }
+        .stack-card button { width: 100% !important; } }
+    @media (max-width: 400px) { .stack-container { height: 320vh; } .stack-card h3 { font-size: 1.5rem; } }
+    /* Overlay */
+    #overlayBackdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+    #overlayBackdrop.active { opacity: 1; pointer-events: auto; }
+    #searchOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1001; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; overflow-y: auto; }
+    #searchOverlay.active { opacity: 1; pointer-events: auto; }
+    .overlay-search-container { width: 100%; max-width: 900px; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: visible; }
+    .overlay-close-btn { position: absolute; top: 20px; right: 20px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.3); color: white; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; z-index: 1002; }
+    .overlay-close-btn:hover { background: rgba(255,255,255,0.3); border-color: rgba(255,255,255,0.5); }
+    #searchOverlay .flex.items-center.justify-center.gap-2 { display: none; }
+    #overlay-search-form { display: none !important; }
+    #overlayResultsContainer { width: 100%; padding: 25px 20px; border-radius: 24px; box-sizing: border-box; overflow: visible; display: block; max-height: 85vh; overflow-y: auto; }
+    @media (max-width: 900px) { #searchOverlay { padding: 20px; } .overlay-search-container { max-width: 650px; } #overlayResultsContainer { padding: 20px 15px; max-height: 85vh; } }
+    @media (max-width: 768px) { #searchOverlay { padding: 15px; } .overlay-search-container { max-width: 92%; } #overlayResultsContainer { padding: 18px 14px; font-size: 0.9rem; max-height: 82vh; } }
+    @media (max-width: 480px) { #searchOverlay { padding: 10px; } .overlay-search-container { max-width: 95%; } #overlayResultsContainer { padding: 15px 12px; font-size: 0.85rem; max-height: 70vh; } }
+    /* Images & Links */
+    #relatedImagesSection { animation: slideIn 0.6s ease-out 0.8s backwards; }
+    .related-image-card { position: relative; overflow: hidden; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: all 0.3s ease; aspect-ratio: 4/3; }
+    .related-image-card img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
+    .related-image-card:hover { box-shadow: 0 8px 20px rgba(0,0,0,0.15); transform: translateY(-4px); }
+    .related-image-card:hover img { transform: scale(1.05); }
+    .image-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.7), transparent); padding: 12px; color: white; font-size: 0.85rem; font-weight: 500; }
+    #relatedLinksSection { animation: slideIn 0.6s ease-out 1s backwards; }
+    .related-link-item { padding: 14px 16px; background: linear-gradient(135deg, rgba(250,204,21,0.08) 0%, rgba(250,204,21,0.04) 100%); border: 1px solid rgba(250,204,21,0.3); border-radius: 10px; transition: all 0.3s ease; display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
+    .related-link-item:hover { background: linear-gradient(135deg, rgba(250,204,21,0.15) 0%, rgba(250,204,21,0.08) 100%); border-color: rgba(250,204,21,0.6); padding-left: 20px; }
+    .link-icon { flex-shrink: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; background: rgba(28,39,144,0.15); border-radius: 6px; color: #1c2790; font-size: 0.75rem; }
+    .link-content { flex: 1; min-width: 0; }
+    .link-title { font-weight: 600; color: #1c2790; margin-bottom: 2px; word-break: break-word; }
+    .link-context { font-size: 0.8rem; color: #666; margin: 0; }
+    .external-link-icon { flex-shrink: 0; width: 16px; height: 16px; color: #FACC15; opacity: 0; transition: opacity 0.3s ease; }
+    .related-link-item:hover .external-link-icon { opacity: 1; }
+    /* Hero title: force span children (e.g. "PUBLIC SECTOR") to never break across lines */
+    .hero-title span { white-space: nowrap; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Overlay Backdrop -->
 <div id="overlayBackdrop"></div>
 
-<!-- Search Overlay -->
 <div id="searchOverlay">
   <button class="overlay-close-btn" id="overlayCloseBtn" title="Close">×</button>
   <div class="overlay-search-container">
-    <!-- AI Powered Search Label -->
     <div class="flex items-center justify-center gap-2 mb-4">
       <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 2C10.9 2 10 2.9 10 4C10 5.1 10.5 6 11.3 6.6C10.5 7 10 7.9 10 9C10 10.7 11.3 12 13 12C14.7 12 16 10.7 16 9C16 7.9 15.5 7 14.7 6.6C15.5 6 16 5.1 16 4C16 2.9 15.1 2 14 2H12ZM5 12C3.3 12 2 13.3 2 15V16C2 18.2 5.1 20 9 20C10.2 20 11.3 19.8 12.2 19.5C11.5 18.8 11 17.9 11 17C11 15.3 12.3 14 14 14H19C19 13.3 18.7 12.7 18.2 12.3C17 12.1 15.5 12 14 12H10C8.5 12 7 12.1 5.8 12.3C5.5 12.1 5.3 12 5 12ZM14 15C13.4 15 13 15.4 13 16V18C13 18.6 13.4 19 14 19H21C21.6 19 22 18.6 22 18V16C22 15.4 21.6 15 21 15H14Z"/>
       </svg>
       <span class="text-white font-semibold text-sm tracking-wide">AI Powered Search</span>
     </div>
-    <!-- Search Form in Overlay -->
     <form id="overlay-search-form" class="relative mb-8">
-      <input
-        type="text"
-        id="overlay-search-input"
-        placeholder="Ask Tutoy anything about public sector productivity..."
-        class="w-full pl-6 pr-24 py-4 rounded-full border-2 border-white/50 bg-white/90 backdrop-blur-sm shadow-2xl
-               focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 outline-none
-               text-base text-[#0a0a0a] placeholder-gray-600 font-medium transition-all duration-200"
-      >
-      <button
-        type="button"
-        id="overlay-clear-btn"
+      <input type="text" id="overlay-search-input"
+        placeholder="{{ search_placeholder }}"
+        class="w-full pl-6 pr-24 py-4 rounded-full border-2 border-white/50 bg-white/90 backdrop-blur-sm shadow-2xl focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 outline-none text-base text-[#0a0a0a] placeholder-gray-600 font-medium transition-all duration-200">
+      <button type="button" id="overlay-clear-btn"
         class="absolute right-16 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 opacity-0 pointer-events-none transition-all duration-200"
-        title="Clear search"
-      >
-        <i class="fas fa-times text-lg"></i>
-      </button>
+        title="Clear search"><i class="fas fa-times text-lg"></i></button>
       <button type="submit" class="absolute right-5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors">
-        <i class="fas fa-search text-lg"></i>
-      </button>
+        <i class="fas fa-search text-lg"></i></button>
     </form>
-    <!-- Results Container in Overlay -->
     <div id="overlayResultsContainer" class="w-full"></div>
   </div>
 </div>
 
+<!-- HEADER -->
 <header class="fixed top-0 left-0 w-full z-50 bg-[#f5f5f5] shadow-sm">
     <div class="max-w-7xl mx-auto flex items-center justify-between px-6 py-3">
         <a href="/" class="flex items-center ml-[-40px]">
             <img src="{{ url_for('static', filename=logo_image) }}" class="h-10 w-auto object-contain mr-0" alt="Logo">
         </a>
-  <nav class="hidden lg:flex items-center space-x-6 text-sm font-semibold text-[#0a0a0a]">
-  {% for link in nav_links %}
-    {% if link.link_url %}
-      <a href="{{ link.link_url }}" target="_blank" class="hover:text-[#1c2790] whitespace-nowrap">{{ link.link_text }}</a>
-    {% else %}
-      <a href="/nav-page/{{ link.id }}" class="hover:text-[#1c2790] whitespace-nowrap">{{ link.link_text }}</a>
-    {% endif %}
-  {% endfor %}
-  {% if published_pages %}
-    <div class="relative group">
-      <a href="#" class="hover:text-[#1c2790] whitespace-nowrap">Custom Pages ?</a>
-      <div class="hidden group-hover:block absolute left-0 mt-0 w-48 bg-white shadow-lg rounded-lg py-2 z-50">
-        {% for page in published_pages %}
-          <a href="/page/{{ page.slug }}" class="block px-4 py-2 text-sm text-[#0a0a0a] hover:bg-[#f5f5f5] hover:text-[#1c2790]">{{ page.title }}</a>
-        {% endfor %}
-      </div>
-    </div>
-  {% endif %}
-  </nav>
+        <nav class="hidden lg:flex items-center space-x-6 text-sm font-semibold text-[#0a0a0a]">
+            {% for link in nav_links %}
+                {% if link.link_url and link.link_url != '#' %}
+                    <a href="{{ link.link_url }}" target="_blank" class="hover:text-[#1c2790] whitespace-nowrap">{{ link.link_text }}</a>
+                {% else %}
+                    <a href="/nav-page/{{ link.id }}" class="hover:text-[#1c2790] whitespace-nowrap">{{ link.link_text }}</a>
+                {% endif %}
+            {% endfor %}
+            {% if published_pages %}
+                <div class="relative group">
+                    <a href="#" class="hover:text-[#1c2790] whitespace-nowrap">Custom Pages ▾</a>
+                    <div class="hidden group-hover:block absolute left-0 mt-0 w-48 bg-white shadow-lg rounded-lg py-2 z-50">
+                        {% for page in published_pages %}
+                            <a href="/page/{{ page.slug }}" class="block px-4 py-2 text-sm text-[#0a0a0a] hover:bg-[#f5f5f5] hover:text-[#1c2790]">{{ page.title }}</a>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        </nav>
         <button id="menu-toggle" class="lg:hidden p-2 text-[#0a0a0a]">
             <i id="menu-icon" class="fas fa-bars text-xl"></i>
         </button>
     </div>
-  <div id="mobile-menu" class="lg:hidden hidden absolute top-full right-0 w-full bg-white shadow-lg p-4 z-40">
-  <nav class="flex flex-col space-y-3 text-sm font-semibold text-[#0a0a0a]">
-  {% for link in nav_links %}
-    {% if link.link_url %}
-      <a href="{{ link.link_url }}" target="_blank" class="hover:text-[#1c2790]">{{ link.link_text }}</a>
-    {% else %}
-      <a href="/nav-page/{{ link.id }}" class="hover:text-[#1c2790]">{{ link.link_text }}</a>
-    {% endif %}
-  {% endfor %}
-  </nav>
-  </div>
+    <div id="mobile-menu" class="lg:hidden hidden absolute top-full right-0 w-full bg-white shadow-lg p-4 z-40">
+        <nav class="flex flex-col space-y-3 text-sm font-semibold text-[#0a0a0a]">
+            {% for link in nav_links %}
+                {% if link.link_url and link.link_url != '#' %}
+                    <a href="{{ link.link_url }}" target="_blank" class="hover:text-[#1c2790]">{{ link.link_text }}</a>
+                {% else %}
+                    <a href="/nav-page/{{ link.id }}" class="hover:text-[#1c2790]">{{ link.link_text }}</a>
+                {% endif %}
+            {% endfor %}
+        </nav>
+    </div>
 </header>
 
-<section
-  class="relative w-full bg-gradient-to-b from-gray-900 to-gray-800"
-  style="background-image: linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)), url('{{ url_for('static', filename=hero_image) }}');
-         background-position: center;
-         background-size: cover;
-         background-repeat: no-repeat;
-         background-attachment: fixed;
-         height: 100vh;
-         min-height: 100vh;
-         z-index: 10;
-         pointer-events: none;"
->
+<!-- HERO SECTION
+     hero_image        → background image (editable in admin)
+     hero_title        → heading text (editable in admin, supports HTML like <br> and <span>)
+     search_placeholder → input placeholder (editable in admin)
 
-  <!-- Search Bar (Top Center) -->
+     NOTE: The .hero-title CSS rule above applies `white-space: nowrap` to any <span>
+     inside the heading, so a DB value like:
+       LEADING THE MOVEMENT IN <br>ADVANCING INNOVATION AND <br>PRODUCTIVITY IN THE
+       <span class="text-[#cdae2c]">PUBLIC SECTOR</span>
+     will always keep "PUBLIC SECTOR" on one unbroken line.
+-->
+<section class="relative w-full bg-gradient-to-b from-gray-900 to-gray-800"
+  style="background-image: linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)), url('{{ url_for('static', filename=hero_image) }}');
+         background-position: center; background-size: cover; background-repeat: no-repeat;
+         background-attachment: fixed; height: 100vh; min-height: 100vh; z-index: 10; pointer-events: none;">
+
+  <!-- Search Bar -->
   <div class="absolute top-[25%] md:top-[28%] left-1/2 -translate-x-1/2 w-full px-4 z-20" style="pointer-events: auto;">
     <div class="max-w-2xl mx-auto">
-      <!-- AI Powered Search Label -->
       <div class="flex items-center justify-center gap-2 mb-4">
         <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 2C10.9 2 10 2.9 10 4C10 5.1 10.5 6 11.3 6.6C10.5 7 10 7.9 10 9C10 10.7 11.3 12 13 12C14.7 12 16 10.7 16 9C16 7.9 15.5 7 14.7 6.6C15.5 6 16 5.1 16 4C16 2.9 15.1 2 14 2H12ZM5 12C3.3 12 2 13.3 2 15V16C2 18.2 5.1 20 9 20C10.2 20 11.3 19.8 12.2 19.5C11.5 18.8 11 17.9 11 17C11 15.3 12.3 14 14 14H19C19 13.3 18.7 12.7 18.2 12.3C17 12.1 15.5 12 14 12H10C8.5 12 7 12.1 5.8 12.3C5.5 12.1 5.3 12 5 12ZM14 15C13.4 15 13 15.4 13 16V18C13 18.6 13.4 19 14 19H21C21.6 19 22 18.6 22 18V16C22 15.4 21.6 15 21 15H14Z"/>
@@ -377,107 +186,99 @@
         <span class="text-white font-semibold text-sm tracking-wide">AI Powered Search</span>
       </div>
       <form id="gemini-search-form" class="relative">
-        <input
-          type="text"
-          id="search-input"
+        <input type="text" id="search-input"
           placeholder="{{ search_placeholder }}"
-          class="w-full pl-6 pr-24 py-4 rounded-full border-2 border-white/50 bg-white/90 backdrop-blur-sm shadow-2xl
-                 focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 outline-none
-                 text-base text-[#0a0a0a] placeholder-gray-600 font-medium transition-all duration-200"
-        >
-        <button
-          type="button"
-          id="clear-btn"
+          class="w-full pl-6 pr-24 py-4 rounded-full border-2 border-white/50 bg-white/90 backdrop-blur-sm shadow-2xl focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 outline-none text-base text-[#0a0a0a] placeholder-gray-600 font-medium transition-all duration-200">
+        <button type="button" id="clear-btn"
           class="absolute right-16 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 opacity-0 pointer-events-none transition-all duration-200"
-          title="Clear search"
-        >
-          <i class="fas fa-times text-lg"></i>
-        </button>
+          title="Clear search"><i class="fas fa-times text-lg"></i></button>
         <button type="submit" class="absolute right-5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors">
-          <i class="fas fa-search text-lg"></i>
-        </button>
+          <i class="fas fa-search text-lg"></i></button>
       </form>
     </div>
 
-    <!-- AI Results Display (Below Search Bar - Overlays Hero) -->
+    <!-- AI Results Display -->
     <div id="resultsContainer" class="w-full max-w-2xl mx-auto mt-6 hidden animate-[slideUp_0.6s_ease-out]">
-        <div id="loadingState" class="hidden">
-            <div class="relative bg-white/95 backdrop-blur-xl rounded-3xl p-10 shadow-[0_8px_32px_rgba(0,0,0,0.18)] border border-white/40">
-                <div class="flex items-center gap-3 mb-6">
-                    <svg class="sparkle-icon w-6 h-6 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/>
-                    </svg>
-                    <h3 class="text-lg font-semibold text-gray-800">Analyzing your query...</h3>
-                </div>
-                <div class="space-y-3">
-                    <div class="skeleton-bar"></div>
-                    <div class="skeleton-bar"></div>
-                    <div class="skeleton-bar" style="width: 85%;"></div>
-                </div>
+      <div id="loadingState" class="hidden">
+        <div class="relative bg-white/95 backdrop-blur-xl rounded-3xl p-10 shadow-[0_8px_32px_rgba(0,0,0,0.18)] border border-white/40">
+          <div class="flex items-center gap-3 mb-6">
+            <svg class="sparkle-icon w-6 h-6 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/>
+            </svg>
+            <h3 class="text-lg font-semibold text-gray-800">Analyzing your query...</h3>
+          </div>
+          <div class="space-y-3">
+            <div class="skeleton-bar"></div>
+            <div class="skeleton-bar"></div>
+            <div class="skeleton-bar" style="width: 85%;"></div>
+          </div>
+        </div>
+      </div>
+      <div id="errorState" class="text-center hidden">
+        <p id="errorMessage" class="text-red-400 text-xl font-semibold"></p>
+      </div>
+      <div id="resultsDisplay" class="space-y-8 hidden">
+        <div class="relative bg-white/95 backdrop-blur-xl rounded-3xl p-10 shadow-[0_8px_32px_rgba(0,0,0,0.18)] border border-white/40 transition-all duration-300 hover:shadow-[0_12px_38px_rgba(0,0,0,0.22)]" style="overflow: visible;">
+          <div class="absolute -top-5 left-8 bg-[#f7c948] px-5 py-2 rounded-full shadow-lg flex items-center gap-2">
+            <svg class="w-7 h-7 text-black" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C10.9 2 10 2.9 10 4C10 5.1 10.5 6 11.3 6.6C10.5 7 10 7.9 10 9C10 10.7 11.3 12 13 12C14.7 12 16 10.7 16 9C16 7.9 15.5 7 14.7 6.6C15.5 6 16 5.1 16 4C16 2.9 15.1 2 14 2H12ZM5 12C3.3 12 2 13.3 2 15V16C2 18.2 5.1 20 9 20C10.2 20 11.3 19.8 12.2 19.5C11.5 18.8 11 17.9 11 17C11 15.3 12.3 14 14 14H19C19 13.3 18.7 12.7 18.2 12.3C17 12.1 15.5 12 14 12H10C8.5 12 7 12.1 5.8 12.3C5.5 12.1 5.3 12 5 12ZM14 15C13.4 15 13 15.4 13 16V18C13 18.6 13.4 19 14 19H21C21.6 19 22 18.6 22 18V16C22 15.4 21.6 15 21 15H14Z"/>
+            </svg>
+            <span class="text-black font-semibold tracking-wide text-sm">AI says</span>
+          </div>
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-10 mt-6">
+            <div class="lg:col-span-2">
+              <p id="geminiSays" class="text-left text-gray-800 leading-relaxed text-[1.05rem] mb-6"></p>
+              <img id="resultImage" class="w-full rounded-xl mt-4 max-h-72 object-cover shadow-lg hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-xl" alt="Result">
             </div>
-        </div>
-        <div id="errorState" class="text-center hidden">
-            <p id="errorMessage" class="text-red-400 text-xl font-semibold"></p>
-        </div>
-        <div id="resultsDisplay" class="space-y-8 hidden">
-            <div class="relative bg-white/95 backdrop-blur-xl rounded-3xl p-10 shadow-[0_8px_32px_rgba(0,0,0,0.18)] border border-white/40 transition-all duration-300 hover:shadow-[0_12px_38px_rgba(0,0,0,0.22)]" style="overflow: visible;">
-                <div class="absolute -top-5 left-8 bg-[#f7c948] px-5 py-2 rounded-full shadow-lg flex items-center gap-2">
-                    <svg class="w-7 h-7 text-black" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2C10.9 2 10 2.9 10 4C10 5.1 10.5 6 11.3 6.6C10.5 7 10 7.9 10 9C10 10.7 11.3 12 13 12C14.7 12 16 10.7 16 9C16 7.9 15.5 7 14.7 6.6C15.5 6 16 5.1 16 4C16 2.9 15.1 2 14 2H12ZM5 12C3.3 12 2 13.3 2 15V16C2 18.2 5.1 20 9 20C10.2 20 11.3 19.8 12.2 19.5C11.5 18.8 11 17.9 11 17C11 15.3 12.3 14 14 14H19C19 13.3 18.7 12.7 18.2 12.3C17 12.1 15.5 12 14 12H10C8.5 12 7 12.1 5.8 12.3C5.5 12.1 5.3 12 5 12ZM14 15C13.4 15 13 15.4 13 16V18C13 18.6 13.4 19 14 19H21C21.6 19 22 18.6 22 18V16C22 15.4 21.6 15 21 15H14Z"/>
-                    </svg>
-                    <span class="text-black font-semibold tracking-wide text-sm">AI says</span>
-                </div>
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-10 mt-6">
-                    <div class="lg:col-span-2">
-                        <p id="geminiSays" class="text-left text-gray-800 leading-relaxed text-[1.05rem] mb-6"></p>
-                        <img id="resultImage" class="w-full rounded-xl mt-4 max-h-72 object-cover shadow-lg hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-xl" alt="Result">
-                    </div>
-                    <div class="bg-[#f2f6ff] rounded-2xl p-6 shadow-inner border border-[#dbe6ff]">
-                        <h4 class="font-bold text-[#1c2f64] mb-4 text-left text-lg">Key Points</h4>
-                        <ul id="keyPointsList" class="space-y-3 text-gray-700 text-[0.95rem] leading-relaxed list-disc pl-5 text-left"></ul>
-                    </div>
-                </div>
-                <div id="suggestionsSection" class="hidden mt-10 pt-8 border-t border-gray-200 relative z-10" style="overflow: visible;">
-                    <h4 class="text-gray-900 font-bold mb-6 text-xl">Related Topics</h4>
-                    <div id="suggestionsList" class="grid grid-cols-1 md:grid-cols-2 gap-5" style="overflow: visible;"></div>
-                </div>
-                <div id="navigationSection" class="hidden mt-12 pt-8 border-t border-gray-200" style="overflow: visible;">
-                    <h4 class="text-gray-900 font-bold mb-6 text-xl">Quick Actions</h4>
-                    <div id="navigationList" class="flex flex-wrap gap-4"></div>
-                </div>
-                <!-- Related Images Section -->
-                <div id="relatedImagesSection" class="hidden mt-10 pt-8 border-t border-gray-200 relative z-10" style="overflow: visible;">
-                    <h4 class="text-gray-900 font-bold mb-6 text-xl flex items-center gap-2">
-                        <span class="inline-block w-2 h-2 bg-[#FACC15] rounded-full"></span>
-                        Related Images
-                    </h4>
-                    <div id="relatedImagesList" class="grid grid-cols-1 md:grid-cols-2 gap-4" style="overflow: visible;"></div>
-                </div>
-                <!-- Related Links Section -->
-                <div id="relatedLinksSection" class="hidden mt-10 pt-8 border-t border-gray-200 relative z-10" style="overflow: visible;">
-                    <h4 class="text-gray-900 font-bold mb-6 text-xl flex items-center gap-2">
-                        <span class="inline-block w-2 h-2 bg-[#1c2790] rounded-full"></span>
-                        Related Links
-                    </h4>
-                    <div id="relatedLinksList" class="space-y-3" style="overflow: visible;"></div>
-                </div>
+            <div class="bg-[#f2f6ff] rounded-2xl p-6 shadow-inner border border-[#dbe6ff]">
+              <h4 class="font-bold text-[#1c2f64] mb-4 text-left text-lg">Key Points</h4>
+              <ul id="keyPointsList" class="space-y-3 text-gray-700 text-[0.95rem] leading-relaxed list-disc pl-5 text-left"></ul>
             </div>
+          </div>
+          <div id="suggestionsSection" class="hidden mt-10 pt-8 border-t border-gray-200 relative z-10" style="overflow: visible;">
+            <h4 class="text-gray-900 font-bold mb-6 text-xl">Related Topics</h4>
+            <div id="suggestionsList" class="grid grid-cols-1 md:grid-cols-2 gap-5" style="overflow: visible;"></div>
+          </div>
+          <div id="navigationSection" class="hidden mt-12 pt-8 border-t border-gray-200" style="overflow: visible;">
+            <h4 class="text-gray-900 font-bold mb-6 text-xl">Quick Actions</h4>
+            <div id="navigationList" class="flex flex-wrap gap-4"></div>
+          </div>
+          <div id="relatedImagesSection" class="hidden mt-10 pt-8 border-t border-gray-200 relative z-10" style="overflow: visible;">
+            <h4 class="text-gray-900 font-bold mb-6 text-xl flex items-center gap-2">
+              <span class="inline-block w-2 h-2 bg-[#FACC15] rounded-full"></span>Related Images
+            </h4>
+            <div id="relatedImagesList" class="grid grid-cols-1 md:grid-cols-2 gap-4" style="overflow: visible;"></div>
+          </div>
+          <div id="relatedLinksSection" class="hidden mt-10 pt-8 border-t border-gray-200 relative z-10" style="overflow: visible;">
+            <h4 class="text-gray-900 font-bold mb-6 text-xl flex items-center gap-2">
+              <span class="inline-block w-2 h-2 bg-[#1c2790] rounded-full"></span>Related Links
+            </h4>
+            <div id="relatedLinksList" class="space-y-3" style="overflow: visible;"></div>
+          </div>
         </div>
+      </div>
     </div>
   </div>
 
-<!-- Hero Text (Bottom Right) -->
-<div class="absolute bottom-12 md:bottom-16 lg:bottom-20 right-6 md:right-12 lg:right-20 z-40 max-w-6xl">
-  <h1 class="text-right text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight drop-shadow-2xl">
-  LEADING THE MOVEMENT IN<br>
-  ADVANCING INNOVATION AND<br>
-  PRODUCTIVITY IN THE
-  <span class="whitespace-nowrap text-[#FACC15]">PUBLIC SECTOR</span>
-</h1>
-</div>
+  <!--
+    HERO TITLE
+    - Reads from the database via {{ hero_title | safe }}
+    - | safe is required so <br>, <span class="...">, etc. render as HTML
+    - The CSS rule `.hero-title span { white-space: nowrap; }` ensures any
+      <span> in the DB value (e.g. PUBLIC SECTOR) stays on one line.
+    - Example DB value:
+        LEADING THE MOVEMENT IN <br>ADVANCING INNOVATION AND
+        <br>PRODUCTIVITY IN THE <span class="text-[#cdae2c]">PUBLIC SECTOR</span>
+  -->
+  <div class="absolute bottom-12 md:bottom-16 lg:bottom-20 right-6 md:right-12 lg:right-20 z-40 max-w-6xl" style="pointer-events: auto;">
+    <h1 class="hero-title text-right text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight drop-shadow-2xl">
+      {{ hero_title | safe }}
+    </h1>
+  </div>
 
 </section>
 
+<!-- STACKED CARDS -->
 <section id="stacked-cards" class="relative w-full py-20 bg-[#f5f5f5]">
     <div class="stack-container">
         {% for card in cards %}
@@ -487,21 +288,28 @@
                     <div class="flex flex-col w-full">
                         <h3>{{ card.title }}</h3>
                         {% if card.buttons %}
-                            {% set buttons_list = card.buttons|fromjson %}
-                            {% set button_links = card.button_links|default('{}', true)|fromjson %}
+                            {% set buttons_list = card.buttons | fromjson %}
+                            {% set button_links = card.button_links | default('{}', true) | fromjson %}
                         {% else %}
                             {% set buttons_list = [] %}
                             {% set button_links = {} %}
                         {% endif %}
                         {% set background_image = card.background_image or '' %}
                         {% for button in buttons_list %}
-                            {% if button_links.get(loop.index0|string) %}
-                                <a href="{{ button_links[loop.index0|string] }}" target="_blank" class="bg-transparent w-full max-w-[650px] mt-5 border-[1px] text-slate-800 py-2 px-4 rounded-xl hover:bg-[#f5f5f5] transition block text-center">{{ button }}</a>
+                            {% if button_links.get(loop.index0 | string) %}
+                                <a href="{{ button_links[loop.index0 | string] }}" target="_blank"
+                                   class="bg-transparent w-full max-w-[650px] mt-5 border-[1px] text-slate-800 py-2 px-4 rounded-xl hover:bg-[#f5f5f5] transition block text-center">
+                                    {{ button }}
+                                </a>
                             {% else %}
-                                <a href="/card-content/{{ card.id }}/{{ loop.index0 }}" class="bg-transparent w-full max-w-[650px] mt-5 border-[1px] text-slate-800 py-2 px-4 rounded-xl hover:bg-[#f5f5f5] transition block text-center">{{ button }}</a>
+                                <a href="/card-content/{{ card.id }}/{{ loop.index0 }}"
+                                   class="bg-transparent w-full max-w-[650px] mt-5 border-[1px] text-slate-800 py-2 px-4 rounded-xl hover:bg-[#f5f5f5] transition block text-center">
+                                    {{ button }}
+                                </a>
                                 {% if background_image %}
                                     <div class="mt-3 w-full max-w-[650px]">
-                                        <img src="{{ url_for('static', filename='images/' + background_image) }}" alt="Card background" class="w-full rounded-lg shadow-md hover:shadow-lg transition-shadow" loading="lazy">
+                                        <img src="{{ url_for('static', filename='images/' + background_image) }}" alt="Card background"
+                                             class="w-full rounded-lg shadow-md hover:shadow-lg transition-shadow" loading="lazy">
                                     </div>
                                 {% endif %}
                             {% endif %}
@@ -513,7 +321,7 @@
     </div>
 </section>
 
-<!-- Custom Pages Section -->
+<!-- CUSTOM PAGES -->
 {% if published_pages %}
 <section class="relative w-full py-20 bg-white">
     <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
@@ -521,7 +329,6 @@
             <h2 class="text-4xl md:text-5xl font-bold text-[#1c2790] mb-4">Explore Our Pages</h2>
             <p class="text-lg text-gray-600">Discover more content and resources</p>
         </div>
-        
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {% for page in published_pages %}
                 <a href="/page/{{ page.slug }}" class="group bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-[#1c2790]">
@@ -544,8 +351,10 @@
 </section>
 {% endif %}
 
+<!-- FOOTER -->
 <footer class="bg-gradient-to-r from-slate-800 to-slate-900 text-white text-sm">
     <div class="py-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto px-4">
+
         <div class="footer-section">
             <img src="{{ url_for('static', filename=logo_image) }}" alt="Logo" class="h-10 mb-3 brightness-0 invert hover:scale-105 transition-transform duration-300">
             <div class="font-bold text-base mb-2">{{ company_name }}</div>
@@ -562,7 +371,8 @@
             <h4 class="font-bold mb-4 text-slate-200 text-sm bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">About DAP</h4>
             <ul class="space-y-2">
                 {% for link_name in ['About DAP', 'News', 'Career Opportunities', 'Projects', 'Bids and Awards', 'Library', 'Contact DAP'] %}
-                    <li><a href="#" class="text-slate-300 hover:text-yellow-400 transition-all duration-300 hover:translate-x-1 inline-block py-1 hover:underline text-xs"><i class="fas fa-chevron-right text-xs mr-2 opacity-50"></i>{{ link_name }}</a></li>
+                    <li><a href="#" class="text-slate-300 hover:text-yellow-400 transition-all duration-300 hover:translate-x-1 inline-block py-1 hover:underline text-xs">
+                        <i class="fas fa-chevron-right text-xs mr-2 opacity-50"></i>{{ link_name }}</a></li>
                 {% endfor %}
             </ul>
         </div>
@@ -571,7 +381,8 @@
             <h4 class="font-bold mb-4 text-slate-200 text-sm bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">COE-PSP</h4>
             <ul class="space-y-2">
                 {% for link_name in ['News & Features', 'Webisodes', 'Trainings', 'Learning Resources', 'Research Studies', 'Innovation Lab'] %}
-                    <li><a href="#" class="text-slate-300 hover:text-yellow-400 transition-all duration-300 hover:translate-x-1 inline-block py-1 hover:underline text-xs"><i class="fas fa-chevron-right text-xs mr-2 opacity-50"></i>{{ link_name }}</a></li>
+                    <li><a href="#" class="text-slate-300 hover:text-yellow-400 transition-all duration-300 hover:translate-x-1 inline-block py-1 hover:underline text-xs">
+                        <i class="fas fa-chevron-right text-xs mr-2 opacity-50"></i>{{ link_name }}</a></li>
                 {% endfor %}
             </ul>
         </div>
@@ -581,74 +392,56 @@
             <p class="text-xs text-slate-300 leading-relaxed mb-3">The Philippines is a member of the Asian Productivity Organization. The Development Academy of the Philippines serves as the country's National Productivity Organization (NPO).</p>
             <p class="text-xs text-slate-300 mb-3">Visit <a href="https://www.apo-tokyo.org" class="text-blue-400 hover:text-blue-300 transition-colors duration-300 hover:underline">www.apo-tokyo.org</a> to learn more.</p>
         </div>
+
     </div>
     <div class="text-center py-4 px-4 bg-slate-900 text-slate-400 text-xs border-t border-slate-700">
         <p class="flex items-center justify-center gap-2">
             <i class="fas fa-copyright"></i>
-            {{ "{:d}".format(now.year if now else current_year) }} {{ company_name }}. All rights reserved.
+            {{ current_year }} {{ company_name }}. All rights reserved.
         </p>
     </div>
 </footer>
 
 <script>
-    // AI badge SVG used in dynamically generated results HTML
     const AI_BADGE_SVG = '<svg class="w-7 h-7 text-black" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C10.9 2 10 2.9 10 4C10 5.1 10.5 6 11.3 6.6C10.5 7 10 7.9 10 9C10 10.7 11.3 12 13 12C14.7 12 16 10.7 16 9C16 7.9 15.5 7 14.7 6.6C15.5 6 16 5.1 16 4C16 2.9 15.1 2 14 2H12ZM5 12C3.3 12 2 13.3 2 15V16C2 18.2 5.1 20 9 20C10.2 20 11.3 19.8 12.2 19.5C11.5 18.8 11 17.9 11 17C11 15.3 12.3 14 14 14H19C19 13.3 18.7 12.7 18.2 12.3C17 12.1 15.5 12 14 12H10C8.5 12 7 12.1 5.8 12.3C5.5 12.1 5.3 12 5 12ZM14 15C13.4 15 13 15.4 13 16V18C13 18.6 13.4 19 14 19H21C21.6 19 22 18.6 22 18V16C22 15.4 21.6 15 21 15H14Z"/></svg>';
 
     function buildResultsHTML(data) {
         let html = '<div class="relative bg-white/95 backdrop-blur-xl rounded-3xl p-10 shadow-[0_8px_32px_rgba(0,0,0,0.18)] border border-white/40 transition-all duration-300 hover:shadow-[0_12px_38px_rgba(0,0,0,0.22)]" style="overflow: visible;">'
             + '<div class="absolute -top-5 left-8 bg-[#f7c948] px-5 py-2 rounded-full shadow-lg flex items-center gap-2">'
-            + AI_BADGE_SVG
-            + '<span class="text-black font-semibold tracking-wide text-sm">AI says</span>'
-            + '</div>'
-            + '<div class="grid grid-cols-1 lg:grid-cols-3 gap-10 mt-6">'
-            + '<div class="lg:col-span-2">'
+            + AI_BADGE_SVG + '<span class="text-black font-semibold tracking-wide text-sm">AI says</span></div>'
+            + '<div class="grid grid-cols-1 lg:grid-cols-3 gap-10 mt-6"><div class="lg:col-span-2">'
             + '<p class="text-left text-gray-800 leading-relaxed text-[1.05rem] mb-6">' + (data.gemini_says || 'No response') + '</p>';
 
-        if (data.image) {
-            html += '<img src="' + data.image + '" class="w-full rounded-xl mt-4 max-h-72 object-cover shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl" alt="Result">';
-        }
+        if (data.image) html += '<img src="' + data.image + '" class="w-full rounded-xl mt-4 max-h-72 object-cover shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl" alt="Result">';
 
         html += '</div><div class="bg-[#f2f6ff] rounded-2xl p-6 shadow-inner border border-[#dbe6ff]">'
             + '<h4 class="font-bold text-[#1c2f64] mb-4 text-left text-lg">Key Points</h4>';
 
-        if (data.key_points && Array.isArray(data.key_points) && data.key_points.length > 0) {
+        if (data.key_points && data.key_points.length) {
             html += '<ul class="space-y-3 text-gray-700 text-[0.95rem] leading-relaxed list-disc pl-5 text-left">';
-            data.key_points.forEach(point => {
-                if (point) html += '<li>' + point + '</li>';
-            });
+            data.key_points.forEach(p => { if (p) html += '<li>' + p + '</li>'; });
             html += '</ul>';
         } else {
             html += '<div class="py-4 text-center"><p class="text-gray-500 italic">Retrieving key information...</p></div>';
         }
-
         html += '</div></div>';
 
         if (data.global_suggestions && data.global_suggestions.length) {
-            html += '<div class="mt-10 pt-8 border-t border-gray-200 relative z-10" style="overflow: visible;">'
-                + '<h4 class="text-gray-900 font-bold mb-6 text-xl">Related Topics</h4>'
-                + '<div class="grid grid-cols-1 md:grid-cols-2 gap-5" style="overflow: visible;">';
-            data.global_suggestions.forEach(suggestion => {
-                const escaped = suggestion.replace(/"/g, '&quot;');
-                html += '<button type="button" class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition text-sm suggestion-btn" data-suggestion="' + escaped + '">' + suggestion + '</button>';
+            html += '<div class="mt-10 pt-8 border-t border-gray-200 relative z-10" style="overflow: visible;"><h4 class="text-gray-900 font-bold mb-6 text-xl">Related Topics</h4><div class="grid grid-cols-1 md:grid-cols-2 gap-5" style="overflow: visible;">';
+            data.global_suggestions.forEach(s => {
+                html += '<button type="button" class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition text-sm suggestion-btn" data-suggestion="' + s.replace(/"/g,'&quot;') + '">' + s + '</button>';
             });
             html += '</div></div>';
         }
 
         if (data.quick_navigation && data.quick_navigation.length) {
-            html += '<div class="mt-12 pt-8 border-t border-gray-200" style="overflow: visible;">'
-                + '<h4 class="text-gray-900 font-bold mb-6 text-xl">Quick Actions</h4>'
-                + '<div class="flex flex-wrap gap-4">';
-            data.quick_navigation.forEach(nav => {
-                html += '<button type="button" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition text-sm">' + nav + '</button>';
-            });
+            html += '<div class="mt-12 pt-8 border-t border-gray-200" style="overflow: visible;"><h4 class="text-gray-900 font-bold mb-6 text-xl">Quick Actions</h4><div class="flex flex-wrap gap-4">';
+            data.quick_navigation.forEach(n => { html += '<button type="button" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition text-sm">' + n + '</button>'; });
             html += '</div></div>';
         }
 
         if (data.related_images && data.related_images.length) {
-            html += '<div class="mt-10 pt-8 border-t border-gray-200 relative z-10" style="overflow: visible;">'
-                + '<h4 class="text-gray-900 font-bold mb-6 text-xl flex items-center gap-2">'
-                + '<span class="inline-block w-2 h-2 bg-[#FACC15] rounded-full"></span>Related Images</h4>'
-                + '<div class="grid grid-cols-1 md:grid-cols-2 gap-4" style="overflow: visible;">';
+            html += '<div class="mt-10 pt-8 border-t border-gray-200 relative z-10" style="overflow: visible;"><h4 class="text-gray-900 font-bold mb-6 text-xl flex items-center gap-2"><span class="inline-block w-2 h-2 bg-[#FACC15] rounded-full"></span>Related Images</h4><div class="grid grid-cols-1 md:grid-cols-2 gap-4" style="overflow: visible;">';
             data.related_images.forEach(img => {
                 html += '<div class="related-image-card"><img src="' + img.url + '" alt="' + (img.alt_text || 'Related image') + '" class="w-full h-full object-cover rounded-lg"><div class="image-overlay">' + (img.alt_text || img.source || 'Related image') + '</div></div>';
             });
@@ -656,17 +449,9 @@
         }
 
         if (data.related_links && data.related_links.length) {
-            html += '<div class="mt-10 pt-8 border-t border-gray-200 relative z-10" style="overflow: visible;">'
-                + '<h4 class="text-gray-900 font-bold mb-6 text-xl flex items-center gap-2">'
-                + '<span class="inline-block w-2 h-2 bg-[#1c2790] rounded-full"></span>Related Links</h4>'
-                + '<div class="space-y-3" style="overflow: visible;">';
+            html += '<div class="mt-10 pt-8 border-t border-gray-200 relative z-10" style="overflow: visible;"><h4 class="text-gray-900 font-bold mb-6 text-xl flex items-center gap-2"><span class="inline-block w-2 h-2 bg-[#1c2790] rounded-full"></span>Related Links</h4><div class="space-y-3" style="overflow: visible;">';
             data.related_links.forEach(link => {
-                html += '<a href="' + link.url + '" target="_blank" class="related-link-item">'
-                    + '<div class="link-icon">??</div>'
-                    + '<div class="link-content"><div class="link-title">' + link.title + '</div>'
-                    + '<p class="link-context">' + (link.context || 'Related resource') + '</p></div>'
-                    + '<svg class="external-link-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4m-4-6l6 6m0 0l-6 6m6-6H3"></path></svg>'
-                    + '</a>';
+                html += '<a href="' + link.url + '" target="_blank" class="related-link-item"><div class="link-icon">🔗</div><div class="link-content"><div class="link-title">' + link.title + '</div><p class="link-context">' + (link.context || 'Related resource') + '</p></div><svg class="external-link-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4m-4-6l6 6m0 0l-6 6m6-6H3"></path></svg></a>';
             });
             html += '</div></div>';
         }
@@ -675,31 +460,18 @@
         return html;
     }
 
-    const LOADING_HTML = '<div class="relative bg-white/95 backdrop-blur-xl rounded-3xl p-10 shadow-[0_8px_32px_rgba(0,0,0,0.18)] border border-white/40">'
-        + '<div class="flex items-center gap-3 mb-6">'
-        + '<svg class="sparkle-icon w-6 h-6 text-blue-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/></svg>'
-        + '<h3 class="text-lg font-semibold text-gray-800">Analyzing your query...</h3>'
-        + '</div><div class="space-y-3">'
-        + '<div class="skeleton-bar"></div>'
-        + '<div class="skeleton-bar"></div>'
-        + '<div class="skeleton-bar" style="width: 85%;"></div>'
-        + '</div></div>';
+    const LOADING_HTML = '<div class="relative bg-white/95 backdrop-blur-xl rounded-3xl p-10 shadow-[0_8px_32px_rgba(0,0,0,0.18)] border border-white/40"><div class="flex items-center gap-3 mb-6"><svg class="sparkle-icon w-6 h-6 text-blue-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/></svg><h3 class="text-lg font-semibold text-gray-800">Analyzing your query...</h3></div><div class="space-y-3"><div class="skeleton-bar"></div><div class="skeleton-bar"></div><div class="skeleton-bar" style="width: 85%;"></div></div></div>';
 
-    const ERROR_HTML = (msg) => '<div class="relative bg-white/95 backdrop-blur-xl rounded-3xl p-10 shadow-[0_8px_32px_rgba(0,0,0,0.18)] border border-white/40">'
-        + '<div class="flex items-center gap-3 text-red-600">'
-        + '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
-        + '<p class="text-lg font-semibold">' + msg + '</p></div></div>';
+    const ERROR_HTML = (msg) => '<div class="relative bg-white/95 backdrop-blur-xl rounded-3xl p-10 shadow-[0_8px_32px_rgba(0,0,0,0.18)] border border-white/40"><div class="flex items-center gap-3 text-red-600"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><p class="text-lg font-semibold">' + msg + '</p></div></div>';
 
     document.getElementById('gemini-search-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const query = document.getElementById('search-input').value.trim();
         if (!query) return;
-
         openOverlay();
         overlaySearchInput.value = query;
         document.getElementById('overlayResultsContainer').innerHTML = LOADING_HTML;
         document.getElementById('resultsContainer').classList.add('hidden');
-
         try {
             const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
             if (!response.ok) throw new Error(`API responded with status: ${response.status}`);
@@ -720,13 +492,12 @@
     });
 
     const searchInput = document.getElementById('search-input');
-    const clearBtn = document.getElementById('clear-btn');
+    const clearBtn    = document.getElementById('clear-btn');
 
     searchInput.addEventListener('input', () => {
         clearBtn.style.opacity = searchInput.value.trim() ? '1' : '0';
         clearBtn.style.pointerEvents = searchInput.value.trim() ? 'auto' : 'none';
     });
-
     clearBtn.addEventListener('click', () => {
         searchInput.value = '';
         clearBtn.style.opacity = '0';
@@ -742,9 +513,9 @@
         });
     });
 
-    const overlayBackdrop = document.getElementById('overlayBackdrop');
-    const searchOverlay   = document.getElementById('searchOverlay');
-    const overlayCloseBtn = document.getElementById('overlayCloseBtn');
+    const overlayBackdrop    = document.getElementById('overlayBackdrop');
+    const searchOverlay      = document.getElementById('searchOverlay');
+    const overlayCloseBtn    = document.getElementById('overlayCloseBtn');
     const overlaySearchForm  = document.getElementById('overlay-search-form');
     const overlaySearchInput = document.getElementById('overlay-search-input');
     const overlayClearBtn    = document.getElementById('overlay-clear-btn');
@@ -755,25 +526,19 @@
         document.body.style.overflow = 'hidden';
         overlaySearchInput.focus();
     }
-
     function closeOverlay() {
         overlayBackdrop.classList.remove('active');
         searchOverlay.classList.remove('active');
         document.body.style.overflow = 'auto';
         overlaySearchInput.value = '';
         document.getElementById('overlayResultsContainer').innerHTML = '';
-        if (overlayClearBtn) {
-            overlayClearBtn.style.opacity = '0';
-            overlayClearBtn.style.pointerEvents = 'none';
-        }
+        if (overlayClearBtn) { overlayClearBtn.style.opacity = '0'; overlayClearBtn.style.pointerEvents = 'none'; }
     }
-
     function attachSuggestionListeners(container) {
         container.querySelectorAll('.suggestion-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
-                const newQuery = btn.getAttribute('data-suggestion');
-                overlaySearchInput.value = newQuery;
+                overlaySearchInput.value = btn.getAttribute('data-suggestion');
                 overlaySearchForm.dispatchEvent(new Event('submit'));
             });
         });
@@ -784,7 +549,6 @@
             overlayClearBtn.style.opacity = overlaySearchInput.value.trim() ? '1' : '0';
             overlayClearBtn.style.pointerEvents = overlaySearchInput.value.trim() ? 'auto' : 'none';
         });
-
         overlayClearBtn.addEventListener('click', (e) => {
             e.preventDefault();
             overlaySearchInput.value = '';
@@ -803,11 +567,9 @@
         e.preventDefault();
         const query = overlaySearchInput.value.trim();
         if (!query) return;
-
         searchInput.value = query;
         const overlayResultsContainer = document.getElementById('overlayResultsContainer');
         overlayResultsContainer.innerHTML = LOADING_HTML;
-
         try {
             const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
             if (!response.ok) throw new Error(`API responded with status: ${response.status}`);
@@ -821,18 +583,12 @@
 
     document.addEventListener('click', (e) => {
         if (e.target.classList.contains('suggestion-btn')) {
-            const suggestion = e.target.getAttribute('data-suggestion');
-            overlaySearchInput.value = suggestion;
+            overlaySearchInput.value = e.target.getAttribute('data-suggestion');
             overlaySearchForm.dispatchEvent(new Event('submit'));
         }
     });
 
-    document.querySelector('.overlay-search-container')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-    });
-
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && searchOverlay.classList.contains('active')) closeOverlay();
-    });
+    document.querySelector('.overlay-search-container')?.addEventListener('click', (e) => e.stopPropagation());
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && searchOverlay.classList.contains('active')) closeOverlay(); });
 </script>
 {% endblock %}
