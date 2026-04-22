@@ -415,15 +415,24 @@ textarea{resize:vertical;min-height:108px;}
               <div class="img-upload-body"><span class="img-upload-label" id="label-content-{{ section.content_key }}">{{ section.content_value if section.content_value else 'No image selected' }}</span><span class="img-upload-hint">Click to upload · PNG, JPG, WEBP</span></div>
               <div class="img-upload-action"><i class="fas fa-upload"></i> Upload</div>
             </div>
-            <input type="hidden" class="content-textarea img-upload-hidden" data-key="{{ section.content_key }}" value="{{ section.content_value }}">
+            {# Hidden input carries the current image path for save — NOT matched by saveContent #}
+            <input type="hidden" class="content-image-value img-upload-hidden" data-key="{{ section.content_key }}" value="{{ section.content_value }}">
           </div>
         {% else %}
           <div class="field" style="margin-bottom:0;">
-            <textarea class="content-textarea" data-key="{{ section.content_key }}" placeholder="Enter content…" rows="3" oninput="updateCharCount(this)">{{ section.content_value }}</textarea>
+            {#
+              ✅ FIX: Use | safe so HTML tags (e.g. <br>, <span>) are preserved
+              inside the textarea rather than being escaped to &lt;br&gt; etc.
+              This ensures what you see is what gets saved.
+            #}
+            <textarea class="content-textarea" data-key="{{ section.content_key }}" placeholder="Enter content…" rows="3" oninput="updateCharCount(this)">{{ section.content_value | safe }}</textarea>
             <div class="field-meta"><div class="field-hint"><i class="fas fa-info-circle"></i> HTML tags are supported</div><span class="char-count" id="cc-{{ section.content_key }}">{{ section.content_value|length }} chars</span></div>
           </div>
         {% endif %}
-        <div class="btn-row"><button class="btn btn-primary btn-sm" onclick="saveContent('{{ section.content_key }}')"><i class="fas fa-save"></i> Save</button><button class="btn btn-secondary btn-sm" onclick="copyToClipboard('{{ section.content_key }}')"><i class="fas fa-copy"></i> Copy</button></div>
+        <div class="btn-row">
+          <button class="btn btn-primary btn-sm" onclick="saveContent('{{ section.content_key }}')"><i class="fas fa-save"></i> Save</button>
+          <button class="btn btn-secondary btn-sm" onclick="copyToClipboard('{{ section.content_key }}')"><i class="fas fa-copy"></i> Copy</button>
+        </div>
       </div>
       {% endfor %}
     </div>
@@ -760,7 +769,8 @@ function handleContentImageUpload(input,key){
   const file=input.files[0];if(!file)return;
   const field=document.getElementById(`iuf-content-${key}`);field.classList.add('uploading');
   uploadImageFile(file,fn=>{
-    const hidden=document.querySelector(`.content-textarea[data-key="${key}"]`);
+    /* ✅ FIX: target the dedicated image-value hidden input, not the textarea selector */
+    const hidden=document.querySelector(`.content-image-value[data-key="${key}"]`);
     if(hidden)hidden.value=fn;
     const imgPath=fn.startsWith('images/')?fn:`images/${fn}`;
     setUploadFieldState(field,fn,`<img src="/static/${imgPath}" alt="preview" onerror="this.style.display='none'">`);
@@ -933,45 +943,63 @@ function deleteNavLink(navId){
     }).catch(e=>showToast(e.message,'error'));
 }
 
-/* ═════════════════════ SAVE FUNCTIONS ═════════════════════ */
-
-/* ── saveContent: FIXED ──────────────────────────────────────────
-   Root cause: document.querySelector('[data-key="..."]') could match
-   the HIDDEN <input> used by image upload fields instead of the
-   visible <textarea>, sending the JS value "undefined" to the DB.
-
-   Fix:
-   1. Prefer textarea.content-textarea, fall back to any element.
-   2. Guard: refuse to POST if value is literally "undefined" / "null".
-   3. Sanitise: strip those strings before saving just in case.
-─────────────────────────────────────────────────────────────── */
-function saveContent(key){
-  /* Prefer the visible textarea; hidden inputs share the same selector */
+/* ═══════════════════════════════════════════════════════════════════════
+   ✅ FIXED saveContent
+   ─────────────────────────────────────────────────────────────────────
+   Three bugs fixed:
+   1. Selector now uses :not(.img-upload-hidden) so it can NEVER
+      accidentally grab a hidden image <input> instead of the textarea.
+   2. Guards against saving JS "undefined" / "null" / "None" strings.
+   3. Backend also guards (in app.py update_content route).
+═══════════════════════════════════════════════════════════════════════ */
+function saveContent(key) {
+  /* ── Step 1: find the visible textarea only, never a hidden input ── */
   let el = document.querySelector(`textarea.content-textarea[data-key="${key}"]`);
-  if(!el) el = document.querySelector(`input.content-textarea[data-key="${key}"]`);
-  if(!el) el = document.querySelector(`[data-key="${key}"]`);
 
-  if(!el){showToast('Field not found for: '+key,'error');return;}
+  /* fallback: a non-hidden input with that key (shouldn't happen for text fields) */
+  if (!el) {
+    el = document.querySelector(`input.content-textarea:not(.img-upload-hidden)[data-key="${key}"]`);
+  }
 
-  /* Safely read value — guard against JS undefined */
-  let value = (el.value !== undefined && el.value !== null) ? String(el.value) : '';
+  /* For image fields the save button calls saveContent too,
+     so we read from the dedicated hidden image-value input */
+  if (!el) {
+    el = document.querySelector(`.content-image-value[data-key="${key}"]`);
+  }
 
-  /* Refuse to save poisoned values */
-  if(value === 'undefined' || value === 'null' || value === 'None'){
-    showToast('Invalid value — please enter real content before saving.','error');
+  if (!el) {
+    showToast('Field not found for: ' + key, 'error');
     return;
   }
 
-  const fd=new FormData();
-  fd.append('key',key);
-  fd.append('value',value);
+  /* ── Step 2: safely read value ── */
+  const raw   = el.value;
+  const value = (raw !== undefined && raw !== null) ? String(raw) : '';
 
-  fetch('/admin/api/update-content',{method:'POST',body:fd})
-    .then(r=>r.json())
-    .then(d=>showToast(d.success?'Content saved':'Error saving content',d.success?'success':'error'))
-    .catch(e=>showToast('Error: '+e.message,'error'));
+  /* ── Step 3: hard refuse poison values ── */
+  if (['undefined', 'null', 'None'].includes(value.trim())) {
+    showToast('Invalid value — please enter real content before saving.', 'error');
+    return;
+  }
+
+  /* ── Step 4: POST ── */
+  const fd = new FormData();
+  fd.append('key',   key);
+  fd.append('value', value);
+
+  fetch('/admin/api/update-content', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        showToast('Content saved', 'success');
+      } else {
+        showToast(d.error || 'Error saving content', 'error');
+      }
+    })
+    .catch(e => showToast('Error: ' + e.message, 'error'));
 }
 
+/* ═════════════════════ OTHER SAVE FUNCTIONS ═════════════════════ */
 function saveCardTitle(cardId){
   const fd=new FormData();fd.append('id',cardId);fd.append('title',document.querySelector(`.card-title[data-card-id="${cardId}"]`).value);
   fetch('/admin/api/update-card-title',{method:'POST',body:fd})
