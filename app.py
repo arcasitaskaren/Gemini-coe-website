@@ -490,7 +490,7 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
     )
 
     user_prompt = (
-        f"User query: {query}"
+        f"User query: {query}\n"
         f"{context_block}\n\n"
         "Respond with ONLY valid JSON:\n"
         '{\n'
