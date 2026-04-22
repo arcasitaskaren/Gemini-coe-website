@@ -4,6 +4,15 @@ from dotenv import load_dotenv
 # Load .env FIRST (use absolute path for production reliability)
 basedir = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(basedir, ".env"))
+# In your main Flask app (app.py)
+import subprocess
+import threading
+
+# Run upload_receiver in a background thread
+def start_upload_receiver():
+    subprocess.Popen(['python', 'upload_receiver.py'])
+
+threading.Thread(target=start_upload_receiver, daemon=True).start()
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, make_response
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
