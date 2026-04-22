@@ -9,16 +9,9 @@
     footer { margin-top: auto; }
 
     /* ── STACKED CARDS ── */
-    /*
-     * Height is set dynamically by JS based on actual card count.
-     * Each card gets 90vh of scroll room so it has time to stick
-     * before the next card scrolls in. A final 20vh buffer keeps
-     * the last card visible before the section ends.
-     * Fallback: 220vh (matches original 2-card layout).
-     */
     .stack-container {
         position: relative;
-        height: 220vh;          /* JS overrides this immediately on load */
+        height: 220vh;
         padding-bottom: 100px;
     }
     .stack-card {
@@ -31,32 +24,21 @@
         box-shadow: 0 28px 50px rgba(0,0,0,0.35);
         min-height: 420px;
         width: 85%;
-        /*
-         * All transition props in one declaration so nothing gets
-         * clobbered when the browser merges rules.
-         */
         transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
         will-change: transform;
     }
 
-    /* Active card — rises up and scales slightly */
     .stack-card.active {
         transform: translateY(-20px) scale(1.03);
         z-index: 50;
         box-shadow: 0 36px 64px rgba(0,0,0,0.40);
     }
 
-    /* Inactive cards — pushed down a touch */
     .stack-card:not(.active) {
         transform: translateY(10px);
         z-index: 10;
     }
 
-    /*
-     * Cards that have already scrolled past (above the viewport midpoint)
-     * get a gentle scale-down + slight upward nudge so they visually
-     * "recede" behind the incoming active card.
-     */
     .stack-card.past {
         transform: translateY(-8px) scale(0.97);
         opacity: 0.88;
@@ -83,15 +65,10 @@
 
     .sparkle-icon { display:inline-block; animation:sparkle 1.5s ease-in-out infinite; }
 
-    /* ── HERO SEARCH (inline, below search bar) ── */
+    /* ── HERO SEARCH ── */
     #resultsContainer { width:100%; max-width:900px; margin-top:24px; position:relative; z-index:1000!important; pointer-events:auto; }
 
-    /* ══════════════════════════════════════════════
-       OVERLAY — #0096FF Ocean Blue Theme
-       Brand: #0096FF blue  |  #FACC15 gold
-    ══════════════════════════════════════════════ */
-
-    /* Backdrop */
+    /* ══ OVERLAY ══ */
     #overlayBackdrop {
         position:fixed; inset:0;
         background:rgba(0,150,255,0.12);
@@ -111,7 +88,6 @@
         pointer-events:none;
     }
 
-    /* Overlay panel */
     #searchOverlay {
         position:fixed; inset:0; z-index:1001;
         display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
@@ -130,7 +106,6 @@
         display:flex; flex-direction:column; align-items:center;
     }
 
-    /* Close button */
     .overlay-close-btn {
         position:fixed; top:20px; right:24px;
         display:flex; align-items:center; gap:6px;
@@ -145,7 +120,6 @@
     .overlay-close-btn::before { content:'✕'; font-size:10px; margin-right:2px; }
     .overlay-close-btn:hover { background:#fff; border-color:#FACC15; color:#78350f; }
 
-    /* Status pill */
     .overlay-status-bar {
         display:inline-flex; align-items:center; gap:10px;
         background:rgba(255,255,255,.88);
@@ -163,11 +137,9 @@
     .overlay-status-sep  { width:1px; height:14px; background:rgba(0,150,255,.28); }
     .overlay-status-model { font-size:12px; color:#0096FF; }
 
-    /* Hidden legacy elements kept for JS compatibility */
     #searchOverlay .flex.items-center.justify-center.gap-2 { display:none!important; }
     #overlay-search-form { display:none!important; }
 
-    /* Results scroll area */
     #overlayResultsContainer {
         width:100%; overflow:visible;
         max-height:calc(100vh - 120px); overflow-y:auto;
@@ -177,7 +149,6 @@
     #overlayResultsContainer::-webkit-scrollbar-track { background:transparent; }
     #overlayResultsContainer::-webkit-scrollbar-thumb { background:rgba(0,150,255,.22); border-radius:4px; }
 
-    /* ── RESULT CARD shell ── */
     #overlayResultsContainer > div {
         background:rgba(255,255,255,.92);
         border:1px solid rgba(0,150,255,.22);
@@ -187,7 +158,6 @@
         animation:overlayIn .42s cubic-bezier(.22,1,.36,1) both;
     }
 
-    /* AI badge */
     #overlayResultsContainer .abs-badge {
         display:inline-flex; align-items:center; gap:8px;
         background:linear-gradient(135deg, #FACC15, #F59E0B);
@@ -196,7 +166,6 @@
     #overlayResultsContainer .abs-badge svg { width:15px; height:15px; }
     #overlayResultsContainer .abs-badge span { font-size:13px; font-weight:800; letter-spacing:.04em; color:#422006; }
 
-    /* Card header strip */
     #overlayResultsContainer .card-hd {
         padding:20px 26px 16px;
         display:flex; align-items:center; justify-content:space-between;
@@ -205,7 +174,6 @@
     }
     #overlayResultsContainer .card-hd-right { font-size:11px; color:#66bfff; }
 
-    /* Body two-col */
     #overlayResultsContainer .card-bd {
         padding:28px 26px; display:grid;
         grid-template-columns:1fr 240px; gap:24px;
@@ -215,7 +183,6 @@
         font-size:16px!important; line-height:1.85!important; color:#003a7a!important;
     }
 
-    /* Key points panel */
     #overlayResultsContainer .kp-panel {
         background:rgba(0,150,255,.06);
         border:1px solid rgba(0,150,255,.18);
@@ -244,10 +211,8 @@
         box-shadow:0 0 0 2px rgba(250,204,21,.22);
     }
 
-    /* Section divider */
     #overlayResultsContainer .row-div { height:1px; background:rgba(0,150,255,.10); margin:0 22px; }
 
-    /* Section block */
     #overlayResultsContainer .sec-block { padding:18px 26px; }
     #overlayResultsContainer .sec-label {
         font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
@@ -259,7 +224,6 @@
         background:#FACC15; flex-shrink:0;
     }
 
-    /* Suggestion buttons */
     #overlayResultsContainer .suggestion-btn,
     #overlayResultsContainer #suggestionsList button {
         padding:10px 14px!important;
@@ -278,7 +242,6 @@
         box-shadow:0 4px 12px rgba(250,204,21,.13)!important;
     }
 
-    /* Quick action pills */
     #overlayResultsContainer #navigationList button {
         padding:7px 16px!important;
         background:rgba(0,150,255,.06)!important;
@@ -292,7 +255,6 @@
         color:#003a7a!important; box-shadow:0 2px 8px rgba(0,150,255,.12)!important;
     }
 
-    /* Related links */
     #overlayResultsContainer .related-link-item {
         display:flex; align-items:center; gap:12px;
         padding:11px 14px!important;
@@ -318,7 +280,6 @@
     #overlayResultsContainer .external-link-icon { color:transparent!important; transition:color .18s ease; }
     #overlayResultsContainer .related-link-item:hover .external-link-icon { color:#78350f!important; }
 
-    /* Loading skeleton */
     #overlayResultsContainer .skeleton-bar {
         background:linear-gradient(90deg,rgba(0,150,255,.10) 25%,rgba(0,150,255,.20) 50%,rgba(0,150,255,.10) 75%)!important;
         background-size:200% 100%!important;
@@ -326,7 +287,6 @@
         border-radius:10px; height:44px;
     }
 
-    /* Related images */
     .related-image-card {
         position:relative; overflow:hidden; border-radius:14px;
         box-shadow:0 4px 16px rgba(0,150,255,.12); transition:all .3s ease;
@@ -341,7 +301,6 @@
         padding:12px; color:rgba(220,240,255,.95); font-size:.8rem; font-weight:500;
     }
 
-    /* Section slide-in */
     #suggestionsSection  { animation:slideUp .5s ease-out .15s backwards; overflow:visible!important; }
     #navigationSection   { animation:slideUp .5s ease-out .3s  backwards; overflow:visible!important; }
     #relatedImagesSection{ animation:slideUp .5s ease-out .45s backwards; }
@@ -349,16 +308,13 @@
     #resultsDisplay { overflow:visible!important; }
     #suggestionsList, #navigationList { overflow:visible!important; }
 
-    /* Heading overrides inside overlay */
     #overlayResultsContainer h3 { color:#003a7a!important; }
     #overlayResultsContainer h4 { color:#004a99!important; }
     #overlayResultsContainer .border-t { border-color:rgba(0,150,255,.12)!important; }
     #overlayResultsContainer .text-red-600 { color:#dc2626!important; }
 
-    /* ── HERO title ── */
     .hero-title span { white-space:nowrap; }
 
-    /* ── RESPONSIVE ── */
     @media (max-width:1024px) { .card-img{width:280px;height:280px;} .stack-card h3{font-size:2.2rem;} }
     @media (max-width:768px) {
         .card-content{flex-direction:column;align-items:center;text-align:center;}
@@ -383,21 +339,16 @@
 <div id="searchOverlay">
   <button class="overlay-close-btn" id="overlayCloseBtn" title="Close">ESC</button>
   <div class="overlay-search-container">
-
-    <!-- Status pill -->
     <div class="overlay-status-bar">
       <span class="overlay-live-dot"></span>
       <span class="overlay-status-text">AI Powered Search</span>
       <span class="overlay-status-sep"></span>
       <span class="overlay-status-model">Powered by Groq &amp; OpenAI</span>
     </div>
-
-    <!-- Hidden elements kept for JS compatibility -->
     <div class="flex items-center justify-center gap-2" style="display:none!important;"></div>
     <form id="overlay-search-form" class="relative mb-8" style="display:none!important;">
       <input type="text" id="overlay-search-input" placeholder="{{ search_placeholder or 'Search...' }}">
     </form>
-
     <div id="overlayResultsContainer" class="w-full"></div>
   </div>
 </div>
@@ -406,7 +357,7 @@
 <header class="fixed top-0 left-0 w-full z-50 bg-[#f5f5f5] shadow-sm">
     <div class="max-w-7xl mx-auto flex items-center justify-between px-6 py-3">
         <a href="/" class="flex items-center ml-[-40px]">
-            <img src="{{ url_for('static', filename=logo_image or 'images/logo.png') }}" class="h-10 w-auto object-contain mr-0" alt="Logo">
+            <img src="{{ url_for('static', filename=logo_image if logo_image and logo_image != 'undefined' and logo_image != 'None' else 'images/logo.png') }}" class="h-10 w-auto object-contain mr-0" alt="Logo">
         </a>
         <nav class="hidden lg:flex items-center space-x-6 text-sm font-semibold text-[#0a0a0a]">
             {% for link in nav_links %}
@@ -445,8 +396,10 @@
 </header>
 
 <!-- ══ HERO ══ -->
+{# ── FIX: Guard hero_image against None / "undefined" / "None" strings ── #}
+{% set safe_hero = hero_image if hero_image and hero_image not in ['undefined', 'None', ''] else 'images/hero.jpg' %}
 <section class="relative w-full bg-gradient-to-b from-gray-900 to-gray-800"
-  style="background-image:linear-gradient(rgba(0,0,0,0.35),rgba(0,0,0,0.35)),url('{{ url_for("static", filename=hero_image or "images/hero.jpg") }}');
+  style="background-image:linear-gradient(rgba(0,0,0,0.35),rgba(0,0,0,0.35)),url('{{ url_for("static", filename=safe_hero) }}');
          background-position:center;background-size:cover;background-repeat:no-repeat;
          background-attachment:fixed;height:100vh;min-height:100vh;z-index:10;pointer-events:none;">
 
@@ -461,7 +414,7 @@
       </div>
       <form id="gemini-search-form" class="relative">
         <input type="text" id="search-input"
-          placeholder="{{ search_placeholder or 'Search...' }}"
+          placeholder="{{ search_placeholder if search_placeholder and search_placeholder not in ['undefined','None'] else 'What do you want to know?' }}"
           class="w-full pl-6 pr-24 py-4 rounded-full border-2 border-white/50 bg-white/90 backdrop-blur-sm shadow-2xl focus:ring-2 focus:ring-[#0096FF] focus:border-[#0096FF] outline-none text-base text-[#0a0a0a] placeholder-gray-600 font-medium transition-all duration-200">
         <button type="button" id="clear-btn"
           class="absolute right-16 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 opacity-0 pointer-events-none transition-all duration-200"
@@ -471,7 +424,7 @@
       </form>
     </div>
 
-    <!-- Inline results (hidden — results go to overlay) -->
+    <!-- Inline results container (hidden — results go to overlay) -->
     <div id="resultsContainer" class="w-full max-w-2xl mx-auto mt-6 hidden animate-[slideUp_0.6s_ease-out]">
       <div id="loadingState" class="hidden">
         <div class="relative bg-white/95 backdrop-blur-xl rounded-3xl p-10 shadow-[0_8px_32px_rgba(0,0,0,0.18)] border border-white/40">
@@ -535,27 +488,32 @@
   </div>
 
   <!-- Hero title -->
+  {# ══ FIX: Strip "undefined" / "None" strings before rendering ══ #}
+  {% set safe_hero_title = hero_title if hero_title and hero_title not in ['undefined', 'None', ''] else '' %}
   <div class="absolute bottom-12 md:bottom-16 lg:bottom-20 right-6 md:right-12 lg:right-20 z-40 max-w-6xl" style="pointer-events:auto;">
     <h1 class="hero-title text-right text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight drop-shadow-2xl">
-      {{ (hero_title or '') | safe }}
+      {{ safe_hero_title | safe }}
     </h1>
   </div>
 </section>
 
 <!-- ══ STACKED CARDS ══ -->
-<!--
-  The stack-container height is intentionally left without an inline height here.
-  JS calculates the correct height from the actual card count so that every card —
-  including ones added later via the admin — gets the same scroll room.
--->
 <section id="stacked-cards" class="relative w-full py-20 bg-[#f5f5f5]">
     <div class="stack-container" id="stackContainer">
         {% for card in cards %}
             <div class="stack-card" style="z-index:{{ loop.index }};" data-card-index="{{ loop.index0 }}">
                 <div class="card-content">
-                    <img src="{{ url_for('static', filename='images/' + (card.image or '')) }}" class="card-img" alt="{{ card.title }}">
+                    {# ── FIX: Guard card image path against None / "undefined" strings ── #}
+                    {% set safe_card_img = card.image if card.image and card.image not in ['undefined', 'None', ''] else '' %}
+                    {% if safe_card_img %}
+                        <img src="{{ url_for('static', filename='images/' + safe_card_img) }}" class="card-img" alt="{{ card.title }}">
+                    {% else %}
+                        <div class="card-img" style="background:#e2e8f0;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:14px;">No image</div>
+                    {% endif %}
                     <div class="flex flex-col w-full">
-                        <h3>{{ card.title }}</h3>
+                        {# ── FIX: Guard card title ── #}
+                        {% set safe_card_title = card.title if card.title and card.title not in ['undefined', 'None', ''] else '' %}
+                        <h3>{{ safe_card_title }}</h3>
                         {% if card.buttons %}
                             {% set buttons_list = card.buttons | default('[]') | fromjson %}
                             {% set button_links = card.button_links | default('{}') | fromjson %}
@@ -563,23 +521,27 @@
                             {% set buttons_list = [] %}
                             {% set button_links = {} %}
                         {% endif %}
-                        {% set background_image = card.background_image or '' %}
+                        {% set background_image = card.background_image if card.background_image and card.background_image not in ['undefined', 'None', ''] else '' %}
                         {% for button in buttons_list %}
-                            {% if button_links.get(loop.index0 | string) %}
-                                <a href="{{ button_links[loop.index0 | string] }}" target="_blank"
-                                   class="bg-transparent w-full max-w-[650px] mt-5 border-[1px] text-slate-800 py-2 px-4 rounded-xl hover:bg-[#f5f5f5] transition block text-center">
-                                    {{ button }}
-                                </a>
-                            {% else %}
-                                <a href="/card-content/{{ card.id }}/{{ loop.index0 }}"
-                                   class="bg-transparent w-full max-w-[650px] mt-5 border-[1px] text-slate-800 py-2 px-4 rounded-xl hover:bg-[#f5f5f5] transition block text-center">
-                                    {{ button }}
-                                </a>
-                                {% if background_image %}
-                                    <div class="mt-3 w-full max-w-[650px]">
-                                        <img src="{{ url_for('static', filename='images/' + (background_image or '')) }}" alt="Card background"
-                                             class="w-full rounded-lg shadow-md hover:shadow-lg transition-shadow" loading="lazy">
-                                    </div>
+                            {# ── FIX: Guard button label ── #}
+                            {% set safe_btn = button if button and button not in ['undefined', 'None', ''] else '' %}
+                            {% if safe_btn %}
+                                {% if button_links.get(loop.index0 | string) %}
+                                    <a href="{{ button_links[loop.index0 | string] }}" target="_blank"
+                                       class="bg-transparent w-full max-w-[650px] mt-5 border-[1px] text-slate-800 py-2 px-4 rounded-xl hover:bg-[#f5f5f5] transition block text-center">
+                                        {{ safe_btn }}
+                                    </a>
+                                {% else %}
+                                    <a href="/card-content/{{ card.id }}/{{ loop.index0 }}"
+                                       class="bg-transparent w-full max-w-[650px] mt-5 border-[1px] text-slate-800 py-2 px-4 rounded-xl hover:bg-[#f5f5f5] transition block text-center">
+                                        {{ safe_btn }}
+                                    </a>
+                                    {% if background_image %}
+                                        <div class="mt-3 w-full max-w-[650px]">
+                                            <img src="{{ url_for('static', filename='images/' + background_image) }}" alt="Card background"
+                                                 class="w-full rounded-lg shadow-md hover:shadow-lg transition-shadow" loading="lazy">
+                                        </div>
+                                    {% endif %}
                                 {% endif %}
                             {% endif %}
                         {% endfor %}
@@ -600,7 +562,7 @@
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {% for page in published_pages %}
-                <a href="/page/{{ page.slug }}" class="group bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300" style="hover:border-color:#0096FF;">
+                <a href="/page/{{ page.slug }}" class="group bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300">
                     <div class="p-6 h-full flex flex-col">
                         <h3 class="text-xl font-bold mb-2 transition-colors" style="color:#0096FF;">{{ page.title }}</h3>
                         {% if page.description %}
@@ -621,17 +583,28 @@
 {% endif %}
 
 <!-- ══ FOOTER ══ -->
+{# ── FIX: Guard all footer content variables ── #}
+{% set safe_logo       = logo_image      if logo_image      and logo_image      not in ['undefined','None',''] else 'images/logo.png' %}
+{% set safe_apo        = apo_logo        if apo_logo        and apo_logo        not in ['undefined','None',''] else 'images/apo_logo.png' %}
+{% set safe_co_name    = company_name    if company_name    and company_name    not in ['undefined','None',''] else '' %}
+{% set safe_co_sub     = company_subtitle if company_subtitle and company_subtitle not in ['undefined','None',''] else '' %}
+{% set safe_co_addr    = company_address if company_address  and company_address  not in ['undefined','None',''] else '' %}
+{% set safe_co_phone   = company_phone   if company_phone   and company_phone   not in ['undefined','None',''] else '' %}
+{% set safe_co_fax     = company_fax     if company_fax     and company_fax     not in ['undefined','None',''] else '' %}
+{% set safe_co_email   = company_email   if company_email   and company_email   not in ['undefined','None',''] else '' %}
+{% set safe_year       = current_year    if current_year    and current_year    not in ['undefined','None',''] else '' %}
+
 <footer class="bg-gradient-to-r from-slate-800 to-slate-900 text-white text-sm">
     <div class="py-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto px-4">
         <div class="footer-section">
-            <img src="{{ url_for('static', filename=logo_image or 'images/logo.png') }}" alt="Logo" class="h-10 mb-3 brightness-0 invert hover:scale-105 transition-transform duration-300">
-            <div class="font-bold text-base mb-2">{{ company_name or '' }}</div>
-            <div class="text-xs text-slate-400 mb-3 bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent font-semibold">{{ company_subtitle or '' }}</div>
+            <img src="{{ url_for('static', filename=safe_logo) }}" alt="Logo" class="h-10 mb-3 brightness-0 invert hover:scale-105 transition-transform duration-300">
+            {% if safe_co_name %}<div class="font-bold text-base mb-2">{{ safe_co_name }}</div>{% endif %}
+            {% if safe_co_sub %}<div class="text-xs text-slate-400 mb-3 bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent font-semibold">{{ safe_co_sub }}</div>{% endif %}
             <address class="not-italic text-xs leading-relaxed text-slate-300">
-                {{ company_address or '' }}<br>
-                Tel: {{ company_phone or '' }}<br>
-                Fax: {{ company_fax or '' }}<br>
-                Email: <a href="mailto:{{ company_email or '' }}" class="text-blue-400 hover:text-blue-300 transition-colors duration-300 hover:underline">{{ company_email or '' }}</a>
+                {% if safe_co_addr %}{{ safe_co_addr }}<br>{% endif %}
+                {% if safe_co_phone %}Tel: {{ safe_co_phone }}<br>{% endif %}
+                {% if safe_co_fax %}Fax: {{ safe_co_fax }}<br>{% endif %}
+                {% if safe_co_email %}Email: <a href="mailto:{{ safe_co_email }}" class="text-blue-400 hover:text-blue-300 transition-colors duration-300 hover:underline">{{ safe_co_email }}</a>{% endif %}
             </address>
         </div>
         <div class="footer-section">
@@ -653,7 +626,7 @@
             </ul>
         </div>
         <div class="footer-section">
-            <img src="{{ url_for('static', filename=apo_logo or 'images/apo_logo.png') }}" alt="APO Logo" class="h-8 mb-3 brightness-0 invert hover:scale-105 transition-transform duration-300">
+            <img src="{{ url_for('static', filename=safe_apo) }}" alt="APO Logo" class="h-8 mb-3 brightness-0 invert hover:scale-105 transition-transform duration-300">
             <p class="text-xs text-slate-300 leading-relaxed mb-3">The Philippines is a member of the Asian Productivity Organization. The Development Academy of the Philippines serves as the country's National Productivity Organization (NPO).</p>
             <p class="text-xs text-slate-300 mb-3">Visit <a href="https://www.apo-tokyo.org" class="text-blue-400 hover:text-blue-300 transition-colors duration-300 hover:underline">www.apo-tokyo.org</a> to learn more.</p>
         </div>
@@ -661,7 +634,7 @@
     <div class="text-center py-4 px-4 bg-slate-900 text-slate-400 text-xs border-t border-slate-700">
         <p class="flex items-center justify-center gap-2">
             <i class="fas fa-copyright"></i>
-            {{ current_year or '' }} {{ company_name or '' }}. All rights reserved.
+            {% if safe_year %}{{ safe_year }} {% endif %}{% if safe_co_name %}{{ safe_co_name }}. {% endif %}All rights reserved.
         </p>
     </div>
 </footer>
@@ -669,46 +642,26 @@
 <script>
     /* ══════════════════════════════════════════════
        STACKED CARDS — SCROLL ANIMATION
-       Works for any number of cards added via admin.
-
-       How it works:
-       ─────────────
-       1. On load, we read the actual card count and set
-          stack-container height = (count × VH_PER_CARD) + BUFFER_VH.
-          This gives each card enough scroll room to become
-          "active" before the next one takes over.
-
-       2. The scroll handler classifies each card as:
-          • .past   — its center has already cleared the trigger line
-          • .active — it's the frontmost visible card (last past one, or
-                      first one if none have passed yet)
-          • (neither) — not yet reached
-
-       3. z-index from Jinja (loop.index) already ensures correct
-          stacking paint order. .active raises z-index to 50 via CSS.
     ══════════════════════════════════════════════ */
     (function () {
-        const TRIGGER_RATIO  = 0.5;   /* fraction of viewport height — card activates when its top reaches here */
-        const VH_PER_CARD    = 90;    /* vh of scroll room given to each card */
-        const BUFFER_VH      = 20;    /* extra vh at the end so the last card isn't cut off */
+        const TRIGGER_RATIO  = 0.5;
+        const VH_PER_CARD    = 90;
+        const BUFFER_VH      = 20;
 
         const container = document.getElementById('stackContainer');
         const cards     = Array.from(document.querySelectorAll('.stack-card'));
 
         if (!container || !cards.length) return;
 
-        /* ── 1. Set container height based on card count ── */
         function setContainerHeight() {
             const vh = window.innerHeight / 100;
             container.style.height = (cards.length * VH_PER_CARD * vh + BUFFER_VH * vh) + 'px';
         }
 
-        /* ── 2. Classify every card on each scroll tick ── */
         function updateCards() {
             const triggerY = window.innerHeight * TRIGGER_RATIO;
             let lastPastIndex = -1;
 
-            /* First pass: mark past cards */
             cards.forEach((card, i) => {
                 const rect = card.getBoundingClientRect();
                 const isPast = rect.top < triggerY;
@@ -717,20 +670,30 @@
                 if (isPast) lastPastIndex = i;
             });
 
-            /* Second pass: the "active" card is the last past one.
-               If none have scrolled past yet, activate the first card. */
             const activeIndex = lastPastIndex >= 0 ? lastPastIndex : 0;
             cards[activeIndex].classList.remove('past');
             cards[activeIndex].classList.add('active');
         }
 
-        /* ── 3. Wire up events ── */
         setContainerHeight();
-        updateCards();   /* run once on load so the first card is already active */
+        updateCards();
 
         window.addEventListener('scroll', updateCards, { passive: true });
         window.addEventListener('resize', () => { setContainerHeight(); updateCards(); }, { passive: true });
     })();
+
+
+    /* ══ SAFE VALUE HELPER ══
+       Converts JS undefined / "undefined" / "None" / null to a fallback.
+       Used below when building the search results UI.
+    ══════════════════════════════════════════════ */
+    function safeVal(v, fallback) {
+        fallback = fallback !== undefined ? fallback : '';
+        if (v === undefined || v === null) return fallback;
+        const s = String(v).trim();
+        if (s === '' || s === 'undefined' || s === 'null' || s === 'None') return fallback;
+        return s;
+    }
 
 
     /* ══ BUILD RESULTS HTML ══ */
@@ -741,29 +704,27 @@
 
         let html = '<div style="overflow:visible;">';
 
-        /* ── Card header ── */
         html += '<div class="card-hd">'
             + '<div class="abs-badge">' + AI_ICON + '<span>AI says</span></div>'
             + '<span class="card-hd-right">Based on your query</span>'
             + '</div>';
 
-        /* ── Body: answer + key points ── */
         html += '<div class="card-bd">';
 
-        /* Main answer */
-        html += '<div><p style="font-size:16px;line-height:1.85;color:#003a7a;">'
-            + (data.gemini_says || 'No response available.') + '</p>';
-        if (data.image) {
-            html += '<img src="' + data.image + '" style="width:100%;border-radius:12px;margin-top:16px;max-height:240px;object-fit:cover;border:1px solid rgba(0,150,255,.18);" alt="Result">';
+        const answerText = safeVal(data.gemini_says, 'No response available.');
+        html += '<div><p style="font-size:16px;line-height:1.85;color:#003a7a;">' + answerText + '</p>';
+        const imgSrc = safeVal(data.image);
+        if (imgSrc) {
+            html += '<img src="' + imgSrc + '" style="width:100%;border-radius:12px;margin-top:16px;max-height:240px;object-fit:cover;border:1px solid rgba(0,150,255,.18);" alt="Result">';
         }
         html += '</div>';
 
-        /* Key points */
         html += '<div class="kp-panel"><div class="kp-head">Key points</div>';
         if (data.key_points && data.key_points.length) {
             html += '<ul class="kp-list">';
             data.key_points.forEach(pt => {
-                if (pt) html += '<li><span class="kp-bullet"></span><span style="font-size:14px;color:#004a99;">' + pt + '</span></li>';
+                const safePt = safeVal(pt);
+                if (safePt) html += '<li><span class="kp-bullet"></span><span style="font-size:14px;color:#004a99;">' + safePt + '</span></li>';
             });
             html += '</ul>';
         } else {
@@ -771,52 +732,55 @@
         }
         html += '</div>';
 
-        html += '</div>'; /* end card-bd */
+        html += '</div>';
 
-        /* ── Related topics ── */
         if (data.global_suggestions && data.global_suggestions.length) {
             html += '<div class="row-div"></div><div class="sec-block">'
                 + '<div class="sec-label" style="font-size:12px;">Related topics</div>'
                 + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
             data.global_suggestions.forEach(s => {
-                html += '<button type="button" class="suggestion-btn" data-suggestion="' + s.replace(/"/g, '&quot;') + '">' + s + '</button>';
+                const safeS = safeVal(s);
+                if (safeS) html += '<button type="button" class="suggestion-btn" data-suggestion="' + safeS.replace(/"/g, '&quot;') + '">' + safeS + '</button>';
             });
             html += '</div></div>';
         }
 
-        /* ── Quick actions ── */
         if (data.quick_navigation && data.quick_navigation.length) {
             html += '<div class="row-div"></div><div class="sec-block">'
                 + '<div class="sec-label" style="font-size:12px;">Quick actions</div>'
                 + '<div id="navigationList" style="display:flex;flex-wrap:wrap;gap:8px;">';
             data.quick_navigation.forEach(n => {
-                html += '<button type="button" style="padding:8px 18px;background:rgba(0,150,255,.06);border:1px solid rgba(0,150,255,.18);border-radius:100px;font-size:14px;color:#0060cc;cursor:pointer;transition:all .18s;">' + n + '</button>';
+                const safeN = safeVal(n);
+                if (safeN) html += '<button type="button" style="padding:8px 18px;background:rgba(0,150,255,.06);border:1px solid rgba(0,150,255,.18);border-radius:100px;font-size:14px;color:#0060cc;cursor:pointer;transition:all .18s;">' + safeN + '</button>';
             });
             html += '</div></div>';
         }
 
-        /* ── Related images ── */
         if (data.related_images && data.related_images.length) {
             html += '<div class="row-div"></div><div class="sec-block">'
                 + '<div class="sec-label" style="font-size:12px;">Related images</div>'
                 + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
             data.related_images.forEach(img => {
-                html += '<div class="related-image-card"><img src="' + img.url + '" alt="' + (img.alt_text || 'Related image') + '"><div class="image-overlay">' + (img.alt_text || img.source || 'Related image') + '</div></div>';
+                const url    = safeVal(img.url);
+                const altTxt = safeVal(img.alt_text, safeVal(img.source, 'Related image'));
+                if (url) html += '<div class="related-image-card"><img src="' + url + '" alt="' + altTxt + '"><div class="image-overlay">' + altTxt + '</div></div>';
             });
             html += '</div></div>';
         }
 
-        /* ── Related links ── */
         if (data.related_links && data.related_links.length) {
             html += '<div class="row-div"></div><div class="sec-block">'
                 + '<div class="sec-label" style="font-size:12px;">Related links</div>'
                 + '<div style="display:flex;flex-direction:column;gap:7px;">';
             data.related_links.forEach(link => {
-                html += '<a href="' + link.url + '" target="_blank" class="related-link-item">'
+                const url     = safeVal(link.url, '#');
+                const title   = safeVal(link.title, 'Related link');
+                const context = safeVal(link.context, 'Related resource');
+                html += '<a href="' + url + '" target="_blank" class="related-link-item">'
                     + '<div class="link-icon" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:10px;">' + LINK_ICON + '</div>'
                     + '<div class="link-content" style="flex:1;min-width:0;">'
-                    + '<div class="link-title" style="font-size:15px;font-weight:600;color:#003a7a;">' + link.title + '</div>'
-                    + '<p class="link-context" style="margin:2px 0 0;font-size:13px;color:#66bfff;">' + (link.context || 'Related resource') + '</p>'
+                    + '<div class="link-title" style="font-size:15px;font-weight:600;color:#003a7a;">' + title + '</div>'
+                    + '<p class="link-context" style="margin:2px 0 0;font-size:13px;color:#66bfff;">' + context + '</p>'
                     + '</div>'
                     + '<span class="external-link-icon" style="flex-shrink:0;">' + ARROW_ICON + '</span>'
                     + '</a>';
@@ -824,11 +788,11 @@
             html += '</div></div>';
         }
 
-        html += '</div>'; /* end outer wrapper */
+        html += '</div>';
         return html;
     }
 
-    /* ══ LOADING STATE ══ */
+    /* ══ LOADING / ERROR STATES ══ */
     const LOADING_HTML = '<div style="padding:28px 24px;background:rgba(255,255,255,.92);border:1px solid rgba(0,150,255,.22);border-radius:24px;box-shadow:0 2px 24px rgba(0,150,255,.12);animation:overlayIn .42s cubic-bezier(.22,1,.36,1) both;">'
         + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">'
         + '<svg class="sparkle-icon" style="width:20px;height:20px;flex-shrink:0;" viewBox="0 0 24 24" fill="#FACC15"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/></svg>'
@@ -839,7 +803,6 @@
         + '<div class="skeleton-bar" style="width:75%;"></div>'
         + '</div></div>';
 
-    /* ══ ERROR STATE ══ */
     const ERROR_HTML = (msg) => '<div style="padding:24px;background:rgba(255,255,255,.92);border:1px solid rgba(220,80,80,.2);border-radius:24px;animation:overlayIn .42s cubic-bezier(.22,1,.36,1) both;">'
         + '<div style="display:flex;align-items:center;gap:10px;color:#dc2626;">'
         + '<svg style="width:20px;height:20px;flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
@@ -957,7 +920,6 @@
         }
     });
 
-    /* Global suggestion click delegation */
     document.addEventListener('click', (e) => {
         if (e.target.classList.contains('suggestion-btn')) {
             overlaySearchInput.value = e.target.getAttribute('data-suggestion');
