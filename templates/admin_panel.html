@@ -720,7 +720,8 @@ function updateCharCount(el){
   cc.className='char-count'+(n>2000?' over':n>1000?' warn':'');
 }
 function copyToClipboard(key){
-  const el=document.querySelector(`[data-key="${key}"]`);
+  const el=document.querySelector(`textarea.content-textarea[data-key="${key}"]`) ||
+            document.querySelector(`[data-key="${key}"]`);
   if(!el)return;
   navigator.clipboard.writeText(el.value).then(()=>showToast('Copied to clipboard','info'));
 }
@@ -867,7 +868,6 @@ function submitAddCard(){
     .then(r=>r.json())
     .then(d=>{
       if(d.success){
-        /* ── Store the new card title so we can find & animate it after reload ── */
         sessionStorage.setItem('cms_new_card_title', title);
         showToast('Card created! Reloading…','success');
         closeAddCardModal();
@@ -934,14 +934,44 @@ function deleteNavLink(navId){
 }
 
 /* ═════════════════════ SAVE FUNCTIONS ═════════════════════ */
+
+/* ── saveContent: FIXED ──────────────────────────────────────────
+   Root cause: document.querySelector('[data-key="..."]') could match
+   the HIDDEN <input> used by image upload fields instead of the
+   visible <textarea>, sending the JS value "undefined" to the DB.
+
+   Fix:
+   1. Prefer textarea.content-textarea, fall back to any element.
+   2. Guard: refuse to POST if value is literally "undefined" / "null".
+   3. Sanitise: strip those strings before saving just in case.
+─────────────────────────────────────────────────────────────── */
 function saveContent(key){
-  const el=document.querySelector(`[data-key="${key}"]`);
-  const fd=new FormData();fd.append('key',key);fd.append('value',el.value);
+  /* Prefer the visible textarea; hidden inputs share the same selector */
+  let el = document.querySelector(`textarea.content-textarea[data-key="${key}"]`);
+  if(!el) el = document.querySelector(`input.content-textarea[data-key="${key}"]`);
+  if(!el) el = document.querySelector(`[data-key="${key}"]`);
+
+  if(!el){showToast('Field not found for: '+key,'error');return;}
+
+  /* Safely read value — guard against JS undefined */
+  let value = (el.value !== undefined && el.value !== null) ? String(el.value) : '';
+
+  /* Refuse to save poisoned values */
+  if(value === 'undefined' || value === 'null' || value === 'None'){
+    showToast('Invalid value — please enter real content before saving.','error');
+    return;
+  }
+
+  const fd=new FormData();
+  fd.append('key',key);
+  fd.append('value',value);
+
   fetch('/admin/api/update-content',{method:'POST',body:fd})
     .then(r=>r.json())
     .then(d=>showToast(d.success?'Content saved':'Error saving content',d.success?'success':'error'))
     .catch(e=>showToast('Error: '+e.message,'error'));
 }
+
 function saveCardTitle(cardId){
   const fd=new FormData();fd.append('id',cardId);fd.append('title',document.querySelector(`.card-title[data-card-id="${cardId}"]`).value);
   fetch('/admin/api/update-card-title',{method:'POST',body:fd})
@@ -1099,56 +1129,34 @@ document.getElementById('confirmOverlay').addEventListener('click',function(e){i
 
 /* ═══════════════════════════════════════════════════════════
    NEW-CARD POST-RELOAD ANIMATION
-   Runs once after submitAddCard() reloads the page.
-   1. Switches to the Cards tab (triggering its fadeSlide)
-   2. Finds the newly created card by matching its title
-   3. Plays cardEntrance + cardGlow on that card element
-   4. Smooth-scrolls it into view
 ═══════════════════════════════════════════════════════════ */
 function initNewCardAnimation(){
   const newTitle = sessionStorage.getItem('cms_new_card_title');
   if(!newTitle) return;
-  sessionStorage.removeItem('cms_new_card_title'); /* consume immediately — never fires twice */
-
-  /* Switch to Cards tab — this triggers the existing fadeSlide on the whole pane */
+  sessionStorage.removeItem('cms_new_card_title');
   switchTab('cards', document.querySelector('[data-tab=cards]'));
-
-  /* Wait one rAF so the tab is visible and laid out before we measure / scroll */
   requestAnimationFrame(()=>{
-    /* Find the matching card by its title input value */
     let target = null;
     document.querySelectorAll('#tab-cards .card-title').forEach(inp=>{
       if(inp.value.trim() === newTitle) target = inp.closest('.card');
     });
-    /* Fall back to the last card in the list */
     if(!target){
       const all = document.querySelectorAll('#tab-cards .card');
       target = all.length ? all[all.length - 1] : null;
     }
     if(!target) return;
-
-    /* Apply the entrance animation class — defined in <style> above.
-       Remove and re-add to restart if somehow already present. */
     target.classList.remove('card-new-enter');
-    void target.offsetWidth; /* force reflow to restart animation */
+    void target.offsetWidth;
     target.classList.add('card-new-enter');
-
-    /* Smooth scroll after a tiny delay so the animation starts first */
-    setTimeout(()=>{
-      target.scrollIntoView({behavior:'smooth', block:'center'});
-    }, 80);
-
-    /* Clean up the animation class after both keyframes finish (420 + 1800 ms) */
+    setTimeout(()=>{ target.scrollIntoView({behavior:'smooth', block:'center'}); }, 80);
     setTimeout(()=>target.classList.remove('card-new-enter'), 2400);
   });
 }
 
 /* ═════════════════════ INIT ═════════════════════ */
 document.addEventListener('DOMContentLoaded',()=>{
-  /* Dashboard button count */
   document.getElementById('dash-btn-count').textContent = document.querySelectorAll('.acc').length;
 
-  /* Restore gallery previews & caption editors for existing cards */
   document.querySelectorAll('.button-images').forEach(ta=>{
     const{cardId,buttonIndex}=ta.dataset;
     if(!ta.value.trim())return;
@@ -1168,13 +1176,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     }catch(e){}
   });
 
-  /* Character counts */
   document.querySelectorAll('.content-textarea:not(.img-upload-hidden)').forEach(ta=>updateCharCount(ta));
-
-  /* Prevent file-input click from bubbling to the upload-field div's onclick */
   document.querySelectorAll('.img-upload-field input[type="file"]').forEach(inp=>inp.addEventListener('click',e=>e.stopPropagation()));
-
-  /* ── Run the new-card entrance animation if we just came back from a card creation ── */
   initNewCardAnimation();
 });
 </script>
