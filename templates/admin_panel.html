@@ -72,8 +72,6 @@ body{font-family:var(--font-body);background:var(--wash);color:var(--ink);font-s
 .tab-pane{display:none;animation:fadeSlide .2s var(--ease);}
 .tab-pane.active{display:block;}
 @keyframes fadeSlide{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
-
-/* ── New-card entrance animation ── */
 @keyframes cardEntrance{
   0%  { opacity:0; transform:translateY(18px) scale(.985); }
   60% { opacity:1; transform:translateY(-3px) scale(1.002); }
@@ -89,7 +87,6 @@ body{font-family:var(--font-body);background:var(--wash);color:var(--ink);font-s
     cardEntrance 420ms var(--ease) both,
     cardGlow     1800ms 420ms var(--ease) both;
 }
-
 .page-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap;}
 .page-heading{display:flex;align-items:center;gap:12px;}
 .page-icon{width:40px;height:40px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
@@ -169,7 +166,6 @@ textarea{resize:vertical;min-height:108px;}
 .inset.blue label{color:var(--blue);}
 .inset.amber label{color:var(--amber);}
 .inset.green label{color:var(--green);}
-/* IMAGE UPLOAD */
 .img-upload-field{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--wash);border:1.5px dashed var(--ghost);border-radius:var(--r);transition:all var(--t) var(--ease);position:relative;cursor:pointer;}
 .img-upload-field:hover{border-color:var(--blue);background:var(--blue-dim);}
 .img-upload-field input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:2;width:100%;height:100%;padding:0;border:none;background:transparent;box-shadow:none;}
@@ -189,7 +185,6 @@ textarea{resize:vertical;min-height:108px;}
 @keyframes flashGreen{0%{border-color:var(--green);background:var(--green-dim);}100%{border-color:var(--ghost);background:var(--wash);}}
 .img-upload-field.flash-ok{animation:flashGreen 1s var(--ease) forwards;}
 .content-image-upload-wrap{margin-bottom:0;}
-/* UPLOAD ZONE */
 .upload-zone{position:relative;display:flex;flex-direction:column;align-items:center;gap:7px;padding:18px 16px;background:var(--wash);border:1.5px dashed var(--ghost);border-radius:var(--r);cursor:pointer;transition:all var(--t) var(--ease);text-align:center;}
 .upload-zone:hover{border-color:var(--blue);background:var(--blue-dim);}
 .upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:1;}
@@ -198,13 +193,11 @@ textarea{resize:vertical;min-height:108px;}
 .upload-zone-text{font-size:12.5px;font-weight:600;color:var(--muted);}
 .upload-zone:hover .upload-zone-text{color:var(--blue);}
 .upload-zone-sub{font-size:11px;color:var(--ghost);}
-/* GALLERY */
 .gallery-grid{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;}
 .gallery-thumb{position:relative;width:88px;height:88px;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:var(--wash);}
 .gallery-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
 .gallery-remove{position:absolute;top:3px;right:3px;width:21px;height:21px;border-radius:50%;background:var(--red);color:#fff;border:none;display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;opacity:0;transition:opacity .15s;}
 .gallery-thumb:hover .gallery-remove{opacity:1;}
-/* ACCORDION */
 .acc-wrap{background:var(--wash);border:1px solid var(--line);border-radius:var(--r);padding:4px;margin-top:12px;}
 .acc{background:var(--surface);border:1px solid var(--line);border-radius:7px;margin:3px;overflow:hidden;}
 .acc-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--ink);background:var(--surface);user-select:none;transition:background var(--t) var(--ease);}
@@ -217,12 +210,10 @@ textarea{resize:vertical;min-height:108px;}
 .acc-head.open .acc-dot{background:rgba(255,255,255,.6);}
 .acc-body{display:none;padding:16px;border-top:1px solid var(--line);background:var(--surface);}
 .acc-body.open{display:block;animation:fadeSlide .15s var(--ease);}
-/* CAPTION */
 .caption-item{display:flex;align-items:center;gap:10px;padding:8px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);}
 .caption-item img{width:44px;height:44px;object-fit:cover;border-radius:5px;flex-shrink:0;}
 .caption-item input{flex:1;padding:6px 8px;border:1px solid var(--line);border-radius:5px;font-size:12px;background:var(--wash);}
 .caption-item input:focus{border-color:var(--blue);background:var(--surface);box-shadow:0 0 0 2px rgba(43,82,232,.08);}
-/* TOAST */
 #toastContainer{position:fixed;top:calc(var(--header) + 14px);right:18px;z-index:9999;width:310px;display:flex;flex-direction:column;gap:7px;pointer-events:none;}
 .toast{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--s3);font-size:13px;pointer-events:all;animation:toastIn .2s var(--ease) forwards;}
 .toast.success{border-left:3px solid var(--green);}
@@ -235,7 +226,6 @@ textarea{resize:vertical;min-height:108px;}
 .toast-msg{color:var(--ink);font-weight:500;flex:1;}
 @keyframes toastIn{from{opacity:0;transform:translateX(16px);}to{opacity:1;transform:none;}}
 @keyframes toastOut{from{opacity:1;transform:none;}to{opacity:0;transform:translateX(16px);}}
-/* PREVIEW */
 .preview-panel{position:fixed;right:0;top:var(--header);width:340px;height:calc(100vh - var(--header));background:var(--surface);border-left:1px solid var(--line);box-shadow:-6px 0 20px rgba(17,16,22,.06);overflow-y:auto;padding:20px;transform:translateX(100%);transition:transform .28s var(--ease);z-index:150;}
 .preview-panel.open{transform:none;}
 .preview-title{font-family:var(--font-head);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:16px;display:flex;align-items:center;gap:7px;}
@@ -243,7 +233,6 @@ textarea{resize:vertical;min-height:108px;}
 .pv-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--ghost);margin-bottom:7px;}
 .pv-row{display:flex;gap:6px;font-size:12px;margin-bottom:4px;}
 .pv-row strong{color:var(--blue);font-weight:600;flex-shrink:0;}
-/* ACTIVITY */
 .activity-feed{display:flex;flex-direction:column;gap:0;}
 .act-item{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--line);}
 .act-item:last-child{border-bottom:none;}
@@ -253,7 +242,6 @@ textarea{resize:vertical;min-height:108px;}
 .act-body{flex:1;}
 .act-text{font-size:13px;color:var(--ink-2);}
 .act-time{font-size:11px;color:var(--ghost);margin-top:2px;}
-/* QA */
 .qa-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;}
 .qa-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px;cursor:pointer;text-align:center;transition:all var(--t) var(--ease);text-decoration:none;display:block;}
 .qa-card:hover{border-color:var(--blue);box-shadow:var(--s2);transform:translateY(-2px);}
@@ -261,10 +249,6 @@ textarea{resize:vertical;min-height:108px;}
 .qa-icon{width:40px;height:40px;border-radius:var(--r);margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:16px;background:var(--wash);color:var(--muted);transition:all var(--t) var(--ease);}
 .qa-label{font-size:12.5px;font-weight:600;color:var(--ink-2);}
 .dash-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
-
-/* ━━━━━━━━━━━━━━━━━━━━━━━
-   MODAL
-━━━━━━━━━━━━━━━━━━━━━━━ */
 .modal-overlay{position:fixed;inset:0;z-index:10000;background:rgba(17,16,22,.52);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;}
 .modal-overlay.show{display:flex;animation:fadeIn .18s var(--ease);}
 @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
@@ -275,7 +259,6 @@ textarea{resize:vertical;min-height:108px;}
 .modal-title-icon{width:36px;height:36px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:14px;}
 .modal-close{width:32px;height:32px;border-radius:var(--r);background:var(--wash);border:1px solid var(--line);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all var(--t) var(--ease);}
 .modal-close:hover{background:var(--red-dim);color:var(--red);border-color:rgba(220,53,69,.2);}
-/* button tag manager */
 .btn-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:34px;padding:6px 8px;background:var(--wash);border:1px solid var(--line);border-radius:var(--r);align-items:center;}
 .btn-tag{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--blue-dim);border:1px solid rgba(43,82,232,.2);border-radius:6px;font-size:12px;font-weight:600;color:var(--blue);}
 .btn-tag-remove{background:none;border:none;cursor:pointer;color:var(--blue);opacity:.6;padding:0;font-size:11px;line-height:1;transition:opacity .1s;}
@@ -284,15 +267,12 @@ textarea{resize:vertical;min-height:108px;}
 .btn-tag-add{display:flex;gap:8px;margin-top:8px;}
 .btn-tag-add input{flex:1;padding:7px 10px;border:1px solid var(--line);border-radius:var(--r);font-size:13px;background:var(--wash);}
 .btn-tag-add input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(43,82,232,.08);background:var(--surface);outline:none;}
-/* empty state */
 .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;background:var(--wash);border:2px dashed var(--line);border-radius:var(--r-lg);text-align:center;margin-bottom:16px;}
 .empty-state-icon{width:56px;height:56px;border-radius:var(--r-lg);background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--ghost);margin-bottom:14px;}
 .empty-state-title{font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--ink-2);margin-bottom:6px;}
 .empty-state-sub{font-size:12.5px;color:var(--muted);margin-bottom:18px;}
-/* delete button on card heads */
 .btn-head-delete{background:var(--red-dim);color:var(--red);border:1px solid rgba(220,53,69,.2);border-radius:var(--r);padding:5px 10px;font-size:11.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all var(--t) var(--ease);font-family:var(--font-body);}
 .btn-head-delete:hover{background:rgba(220,53,69,.15);}
-/* CONFIRM */
 .confirm-overlay{position:fixed;inset:0;z-index:10001;background:rgba(17,16,22,.45);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;}
 .confirm-overlay.show{display:flex;animation:fadeIn .18s var(--ease);}
 .confirm-box{background:var(--surface);border-radius:var(--r-xl);padding:28px;max-width:380px;width:calc(100% - 40px);box-shadow:var(--s3);animation:popIn .2s var(--ease);}
@@ -301,6 +281,11 @@ textarea{resize:vertical;min-height:108px;}
 .confirm-msg{font-size:13px;color:var(--muted);text-align:center;margin-bottom:22px;}
 .confirm-btns{display:flex;gap:8px;}
 .confirm-btns .btn{flex:1;justify-content:center;}
+/* Upload server status banner */
+.upload-status-banner{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--r);font-size:12.5px;font-weight:500;margin-bottom:16px;}
+.upload-status-banner.ok{background:var(--green-dim);color:var(--green);border:1px solid rgba(15,158,90,.2);}
+.upload-status-banner.err{background:var(--red-dim);color:var(--red);border:1px solid rgba(220,53,69,.2);}
+.upload-status-banner.checking{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(43,82,232,.15);}
 
 @media(max-width:960px){.stats-strip{grid-template-columns:repeat(2,1fr);}.dash-row{grid-template-columns:1fr;}.qa-grid{grid-template-columns:repeat(2,1fr);}}
 @media(max-width:860px){:root{--sidebar:0px;}.sidebar{transform:translateX(-100%);transition:transform .26s var(--ease);width:256px;z-index:500;box-shadow:var(--s3);}.sidebar.open{transform:none;}.main{margin-left:0;}.topbar-logo{width:auto;border:none;}.grid2{grid-template-columns:1fr;}}
@@ -359,6 +344,12 @@ textarea{resize:vertical;min-height:108px;}
       <div class="page-row">
         <div class="page-heading"><div class="page-icon pi-blue"><i class="fas fa-th-large"></i></div><div><div class="page-title">Dashboard</div><div class="page-subtitle">Overview of your CMS content</div></div></div>
       </div>
+
+      <!-- ✅ Upload server health banner -->
+      <div id="uploadStatusBanner" class="upload-status-banner checking">
+        <i class="fas fa-circle-notch fa-spin"></i> <span id="uploadStatusMsg">Checking upload server connection…</span>
+      </div>
+
       <div class="stats-strip">
         <div class="stat-card"><div class="stat-icon" style="background:var(--blue-dim);color:var(--blue);"><i class="fas fa-file-alt"></i></div><div class="stat-body"><div class="stat-num" style="color:var(--blue);">{{ content_sections|length }}</div><div class="stat-lbl">Text Sections</div></div></div>
         <div class="stat-card"><div class="stat-icon" style="background:var(--green-dim);color:var(--green);"><i class="fas fa-layer-group"></i></div><div class="stat-body"><div class="stat-num" style="color:var(--green);">{{ cards|length }}</div><div class="stat-lbl">Stacked Cards</div></div></div>
@@ -411,20 +402,18 @@ textarea{resize:vertical;min-height:108px;}
             <label><i class="fas fa-image" style="color:var(--blue);margin-right:5px;"></i> Image File</label>
             <div class="img-upload-field" id="iuf-content-{{ section.content_key }}" onclick="document.getElementById('file-content-{{ section.content_key }}').click()">
               <input type="file" id="file-content-{{ section.content_key }}" accept="image/*" onchange="handleContentImageUpload(this,'{{ section.content_key }}')">
-              <div class="img-upload-thumb">{% if section.content_value %}<img src="{{ url_for('static',filename=section.content_value) }}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-image\'></i>'" alt="Current image">{% else %}<i class="fas fa-image"></i>{% endif %}</div>
+              <div class="img-upload-thumb">
+                {% if section.content_value %}
+                  <img src="{{ GOV_IMAGE_BASE }}/{{ section.content_value.replace('images/','').replace('static/','') }}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-image\'></i>'" alt="Current image">
+                {% else %}<i class="fas fa-image"></i>{% endif %}
+              </div>
               <div class="img-upload-body"><span class="img-upload-label" id="label-content-{{ section.content_key }}">{{ section.content_value if section.content_value else 'No image selected' }}</span><span class="img-upload-hint">Click to upload · PNG, JPG, WEBP</span></div>
               <div class="img-upload-action"><i class="fas fa-upload"></i> Upload</div>
             </div>
-            {# Hidden input carries the current image path for save — NOT matched by saveContent #}
             <input type="hidden" class="content-image-value img-upload-hidden" data-key="{{ section.content_key }}" value="{{ section.content_value }}">
           </div>
         {% else %}
           <div class="field" style="margin-bottom:0;">
-            {#
-              ✅ FIX: Use | safe so HTML tags (e.g. <br>, <span>) are preserved
-              inside the textarea rather than being escaped to &lt;br&gt; etc.
-              This ensures what you see is what gets saved.
-            #}
             <textarea class="content-textarea" data-key="{{ section.content_key }}" placeholder="Enter content…" rows="3" oninput="updateCharCount(this)">{{ section.content_value | safe }}</textarea>
             <div class="field-meta"><div class="field-hint"><i class="fas fa-info-circle"></i> HTML tags are supported</div><span class="char-count" id="cc-{{ section.content_key }}">{{ section.content_value|length }} chars</span></div>
           </div>
@@ -463,7 +452,11 @@ textarea{resize:vertical;min-height:108px;}
             <label><i class="fas fa-image" style="color:var(--green);margin-right:5px;"></i> Card Image</label>
             <div class="img-upload-field" id="iuf-card-{{ card.id }}" onclick="document.getElementById('file-card-{{ card.id }}').click()">
               <input type="file" id="file-card-{{ card.id }}" accept="image/*" onchange="handleCardImageUpload(this,{{ card.id }})">
-              <div class="img-upload-thumb">{% if card.image %}<img src="{{ url_for('static',filename='images/'+card.image) }}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-image\'></i>'" alt="{{ card.title }}">{% else %}<i class="fas fa-image"></i>{% endif %}</div>
+              <div class="img-upload-thumb">
+                {% if card.image %}
+                  <img src="{{ GOV_IMAGE_BASE }}/{{ card.image.replace('images/','').replace('static/','') }}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-image\'></i>'" alt="{{ card.title }}">
+                {% else %}<i class="fas fa-image"></i>{% endif %}
+              </div>
               <div class="img-upload-body"><span class="img-upload-label" id="label-card-{{ card.id }}">{{ card.image if card.image else 'No image selected' }}</span><span class="img-upload-hint">Click to upload · PNG, JPG, WEBP</span></div>
               <div class="img-upload-action"><i class="fas fa-upload"></i> Upload</div>
             </div>
@@ -492,7 +485,11 @@ textarea{resize:vertical;min-height:108px;}
                 <div class="img-upload-field" id="iuf-btnbg-{{ card.id }}-{{ loop.index0 }}" onclick="document.getElementById('file-btnbg-{{ card.id }}-{{ loop.index0 }}').click()">
                   <input type="file" id="file-btnbg-{{ card.id }}-{{ loop.index0 }}" accept="image/*" class="button-bg-upload" data-card-id="{{ card.id }}" data-button-index="{{ loop.index0 }}" onchange="handleButtonBgUpload(this)">
                   {% set bg_val=button_background_images.get(loop.index0|string,'') %}
-                  <div class="img-upload-thumb">{% if bg_val %}<img src="{{ url_for('static',filename='images/'+bg_val) }}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-image\'></i>'" alt="BG">{% else %}<i class="fas fa-image"></i>{% endif %}</div>
+                  <div class="img-upload-thumb">
+                    {% if bg_val %}
+                      <img src="{{ GOV_IMAGE_BASE }}/{{ bg_val.replace('images/','').replace('static/','') }}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-image\'></i>'" alt="BG">
+                    {% else %}<i class="fas fa-image"></i>{% endif %}
+                  </div>
                   <div class="img-upload-body"><span class="img-upload-label">{{ bg_val if bg_val else 'No background image' }}</span><span class="img-upload-hint">Click to upload · PNG, JPG, WEBP</span></div>
                   <div class="img-upload-action"><i class="fas fa-upload"></i> Upload</div>
                 </div>
@@ -542,7 +539,11 @@ textarea{resize:vertical;min-height:108px;}
             <label>Navigation Image</label>
             <div class="img-upload-field" id="iuf-nav-img-{{ nav.id }}" onclick="document.getElementById('file-nav-img-{{ nav.id }}').click()">
               <input type="file" id="file-nav-img-{{ nav.id }}" accept="image/*" onchange="handleNavImageUpload(this,{{ nav.id }})">
-              <div class="img-upload-thumb">{% if nav.image %}<img src="{{ url_for('static',filename='images/'+nav.image) }}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-image\'></i>'" alt="{{ nav.link_text }}">{% else %}<i class="fas fa-image"></i>{% endif %}</div>
+              <div class="img-upload-thumb">
+                {% if nav.image %}
+                  <img src="{{ GOV_IMAGE_BASE }}/{{ nav.image.replace('images/','').replace('static/','') }}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-image\'></i>'" alt="{{ nav.link_text }}">
+                {% else %}<i class="fas fa-image"></i>{% endif %}
+              </div>
               <div class="img-upload-body"><span class="img-upload-label" id="label-nav-img-{{ nav.id }}">{{ nav.image if nav.image else 'No image selected' }}</span><span class="img-upload-hint">Click to upload · PNG, JPG, WEBP</span></div>
               <div class="img-upload-action"><i class="fas fa-upload"></i> Upload</div>
             </div>
@@ -555,7 +556,11 @@ textarea{resize:vertical;min-height:108px;}
           <label><i class="fas fa-image" style="margin-right:5px;"></i> Background Image</label>
           <div class="img-upload-field" id="iuf-nav-bg-{{ nav.id }}" onclick="document.getElementById('file-nav-bg-{{ nav.id }}').click()">
             <input type="file" id="file-nav-bg-{{ nav.id }}" accept="image/*" class="nav-bg-upload" data-nav-id="{{ nav.id }}" onchange="handleNavBgUpload(this)">
-            <div class="img-upload-thumb">{% if nav.background_image %}<img src="{{ url_for('static',filename='images/'+nav.background_image) }}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-image\'></i>'" alt="Background">{% else %}<i class="fas fa-image"></i>{% endif %}</div>
+            <div class="img-upload-thumb">
+              {% if nav.background_image %}
+                <img src="{{ GOV_IMAGE_BASE }}/{{ nav.background_image.replace('images/','').replace('static/','') }}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-image\'></i>'" alt="Background">
+              {% else %}<i class="fas fa-image"></i>{% endif %}
+            </div>
             <div class="img-upload-body"><span class="img-upload-label" id="label-nav-bg-{{ nav.id }}">{{ nav.background_image if nav.background_image else 'No background image' }}</span><span class="img-upload-hint">Click to upload · Used as page background</span></div>
             <div class="img-upload-action"><i class="fas fa-upload"></i> Upload</div>
           </div>
@@ -665,7 +670,21 @@ textarea{resize:vertical;min-height:108px;}
 </div>
 
 <script>
-/* ═════════════════════ TABS ═════════════════════ */
+/* ============================================================
+   CONFIG — injected from Flask template
+   GOV_IMAGE_BASE is used for ALL image previews in JS too.
+   ============================================================ */
+const GOV_IMAGE_BASE = "{{ GOV_IMAGE_BASE }}";
+
+/* Helper: build a full image URL from a bare filename */
+function imgUrl(filename) {
+  if (!filename) return '';
+  if (filename.startsWith('http://') || filename.startsWith('https://')) return filename;
+  const bare = filename.replace(/^(static\/images\/|images\/|static\/)/, '');
+  return GOV_IMAGE_BASE + '/' + bare;
+}
+
+/* --------------------- TABS --------------------- */
 const BC_LABELS={dashboard:'Dashboard',content:'Text Sections',cards:'Stacked Cards',navigation:'Navigation Links'};
 function switchTab(tab,el){
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
@@ -676,7 +695,7 @@ function switchTab(tab,el){
 }
 function toggleAcc(h){h.classList.toggle('open');h.nextElementSibling.classList.toggle('open');}
 
-/* ═════════════════════ TOAST ═════════════════════ */
+/* --------------------- TOAST --------------------- */
 function showToast(msg,type='success'){
   const c=document.getElementById('toastContainer');
   const icons={success:'check-circle',error:'exclamation-circle',info:'info-circle'};
@@ -687,7 +706,28 @@ function showToast(msg,type='success'){
   setTimeout(()=>{t.style.animation='toastOut .2s var(--ease) forwards';setTimeout(()=>t.remove(),220);},3200);
 }
 
-/* ═════════════════════ PREVIEW ═════════════════════ */
+/* --------------------- UPLOAD SERVER HEALTH CHECK --------------------- */
+function checkUploadServer(){
+  const banner = document.getElementById('uploadStatusBanner');
+  const msg    = document.getElementById('uploadStatusMsg');
+  fetch('/admin/api/upload-health')
+    .then(r=>r.json())
+    .then(d=>{
+      if(d.ok){
+        banner.className='upload-status-banner ok';
+        banner.innerHTML='<i class="fas fa-check-circle"></i> <span>Upload server connected — images will be saved to <strong>'+d.url+'</strong></span>';
+      } else {
+        banner.className='upload-status-banner err';
+        banner.innerHTML='<i class="fas fa-exclamation-triangle"></i> <span><strong>Upload server unreachable:</strong> '+d.error+'. Check <code>GOV_UPLOAD_URL</code> in your Render environment variables.</span>';
+      }
+    })
+    .catch(()=>{
+      banner.className='upload-status-banner err';
+      banner.innerHTML='<i class="fas fa-exclamation-triangle"></i> <span>Could not check upload server status.</span>';
+    });
+}
+
+/* --------------------- PREVIEW --------------------- */
 let previewOn=false;
 function togglePreview(){
   previewOn=!previewOn;
@@ -711,7 +751,7 @@ function updatePreview(){
   pc.innerHTML=html||'<p style="color:var(--muted);font-size:12px;text-align:center;padding:20px;">Switch to Cards tab to see preview</p>';
 }
 
-/* ═════════════════════ SEARCH ═════════════════════ */
+/* --------------------- SEARCH --------------------- */
 function filterContent(term){
   document.getElementById('searchClear').classList.toggle('show',term.length>0);
   document.querySelectorAll('.content-card').forEach(card=>{
@@ -736,7 +776,7 @@ function copyToClipboard(key){
 }
 function showNotifications(){showToast('No new notifications','info');}
 
-/* ═════════════════════ CONFIRM DIALOG ═════════════════════ */
+/* --------------------- CONFIRM DIALOG --------------------- */
 let confirmCb=null;
 function showConfirm(title,msg,onOk){
   document.getElementById('confirmTitle').textContent=title;
@@ -748,97 +788,121 @@ document.getElementById('confirmOk').addEventListener('click',()=>{closeConfirm(
 function closeConfirm(){document.getElementById('confirmOverlay').classList.remove('show');}
 function confirmReset(cardId){showConfirm('Discard Changes?','Unsaved changes will be lost.',()=>location.reload());}
 
-/* ═════════════════════ IMAGE UPLOAD HELPERS ═════════════════════ */
-function uploadImageFile(file,onSuccess,onError){
-  const fd=new FormData();fd.append('file',file);
-  fetch('/admin/api/upload-image',{method:'POST',body:fd})
-    .then(r=>r.json())
-    .then(d=>{if(d.success&&d.filename){onSuccess(d.filename);}else throw new Error(d.error||'Upload failed');})
-    .catch(e=>{if(onError)onError(e);});
-}
-function setUploadFieldState(fieldEl,filename,thumbHtml){
-  const label=fieldEl.querySelector('.img-upload-label');
-  if(label)label.textContent=filename;
-  const thumb=fieldEl.querySelector('.img-upload-thumb');
-  if(thumb&&thumbHtml)thumb.innerHTML=thumbHtml;
-  fieldEl.classList.remove('uploading');
-  fieldEl.classList.add('flash-ok');
-  setTimeout(()=>fieldEl.classList.remove('flash-ok'),1100);
-}
-function handleContentImageUpload(input,key){
-  const file=input.files[0];if(!file)return;
-  const field=document.getElementById(`iuf-content-${key}`);field.classList.add('uploading');
-  uploadImageFile(file,fn=>{
-    /* ✅ FIX: target the dedicated image-value hidden input, not the textarea selector */
-    const hidden=document.querySelector(`.content-image-value[data-key="${key}"]`);
-    if(hidden)hidden.value=fn;
-    const imgPath=fn.startsWith('images/')?fn:`images/${fn}`;
-    setUploadFieldState(field,fn,`<img src="/static/${imgPath}" alt="preview" onerror="this.style.display='none'">`);
-    showToast('Image uploaded – click Save to apply');
-  },e=>{field.classList.remove('uploading');showToast(e.message,'error');});
-}
-function handleCardImageUpload(input,cardId){
-  const file=input.files[0];if(!file)return;
-  const field=document.getElementById(`iuf-card-${cardId}`);field.classList.add('uploading');
-  uploadImageFile(file,fn=>{
-    const hidden=document.querySelector(`.card-image[data-card-id="${cardId}"]`);
-    if(hidden)hidden.value=fn;
-    setUploadFieldState(field,fn,`<img src="/static/images/${fn}" alt="card" onerror="this.style.display='none'">`);
-    showToast('Card image uploaded – click Save to apply');
-  },e=>{field.classList.remove('uploading');showToast(e.message,'error');});
-}
-function handleButtonBgUpload(input){
-  const file=input.files[0];if(!file)return;
-  const{cardId,buttonIndex}=input.dataset;
-  const field=document.getElementById(`iuf-btnbg-${cardId}-${buttonIndex}`);field.classList.add('uploading');
-  uploadImageFile(file,fn=>{
-    const hidden=document.querySelector(`.button-bg-image[data-card-id="${cardId}"][data-button-index="${buttonIndex}"]`);
-    if(hidden)hidden.value=fn;
-    setUploadFieldState(field,fn,`<img src="/static/images/${fn}" alt="bg" onerror="this.style.display='none'">`);
-    showToast('Background image uploaded – click Save Button to apply');
-  },e=>{field.classList.remove('uploading');showToast(e.message,'error');});
-}
-function handleNavImageUpload(input,navId){
-  const file=input.files[0];if(!file)return;
-  const field=document.getElementById(`iuf-nav-img-${navId}`);field.classList.add('uploading');
-  uploadImageFile(file,fn=>{
-    const hidden=document.querySelector(`.nav-image[data-nav-id="${navId}"]`);
-    if(hidden)hidden.value=fn;
-    setUploadFieldState(field,fn,`<img src="/static/images/${fn}" alt="nav" onerror="this.style.display='none'">`);
-    showToast('Nav image uploaded – click Save Navigation to apply');
-  },e=>{field.classList.remove('uploading');showToast(e.message,'error');});
-}
-function handleNavBgUpload(input){
-  const file=input.files[0];if(!file)return;
-  const navId=input.dataset.navId;
-  const field=document.getElementById(`iuf-nav-bg-${navId}`);field.classList.add('uploading');
-  uploadImageFile(file,fn=>{
-    const hidden=document.querySelector(`.nav-background-image[data-nav-id="${navId}"]`);
-    if(hidden)hidden.value=fn;
-    setUploadFieldState(field,fn,`<img src="/static/images/${fn}" alt="bg" onerror="this.style.display='none'">`);
-    showToast('Background image uploaded – click Save Navigation to apply');
-  },e=>{field.classList.remove('uploading');showToast(e.message,'error');});
-}
-function handleNewCardImageUpload(input){
-  const file=input.files[0];if(!file)return;
-  const field=document.getElementById('iuf-new-card');field.classList.add('uploading');
-  uploadImageFile(file,fn=>{
-    document.getElementById('newCardImage').value=fn;
-    setUploadFieldState(field,fn,`<img src="/static/images/${fn}" alt="card" onerror="this.style.display='none'">`);
-    showToast('Image uploaded');
-  },e=>{field.classList.remove('uploading');showToast(e.message,'error');});
-}
-function handleNewNavImageUpload(input){
-  const file=input.files[0];if(!file)return;
-  const field=document.getElementById('iuf-new-nav');field.classList.add('uploading');
-  uploadImageFile(file,fn=>{
-    document.getElementById('newNavImage').value=fn;
-    setUploadFieldState(field,fn,`<img src="/static/images/${fn}" alt="nav" onerror="this.style.display='none'">`);
-    showToast('Image uploaded');
-  },e=>{field.classList.remove('uploading');showToast(e.message,'error');});
+/* --------------------- IMAGE UPLOAD HELPERS --------------------- */
+/* ✅ uploadImageFile now returns the FULL URL from the server response */
+function uploadImageFile(file, onSuccess, onError) {
+  const fd = new FormData();
+  fd.append('file', file);
+  fetch('/admin/api/upload-image', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success && d.filename) {
+        /* Use the full URL returned by the server if available,
+           otherwise build it from GOV_IMAGE_BASE */
+        const fullUrl = d.url || imgUrl(d.filename);
+        onSuccess(d.filename, fullUrl);
+      } else {
+        throw new Error(d.error || 'Upload failed');
+      }
+    })
+    .catch(e => { if (onError) onError(e); });
 }
 
-/* ═════════════════════ ADD CARD MODAL ═════════════════════ */
+function setUploadFieldState(fieldEl, filename, thumbHtml) {
+  const label = fieldEl.querySelector('.img-upload-label');
+  if (label) label.textContent = filename;
+  const thumb = fieldEl.querySelector('.img-upload-thumb');
+  if (thumb && thumbHtml) thumb.innerHTML = thumbHtml;
+  fieldEl.classList.remove('uploading');
+  fieldEl.classList.add('flash-ok');
+  setTimeout(() => fieldEl.classList.remove('flash-ok'), 1100);
+}
+
+function handleContentImageUpload(input, key) {
+  const file = input.files[0]; if (!file) return;
+  const field = document.getElementById(`iuf-content-${key}`);
+  field.classList.add('uploading');
+  uploadImageFile(file, (fn, fullUrl) => {
+    const hidden = document.querySelector(`.content-image-value[data-key="${key}"]`);
+    if (hidden) hidden.value = fn;
+    setUploadFieldState(field, fn, `<img src="${fullUrl}" alt="preview" onerror="this.style.display='none'">`);
+    showToast('Image uploaded – click Save to apply');
+  }, e => { field.classList.remove('uploading'); showToast(e.message, 'error'); });
+}
+
+function handleCardImageUpload(input, cardId) {
+  const file = input.files[0]; if (!file) return;
+  const field = document.getElementById(`iuf-card-${cardId}`);
+  field.classList.add('uploading');
+  uploadImageFile(file, (fn, fullUrl) => {
+    const hidden = document.querySelector(`.card-image[data-card-id="${cardId}"]`);
+    if (hidden) hidden.value = fn;
+    setUploadFieldState(field, fn, `<img src="${fullUrl}" alt="card" onerror="this.style.display='none'">`);
+    showToast('Card image uploaded – click Save to apply');
+  }, e => { field.classList.remove('uploading'); showToast(e.message, 'error'); });
+}
+
+function handleButtonBgUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  const { cardId, buttonIndex } = input.dataset;
+  const field = document.getElementById(`iuf-btnbg-${cardId}-${buttonIndex}`);
+  field.classList.add('uploading');
+  uploadImageFile(file, (fn, fullUrl) => {
+    const hidden = document.querySelector(`.button-bg-image[data-card-id="${cardId}"][data-button-index="${buttonIndex}"]`);
+    if (hidden) hidden.value = fn;
+    setUploadFieldState(field, fn, `<img src="${fullUrl}" alt="bg" onerror="this.style.display='none'">`);
+    showToast('Background image uploaded – click Save Button to apply');
+  }, e => { field.classList.remove('uploading'); showToast(e.message, 'error'); });
+}
+
+function handleNavImageUpload(input, navId) {
+  const file = input.files[0]; if (!file) return;
+  const field = document.getElementById(`iuf-nav-img-${navId}`);
+  field.classList.add('uploading');
+  uploadImageFile(file, (fn, fullUrl) => {
+    const hidden = document.querySelector(`.nav-image[data-nav-id="${navId}"]`);
+    if (hidden) hidden.value = fn;
+    setUploadFieldState(field, fn, `<img src="${fullUrl}" alt="nav" onerror="this.style.display='none'">`);
+    showToast('Nav image uploaded – click Save Navigation to apply');
+  }, e => { field.classList.remove('uploading'); showToast(e.message, 'error'); });
+}
+
+function handleNavBgUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  const navId = input.dataset.navId;
+  const field = document.getElementById(`iuf-nav-bg-${navId}`);
+  field.classList.add('uploading');
+  uploadImageFile(file, (fn, fullUrl) => {
+    const hidden = document.querySelector(`.nav-background-image[data-nav-id="${navId}"]`);
+    if (hidden) hidden.value = fn;
+    setUploadFieldState(field, fn, `<img src="${fullUrl}" alt="bg" onerror="this.style.display='none'">`);
+    showToast('Background image uploaded – click Save Navigation to apply');
+  }, e => { field.classList.remove('uploading'); showToast(e.message, 'error'); });
+}
+
+function handleNewCardImageUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  const field = document.getElementById('iuf-new-card');
+  field.classList.add('uploading');
+  uploadImageFile(file, (fn, fullUrl) => {
+    document.getElementById('newCardImage').value = fn;
+    setUploadFieldState(field, fn, `<img src="${fullUrl}" alt="card" onerror="this.style.display='none'">`);
+    showToast('Image uploaded');
+  }, e => { field.classList.remove('uploading'); showToast(e.message, 'error'); });
+}
+
+function handleNewNavImageUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  const field = document.getElementById('iuf-new-nav');
+  field.classList.add('uploading');
+  uploadImageFile(file, (fn, fullUrl) => {
+    document.getElementById('newNavImage').value = fn;
+    setUploadFieldState(field, fn, `<img src="${fullUrl}" alt="nav" onerror="this.style.display='none'">`);
+    showToast('Image uploaded');
+  }, e => { field.classList.remove('uploading'); showToast(e.message, 'error'); });
+}
+
+/* --------------------- ADD CARD MODAL --------------------- */
 let newCardButtons=[];
 function openAddCardModal(){
   newCardButtons=[];
@@ -864,38 +928,27 @@ function addNewCardButton(){
   newCardButtons.push(val);inp.value='';renderNewCardButtons();
 }
 function removeNewCardButton(i){newCardButtons.splice(i,1);renderNewCardButtons();}
-
 function submitAddCard(){
   const title=document.getElementById('newCardTitle').value.trim();
   if(!title){showToast('Card title is required','error');document.getElementById('newCardTitle').focus();return;}
   const btn=document.getElementById('addCardSubmitBtn');
   btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Creating…';
   const fd=new FormData();
-  fd.append('title',title);
-  fd.append('image',document.getElementById('newCardImage').value);
+  fd.append('title',title);fd.append('image',document.getElementById('newCardImage').value);
   fd.append('buttons',JSON.stringify(newCardButtons));
   fetch('/admin/api/add-card',{method:'POST',body:fd})
     .then(r=>r.json())
     .then(d=>{
-      if(d.success){
-        sessionStorage.setItem('cms_new_card_title', title);
-        showToast('Card created! Reloading…','success');
-        closeAddCardModal();
-        setTimeout(()=>location.reload(), 900);
-      } else {
-        showToast(d.error||'Error creating card','error');
-        btn.disabled=false;btn.innerHTML='<i class="fas fa-plus"></i> Create Card';
-      }
+      if(d.success){sessionStorage.setItem('cms_new_card_title',title);showToast('Card created! Reloading…','success');closeAddCardModal();setTimeout(()=>location.reload(),900);}
+      else{showToast(d.error||'Error creating card','error');btn.disabled=false;btn.innerHTML='<i class="fas fa-plus"></i> Create Card';}
     })
     .catch(e=>{showToast(e.message,'error');btn.disabled=false;btn.innerHTML='<i class="fas fa-plus"></i> Create Card';});
 }
 
-/* ═════════════════════ ADD NAV MODAL ═════════════════════ */
+/* --------------------- ADD NAV MODAL --------------------- */
 function openAddNavModal(){
-  document.getElementById('newNavText').value='';
-  document.getElementById('newNavUrl').value='';
-  document.getElementById('newNavContent').value='';
-  document.getElementById('newNavImage').value='';
+  document.getElementById('newNavText').value='';document.getElementById('newNavUrl').value='';
+  document.getElementById('newNavContent').value='';document.getElementById('newNavImage').value='';
   document.getElementById('label-new-nav').textContent='No image selected';
   document.getElementById('thumb-new-nav').innerHTML='<i class="fas fa-image"></i>';
   document.getElementById('addNavModal').classList.add('show');
@@ -920,97 +973,43 @@ function submitAddNav(){
     .catch(e=>{showToast(e.message,'error');btn.disabled=false;btn.innerHTML='<i class="fas fa-plus"></i> Create Nav Link';});
 }
 
-/* ═════════════════════ DELETE CARD ═════════════════════ */
+/* --------------------- DELETE --------------------- */
 function confirmDeleteCard(cardId,title){showConfirm('Delete Card?',`"${title}" and all its button data will be permanently deleted.`,()=>deleteCard(cardId));}
 function deleteCard(cardId){
   fetch('/admin/api/delete-card',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:cardId})})
-    .then(r=>r.json())
-    .then(d=>{
-      if(d.success){document.getElementById(`card-block-${cardId}`)?.remove();showToast('Card deleted','success');}
-      else showToast(d.error||'Error deleting card','error');
-    }).catch(e=>showToast(e.message,'error'));
+    .then(r=>r.json()).then(d=>{if(d.success){document.getElementById(`card-block-${cardId}`)?.remove();showToast('Card deleted','success');}else showToast(d.error||'Error','error');})
+    .catch(e=>showToast(e.message,'error'));
 }
-
-/* ═════════════════════ DELETE NAV ═════════════════════ */
-function confirmDeleteNav(navId,text){showConfirm('Delete Navigation Link?',`"${text}" will be permanently removed from the navigation menu.`,()=>deleteNavLink(navId));}
+function confirmDeleteNav(navId,text){showConfirm('Delete Navigation Link?',`"${text}" will be permanently removed.`,()=>deleteNavLink(navId));}
 function deleteNavLink(navId){
   const fd=new FormData();fd.append('id',navId);
   fetch('/admin/api/delete-nav-link',{method:'POST',body:fd})
-    .then(r=>r.json())
-    .then(d=>{
-      if(d.success){document.getElementById(`nav-block-${navId}`)?.remove();showToast('Navigation link deleted','success');}
-      else showToast(d.error||'Error deleting nav link','error');
-    }).catch(e=>showToast(e.message,'error'));
+    .then(r=>r.json()).then(d=>{if(d.success){document.getElementById(`nav-block-${navId}`)?.remove();showToast('Navigation link deleted','success');}else showToast(d.error||'Error','error');})
+    .catch(e=>showToast(e.message,'error'));
 }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   ✅ FIXED saveContent
-   ─────────────────────────────────────────────────────────────────────
-   Three bugs fixed:
-   1. Selector now uses :not(.img-upload-hidden) so it can NEVER
-      accidentally grab a hidden image <input> instead of the textarea.
-   2. Guards against saving JS "undefined" / "null" / "None" strings.
-   3. Backend also guards (in app.py update_content route).
-═══════════════════════════════════════════════════════════════════════ */
-function saveContent(key) {
-  /* ── Step 1: find the visible textarea only, never a hidden input ── */
-  let el = document.querySelector(`textarea.content-textarea[data-key="${key}"]`);
-
-  /* fallback: a non-hidden input with that key (shouldn't happen for text fields) */
-  if (!el) {
-    el = document.querySelector(`input.content-textarea:not(.img-upload-hidden)[data-key="${key}"]`);
-  }
-
-  /* For image fields the save button calls saveContent too,
-     so we read from the dedicated hidden image-value input */
-  if (!el) {
-    el = document.querySelector(`.content-image-value[data-key="${key}"]`);
-  }
-
-  if (!el) {
-    showToast('Field not found for: ' + key, 'error');
-    return;
-  }
-
-  /* ── Step 2: safely read value ── */
-  const raw   = el.value;
-  const value = (raw !== undefined && raw !== null) ? String(raw) : '';
-
-  /* ── Step 3: hard refuse poison values ── */
-  if (['undefined', 'null', 'None'].includes(value.trim())) {
-    showToast('Invalid value — please enter real content before saving.', 'error');
-    return;
-  }
-
-  /* ── Step 4: POST ── */
-  const fd = new FormData();
-  fd.append('key',   key);
-  fd.append('value', value);
-
-  fetch('/admin/api/update-content', { method: 'POST', body: fd })
-    .then(r => r.json())
-    .then(d => {
-      if (d.success) {
-        showToast('Content saved', 'success');
-      } else {
-        showToast(d.error || 'Error saving content', 'error');
-      }
-    })
-    .catch(e => showToast('Error: ' + e.message, 'error'));
+/* --------------------- SAVE CONTENT --------------------- */
+function saveContent(key){
+  let el=document.querySelector(`textarea.content-textarea[data-key="${key}"]`);
+  if(!el)el=document.querySelector(`input.content-textarea:not(.img-upload-hidden)[data-key="${key}"]`);
+  if(!el)el=document.querySelector(`.content-image-value[data-key="${key}"]`);
+  if(!el){showToast('Field not found for: '+key,'error');return;}
+  const value=String(el.value||'');
+  if(['undefined','null','None'].includes(value.trim())){showToast('Invalid value — please enter real content.','error');return;}
+  const fd=new FormData();fd.append('key',key);fd.append('value',value);
+  fetch('/admin/api/update-content',{method:'POST',body:fd})
+    .then(r=>r.json()).then(d=>showToast(d.success?'Content saved':d.error||'Error',d.success?'success':'error'))
+    .catch(e=>showToast('Error: '+e.message,'error'));
 }
 
-/* ═════════════════════ OTHER SAVE FUNCTIONS ═════════════════════ */
+/* --------------------- OTHER SAVES --------------------- */
 function saveCardTitle(cardId){
   const fd=new FormData();fd.append('id',cardId);fd.append('title',document.querySelector(`.card-title[data-card-id="${cardId}"]`).value);
-  fetch('/admin/api/update-card-title',{method:'POST',body:fd})
-    .then(r=>r.json()).then(d=>showToast(d.success?'Title saved':'Error',d.success?'success':'error'))
-    .catch(e=>showToast('Error: '+e.message,'error'));
+  fetch('/admin/api/update-card-title',{method:'POST',body:fd}).then(r=>r.json()).then(d=>showToast(d.success?'Title saved':'Error',d.success?'success':'error')).catch(e=>showToast('Error: '+e.message,'error'));
 }
 function saveCardImage(cardId){
   const fd=new FormData();fd.append('id',cardId);fd.append('image',document.querySelector(`.card-image[data-card-id="${cardId}"]`).value);
-  fetch('/admin/api/update-card-image',{method:'POST',body:fd})
-    .then(r=>r.json()).then(d=>showToast(d.success?'Image saved':'Error',d.success?'success':'error'))
-    .catch(e=>showToast('Error: '+e.message,'error'));
+  fetch('/admin/api/update-card-image',{method:'POST',body:fd}).then(r=>r.json()).then(d=>showToast(d.success?'Image saved':'Error',d.success?'success':'error')).catch(e=>showToast('Error: '+e.message,'error'));
 }
 function saveButton(cardId,buttonIndex){
   const link=document.querySelector(`.button-link[data-card-id="${cardId}"][data-button-index="${buttonIndex}"]`);
@@ -1018,10 +1017,8 @@ function saveButton(cardId,buttonIndex){
   const bgImg=document.querySelector(`.button-bg-image[data-card-id="${cardId}"][data-button-index="${buttonIndex}"]`);
   const imgs=document.querySelector(`.button-images[data-card-id="${cardId}"][data-button-index="${buttonIndex}"]`);
   let images=[];if(imgs?.value.trim()){try{images=JSON.parse(imgs.value);}catch(e){}}
-  fetch('/admin/api/update-button',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({card_id:cardId,button_index:buttonIndex,link_url:link.value.trim(),content:cont.value,background_image:bgImg.value.trim(),images})})
-    .then(r=>r.json()).then(d=>showToast(d.success?'Button saved':'Error saving button',d.success?'success':'error'))
-    .catch(e=>showToast('Error: '+e.message,'error'));
+  fetch('/admin/api/update-button',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({card_id:cardId,button_index:buttonIndex,link_url:link.value.trim(),content:cont.value,background_image:bgImg.value.trim(),images})})
+    .then(r=>r.json()).then(d=>showToast(d.success?'Button saved':'Error',d.success?'success':'error')).catch(e=>showToast('Error: '+e.message,'error'));
 }
 function saveCard(cardId){
   const title=document.querySelector(`.card-title[data-card-id="${cardId}"]`);
@@ -1036,9 +1033,7 @@ function saveCard(cardId){
     const url=inp.value.trim();
     if(url)fetch('/admin/api/update-button-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({card_id:cardId,button_index:parseInt(inp.dataset.buttonIndex),link_url:url})});
   });
-  fetch('/admin/api/update-card',{method:'POST',body:fd})
-    .then(r=>r.json()).then(d=>showToast(d.success?'Card saved successfully':'Error saving card',d.success?'success':'error'))
-    .catch(e=>showToast('Error: '+e.message,'error'));
+  fetch('/admin/api/update-card',{method:'POST',body:fd}).then(r=>r.json()).then(d=>showToast(d.success?'Card saved':'Error',d.success?'success':'error')).catch(e=>showToast('Error: '+e.message,'error'));
 }
 function saveNavLink(navId){
   const txt=document.querySelector(`.nav-text[data-nav-id="${navId}"]`);
@@ -1055,17 +1050,17 @@ function saveNavLink(navId){
     .catch(e=>showToast('Error: '+e.message,'error'));
 }
 
-/* ═════════════════════ GALLERY ═════════════════════ */
+/* --------------------- GALLERY --------------------- */
 function uploadImage(file){
   const fd=new FormData();fd.append('file',file);
   return fetch('/admin/api/upload-image',{method:'POST',body:fd})
     .then(r=>r.json())
-    .then(d=>{if(d.success&&d.filename)return d.filename;throw new Error(d.error||'Upload failed');});
+    .then(d=>{if(d.success&&d.filename)return{filename:d.filename,url:d.url||imgUrl(d.filename)};throw new Error(d.error||'Upload failed');});
 }
 document.querySelectorAll('.button-gallery-upload').forEach(inp=>{
   inp.addEventListener('change',function(e){
     const{cardId,buttonIndex}=this.dataset,files=e.target.files;if(!files.length)return;
-    Promise.all(Array.from(files).map(f=>uploadImage(f).then(fn=>({src:fn,caption:f.name.split('.')[0]}))))
+    Promise.all(Array.from(files).map(f=>uploadImage(f).then(r=>({src:r.filename,url:r.url,caption:f.name.split('.')[0]}))))
       .then(newImgs=>{
         const ta=document.querySelector(`.button-images[data-card-id="${cardId}"][data-button-index="${buttonIndex}"]`);
         let existing=[];if(ta.value.trim()){try{existing=JSON.parse(ta.value);}catch(e){}}
@@ -1078,7 +1073,7 @@ document.querySelectorAll('.button-gallery-upload').forEach(inp=>{
 document.querySelectorAll('.nav-gallery-upload').forEach(inp=>{
   inp.addEventListener('change',function(e){
     const navId=this.dataset.navId,files=e.target.files;if(!files.length)return;
-    Promise.all(Array.from(files).map(f=>uploadImage(f).then(fn=>({src:fn,caption:f.name.split('.')[0]}))))
+    Promise.all(Array.from(files).map(f=>uploadImage(f).then(r=>({src:r.filename,url:r.url,caption:f.name.split('.')[0]}))))
       .then(newImgs=>{
         const ta=document.querySelector(`.nav-images[data-nav-id="${navId}"]`);
         let existing=[];if(ta.value.trim()){try{existing=JSON.parse(ta.value);}catch(e){}}
@@ -1087,19 +1082,23 @@ document.querySelectorAll('.nav-gallery-upload').forEach(inp=>{
       }).catch(e=>showToast(e.message,'error'));
   });
 });
+
+/* ✅ Gallery helpers now use img.url (full URL) for thumbnails */
 function rebuildGallery(uploaderId,images,containerId){
   const c=document.getElementById(containerId);if(!c)return;c.innerHTML='';
   images.forEach((img,idx)=>{
+    const src=img.url||imgUrl(img.src||img.filename||'');
     const item=document.createElement('div');item.className='gallery-thumb';
-    item.innerHTML=`<img src="/static/images/${img.src}" alt="${img.caption}"><button type="button" class="gallery-remove" onclick="removeGalleryImage('${uploaderId}',${idx})"><i class="fas fa-times"></i></button>`;
+    item.innerHTML=`<img src="${src}" alt="${img.caption||''}"><button type="button" class="gallery-remove" onclick="removeGalleryImage('${uploaderId}',${idx})"><i class="fas fa-times"></i></button>`;
     c.appendChild(item);
   });
 }
 function rebuildNavGallery(navId,images){
   const c=document.getElementById(`gallery-preview-nav-${navId}`);if(!c)return;c.innerHTML='';
   images.forEach((img,idx)=>{
+    const src=img.url||imgUrl(img.src||img.filename||'');
     const item=document.createElement('div');item.className='gallery-thumb';
-    item.innerHTML=`<img src="/static/images/${img.src}" alt="${img.caption}"><button type="button" class="gallery-remove" onclick="removeGalleryImage('nav-gallery-${navId}',${idx})"><i class="fas fa-times"></i></button>`;
+    item.innerHTML=`<img src="${src}" alt="${img.caption||''}"><button type="button" class="gallery-remove" onclick="removeGalleryImage('nav-gallery-${navId}',${idx})"><i class="fas fa-times"></i></button>`;
     c.appendChild(item);
   });
 }
@@ -1116,8 +1115,9 @@ function removeGalleryImage(uploaderId,index){
     }
     const c=document.getElementById(previewId);if(!c)return;c.innerHTML='';
     imgs.forEach((img,idx)=>{
+      const src=img.url||imgUrl(img.src||img.filename||'');
       const item=document.createElement('div');item.className='gallery-thumb';
-      item.innerHTML=`<img src="/static/images/${img.src}" alt="${img.caption}"><button type="button" class="gallery-remove" onclick="removeGalleryImage('${uploaderId}',${idx})"><i class="fas fa-times"></i></button>`;
+      item.innerHTML=`<img src="${src}" alt="${img.caption||''}"><button type="button" class="gallery-remove" onclick="removeGalleryImage('${uploaderId}',${idx})"><i class="fas fa-times"></i></button>`;
       c.appendChild(item);
     });
     showToast('Image removed');
@@ -1127,8 +1127,9 @@ function updateCaptionEditor(cardId,buttonIndex,images){
   const c=document.querySelector(`#captions-list-${cardId}-${buttonIndex}`);if(!c)return;c.innerHTML='';
   if(!images?.length){c.innerHTML='<p style="color:var(--muted);font-size:12px;text-align:center;padding:10px;background:rgba(255,255,255,.5);border-radius:var(--r);"><i class="fas fa-info-circle"></i> Upload images above to add captions</p>';return;}
   images.forEach((img,idx)=>{
+    const src=img.url||imgUrl(img.src||img.filename||'');
     const el=document.createElement('div');el.className='caption-item';
-    el.innerHTML=`<img src="/static/images/${img.src}" alt="${img.caption}"><input type="text" value="${img.caption}" placeholder="Enter caption">`;
+    el.innerHTML=`<img src="${src}" alt="${img.caption||''}"><input type="text" value="${img.caption||''}" placeholder="Enter caption">`;
     el.querySelector('input').addEventListener('input',e=>{
       const ta=document.querySelector(`.button-images[data-card-id="${cardId}"][data-button-index="${buttonIndex}"]`);
       try{let a=JSON.parse(ta.value);a[idx].caption=e.target.value;ta.value=JSON.stringify(a,null,2);}catch(err){}
@@ -1140,8 +1141,9 @@ function updateNavCaptionEditor(navId,images){
   const c=document.querySelector(`#captions-list-nav-${navId}`);if(!c)return;c.innerHTML='';
   if(!images?.length){c.innerHTML='<p style="color:var(--muted);font-size:12px;text-align:center;padding:10px;background:rgba(255,255,255,.5);border-radius:var(--r);"><i class="fas fa-info-circle"></i> Upload images above to add captions</p>';return;}
   images.forEach((img,idx)=>{
+    const src=img.url||imgUrl(img.src||img.filename||'');
     const el=document.createElement('div');el.className='caption-item';
-    el.innerHTML=`<img src="/static/images/${img.src}" alt="${img.caption}"><input type="text" value="${img.caption}" placeholder="Enter caption">`;
+    el.innerHTML=`<img src="${src}" alt="${img.caption||''}"><input type="text" value="${img.caption||''}" placeholder="Enter caption">`;
     el.querySelector('input').addEventListener('input',e=>{
       const ta=document.querySelector(`.nav-images[data-nav-id="${navId}"]`);
       try{let a=JSON.parse(ta.value);a[idx].caption=e.target.value;ta.value=JSON.stringify(a,null,2);}catch(err){}
@@ -1150,62 +1152,45 @@ function updateNavCaptionEditor(navId,images){
   });
 }
 
-/* ═════════════════════ MODAL BACKDROP CLOSE ═════════════════════ */
+/* --------------------- MODAL BACKDROP CLOSE --------------------- */
 document.getElementById('addCardModal').addEventListener('click',function(e){if(e.target===this)closeAddCardModal();});
 document.getElementById('addNavModal').addEventListener('click',function(e){if(e.target===this)closeAddNavModal();});
 document.getElementById('confirmOverlay').addEventListener('click',function(e){if(e.target===this)closeConfirm();});
 
-/* ═══════════════════════════════════════════════════════════
-   NEW-CARD POST-RELOAD ANIMATION
-═══════════════════════════════════════════════════════════ */
+/* --------------------- NEW CARD ANIMATION --------------------- */
 function initNewCardAnimation(){
-  const newTitle = sessionStorage.getItem('cms_new_card_title');
-  if(!newTitle) return;
+  const newTitle=sessionStorage.getItem('cms_new_card_title');if(!newTitle)return;
   sessionStorage.removeItem('cms_new_card_title');
-  switchTab('cards', document.querySelector('[data-tab=cards]'));
+  switchTab('cards',document.querySelector('[data-tab=cards]'));
   requestAnimationFrame(()=>{
-    let target = null;
-    document.querySelectorAll('#tab-cards .card-title').forEach(inp=>{
-      if(inp.value.trim() === newTitle) target = inp.closest('.card');
-    });
-    if(!target){
-      const all = document.querySelectorAll('#tab-cards .card');
-      target = all.length ? all[all.length - 1] : null;
-    }
-    if(!target) return;
-    target.classList.remove('card-new-enter');
-    void target.offsetWidth;
-    target.classList.add('card-new-enter');
-    setTimeout(()=>{ target.scrollIntoView({behavior:'smooth', block:'center'}); }, 80);
-    setTimeout(()=>target.classList.remove('card-new-enter'), 2400);
+    let target=null;
+    document.querySelectorAll('#tab-cards .card-title').forEach(inp=>{if(inp.value.trim()===newTitle)target=inp.closest('.card');});
+    if(!target){const all=document.querySelectorAll('#tab-cards .card');target=all.length?all[all.length-1]:null;}
+    if(!target)return;
+    target.classList.remove('card-new-enter');void target.offsetWidth;target.classList.add('card-new-enter');
+    setTimeout(()=>{target.scrollIntoView({behavior:'smooth',block:'center'});},80);
+    setTimeout(()=>target.classList.remove('card-new-enter'),2400);
   });
 }
 
-/* ═════════════════════ INIT ═════════════════════ */
+/* --------------------- INIT --------------------- */
 document.addEventListener('DOMContentLoaded',()=>{
-  document.getElementById('dash-btn-count').textContent = document.querySelectorAll('.acc').length;
+  document.getElementById('dash-btn-count').textContent=document.querySelectorAll('.acc').length;
 
   document.querySelectorAll('.button-images').forEach(ta=>{
-    const{cardId,buttonIndex}=ta.dataset;
-    if(!ta.value.trim())return;
-    try{
-      const imgs=JSON.parse(ta.value);
-      rebuildGallery(`button-gallery-${cardId}-${buttonIndex}`,imgs,`gallery-preview-${cardId}-${buttonIndex}`);
-      updateCaptionEditor(cardId,buttonIndex,imgs);
-    }catch(e){}
+    const{cardId,buttonIndex}=ta.dataset;if(!ta.value.trim())return;
+    try{const imgs=JSON.parse(ta.value);rebuildGallery(`button-gallery-${cardId}-${buttonIndex}`,imgs,`gallery-preview-${cardId}-${buttonIndex}`);updateCaptionEditor(cardId,buttonIndex,imgs);}catch(e){}
   });
   document.querySelectorAll('.nav-images').forEach(ta=>{
-    const navId=ta.dataset.navId;
-    if(!ta.value.trim())return;
-    try{
-      const imgs=JSON.parse(ta.value);
-      rebuildNavGallery(navId,imgs);
-      updateNavCaptionEditor(navId,imgs);
-    }catch(e){}
+    const navId=ta.dataset.navId;if(!ta.value.trim())return;
+    try{const imgs=JSON.parse(ta.value);rebuildNavGallery(navId,imgs);updateNavCaptionEditor(navId,imgs);}catch(e){}
   });
 
   document.querySelectorAll('.content-textarea:not(.img-upload-hidden)').forEach(ta=>updateCharCount(ta));
   document.querySelectorAll('.img-upload-field input[type="file"]').forEach(inp=>inp.addEventListener('click',e=>e.stopPropagation()));
+
+  /* Run health check after 1s so the page renders first */
+  setTimeout(checkUploadServer, 1000);
   initNewCardAnimation();
 });
 </script>
