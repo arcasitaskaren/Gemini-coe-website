@@ -2,93 +2,378 @@
 
 {% block extra_css %}
 <style>
+    /* ── BASE ── */
     html, body { height: 100%; scroll-behavior: smooth; }
     body { display: flex; flex-direction: column; }
     main { flex: 1; }
     footer { margin-top: auto; }
-    .stack-container { position: relative; height: 220vh; padding-bottom: 100px; }
-    .stack-card { position: sticky; top: 120px; margin: 0 auto 80px; padding: 30px;
-        background: white; border-radius: 20px; box-shadow: 0 10px 50px rgba(0,0,0,0.35);
-        min-height: 420px; width: 85%; transition: transform 0.3s ease; }
-    .stack-card.active { transform: translateY(-20px) scale(1.03); z-index: 50; }
-    .stack-card:not(.active) { transform: translateY(10px); z-index: 10; }
+
+    /* ── STACKED CARDS ── */
+    /*
+     * Height is set dynamically by JS based on actual card count.
+     * Each card gets 90vh of scroll room so it has time to stick
+     * before the next card scrolls in. A final 20vh buffer keeps
+     * the last card visible before the section ends.
+     * Fallback: 220vh (matches original 2-card layout).
+     */
+    .stack-container {
+        position: relative;
+        height: 220vh;          /* JS overrides this immediately on load */
+        padding-bottom: 100px;
+    }
+    .stack-card {
+        position: sticky;
+        top: 120px;
+        margin: 0 auto 80px;
+        padding: 30px;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 28px 50px rgba(0,0,0,0.35);
+        min-height: 420px;
+        width: 85%;
+        /*
+         * All transition props in one declaration so nothing gets
+         * clobbered when the browser merges rules.
+         */
+        transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+        will-change: transform;
+    }
+
+    /* Active card — rises up and scales slightly */
+    .stack-card.active {
+        transform: translateY(-20px) scale(1.03);
+        z-index: 50;
+        box-shadow: 0 36px 64px rgba(0,0,0,0.40);
+    }
+
+    /* Inactive cards — pushed down a touch */
+    .stack-card:not(.active) {
+        transform: translateY(10px);
+        z-index: 10;
+    }
+
+    /*
+     * Cards that have already scrolled past (above the viewport midpoint)
+     * get a gentle scale-down + slight upward nudge so they visually
+     * "recede" behind the incoming active card.
+     */
+    .stack-card.past {
+        transform: translateY(-8px) scale(0.97);
+        opacity: 0.88;
+        z-index: 5;
+    }
+
     .card-content { display: flex; gap: 20px; align-items: flex-start; }
     .card-img { width: 350px; height: 350px; object-fit: cover; border-radius: 16px; }
     .stack-card h3 { font-size: 2.6rem; font-weight: 700; color: #1c2790; margin-bottom: 12px; }
-    #resultsContainer { width: 100%; max-width: 900px; margin-top: 24px; position: relative; z-index: 1000 !important; pointer-events: auto; }
+
+    /* ── SCROLLBAR ── */
     ::-webkit-scrollbar { width: 8px; }
-    ::-webkit-scrollbar-track { background: linear-gradient(180deg, #f1f5f9 0%, #e2e8f0 100%); border-radius: 4px; }
-    ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #1c2790 0%, #1d293d 100%); border-radius: 4px; border: 1px solid #f1f5f9; }
-    ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #cdae2c 0%, #FACC15 100%); }
-    @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-    .skeleton-bar { background: linear-gradient(90deg, #5f6d8f 25%, #7a88a8 50%, #5f6d8f 75%); background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite; border-radius: 12px; height: 48px; }
-    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-    .sparkle-icon { display: inline-block; animation: sparkle 1.5s ease-in-out infinite; }
-    @keyframes sparkle { 0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; } 50% { transform: scale(1.2) rotate(180deg); opacity: 0.8; } }
-    /* Results Box Enhancement */
-    #resultsDisplay > div {
-        background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.95) 100%);
-        box-shadow: 0 20px 60px rgba(0,0,0,0.12), 0 8px 24px rgba(0,0,0,0.08);
-        border: 1px solid rgba(255,255,255,0.8);
-        transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
-    #resultsDisplay > div:hover {
-        box-shadow: 0 24px 72px rgba(0,0,0,0.15), 0 12px 32px rgba(0,0,0,0.1);
-        transform: translateY(-2px); }
-    #suggestionsSection { animation: slideIn 0.6s ease-out 0.2s backwards; overflow: visible !important; }
-    #suggestionsList { overflow: visible !important; }
-    #navigationSection { animation: slideIn 0.6s ease-out 0.4s backwards; overflow: visible !important; }
-    #resultsDisplay { overflow: visible !important; }
-    @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    #suggestionsList button, #navigationList button {
-        background: linear-gradient(135deg, rgba(28,39,144,0.08) 0%, rgba(155,175,220,0.08) 100%);
-        border: 2px solid rgba(28,39,144,0.15); transition: all 0.3s ease;
-        white-space: normal; word-wrap: break-word; overflow: visible; }
-    #suggestionsList button:hover, #navigationList button:hover {
-        background: linear-gradient(135deg, rgba(28,39,144,0.15) 0%, rgba(155,175,220,0.15) 100%);
-        border-color: rgba(28,39,144,0.3); transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(28,39,144,0.12); }
-    @media (max-width: 1024px) { .stack-container { height: 260vh; } .card-img { width: 280px; height: 280px; } .stack-card h3 { font-size: 2.2rem; } }
-    @media (max-width: 768px) {
-        .stack-container { height: 300vh; }
-        .card-content { flex-direction: column; align-items: center; text-align: center; }
-        .card-img { width: 100%; max-width: 420px; height: auto; aspect-ratio: 16/9; }
-        .stack-card { padding: 20px; min-height: auto; }
-        .stack-card h3 { font-size: 1.8rem; }
-        .stack-card button { width: 100% !important; } }
-    @media (max-width: 400px) { .stack-container { height: 320vh; } .stack-card h3 { font-size: 1.5rem; } }
-    /* Overlay */
-    #overlayBackdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
-    #overlayBackdrop.active { opacity: 1; pointer-events: auto; }
-    #searchOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1001; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; overflow-y: auto; }
-    #searchOverlay.active { opacity: 1; pointer-events: auto; }
-    .overlay-search-container { width: 100%; max-width: 900px; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: visible; }
-    .overlay-close-btn { position: absolute; top: 20px; right: 20px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.3); color: white; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; z-index: 1002; }
-    .overlay-close-btn:hover { background: rgba(255,255,255,0.3); border-color: rgba(255,255,255,0.5); }
-    #searchOverlay .flex.items-center.justify-center.gap-2 { display: none; }
-    #overlay-search-form { display: none !important; }
-    #overlayResultsContainer { width: 100%; padding: 25px 20px; border-radius: 24px; box-sizing: border-box; overflow: visible; display: block; max-height: 85vh; overflow-y: auto; }
-    @media (max-width: 900px) { #searchOverlay { padding: 20px; } .overlay-search-container { max-width: 650px; } #overlayResultsContainer { padding: 20px 15px; max-height: 85vh; } }
-    @media (max-width: 768px) { #searchOverlay { padding: 15px; } .overlay-search-container { max-width: 92%; } #overlayResultsContainer { padding: 18px 14px; font-size: 0.9rem; max-height: 82vh; } }
-    @media (max-width: 480px) { #searchOverlay { padding: 10px; } .overlay-search-container { max-width: 95%; } #overlayResultsContainer { padding: 15px 12px; font-size: 0.85rem; max-height: 70vh; } }
-    /* Images & Links */
-    #relatedImagesSection { animation: slideIn 0.6s ease-out 0.8s backwards; }
-    .related-image-card { position: relative; overflow: hidden; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: all 0.3s ease; aspect-ratio: 4/3; }
-    .related-image-card img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
-    .related-image-card:hover { box-shadow: 0 8px 20px rgba(0,0,0,0.15); transform: translateY(-4px); }
-    .related-image-card:hover img { transform: scale(1.05); }
-    .image-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.7), transparent); padding: 12px; color: white; font-size: 0.85rem; font-weight: 500; }
-    #relatedLinksSection { animation: slideIn 0.6s ease-out 1s backwards; }
-    .related-link-item { padding: 14px 16px; background: linear-gradient(135deg, rgba(250,204,21,0.08) 0%, rgba(250,204,21,0.04) 100%); border: 1px solid rgba(250,204,21,0.3); border-radius: 10px; transition: all 0.3s ease; display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
-    .related-link-item:hover { background: linear-gradient(135deg, rgba(250,204,21,0.15) 0%, rgba(250,204,21,0.08) 100%); border-color: rgba(250,204,21,0.6); padding-left: 20px; }
-    .link-icon { flex-shrink: 0; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; background: rgba(28,39,144,0.15); border-radius: 6px; color: #1c2790; font-size: 0.75rem; }
-    .link-content { flex: 1; min-width: 0; }
-    .link-title { font-weight: 600; color: #1c2790; margin-bottom: 2px; word-break: break-word; }
-    .link-context { font-size: 0.8rem; color: #666; margin: 0; }
-    .external-link-icon { flex-shrink: 0; width: 16px; height: 16px; color: #FACC15; opacity: 0; transition: opacity 0.3s ease; }
-    .related-link-item:hover .external-link-icon { opacity: 1; }
-    /* Hero title: force span children (e.g. "PUBLIC SECTOR") to never break across lines */
-    .hero-title span { white-space: nowrap; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    ::-webkit-scrollbar-track { background: linear-gradient(180deg,#f1f5f9 0%,#e2e8f0 100%); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#0096FF 0%,#0060cc 100%); border-radius: 4px; border: 1px solid #f1f5f9; }
+    ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg,#FACC15 0%,#f59e0b 100%); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes slideUp   { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes shimmer   { 0%   { background-position:200% 0; } 100% { background-position:-200% 0; } }
+    @keyframes sparkle   { 0%,100% { transform:scale(1) rotate(0deg); opacity:1; } 50% { transform:scale(1.2) rotate(180deg); opacity:.8; } }
+    @keyframes overlayIn { from { opacity:0; transform:translateY(16px) scale(.985); } to { opacity:1; transform:translateY(0) scale(1); } }
+    @keyframes beat      { 0%,100% { box-shadow:0 0 0 3px rgba(0,150,255,.20); } 50% { box-shadow:0 0 0 7px rgba(0,150,255,.05); } }
+    @keyframes spin      { to { transform:rotate(360deg); } }
+
+    .sparkle-icon { display:inline-block; animation:sparkle 1.5s ease-in-out infinite; }
+
+    /* ── HERO SEARCH (inline, below search bar) ── */
+    #resultsContainer { width:100%; max-width:900px; margin-top:24px; position:relative; z-index:1000!important; pointer-events:auto; }
+
+    /* ══════════════════════════════════════════════
+       OVERLAY — #0096FF Ocean Blue Theme
+       Brand: #0096FF blue  |  #FACC15 gold
+    ══════════════════════════════════════════════ */
+
+    /* Backdrop */
+    #overlayBackdrop {
+        position:fixed; inset:0;
+        background:rgba(0,150,255,0.12);
+        backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+        z-index:999; opacity:0; pointer-events:none;
+        transition:opacity 0.35s ease;
+    }
+    #overlayBackdrop.active { opacity:1; pointer-events:auto; }
+
+    #overlayBackdrop::before {
+        content:'';
+        position:absolute; inset:0;
+        background:
+            radial-gradient(ellipse 700px 600px at 15% 10%,  rgba(0,150,255,.13) 0%, transparent 70%),
+            radial-gradient(ellipse 500px 500px at 85% 90%,  rgba(250,204,21,.08) 0%, transparent 70%),
+            radial-gradient(ellipse 400px 400px at 70% 25%,  rgba(0,180,255,.08) 0%, transparent 70%);
+        pointer-events:none;
+    }
+
+    /* Overlay panel */
+    #searchOverlay {
+        position:fixed; inset:0; z-index:1001;
+        display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+        padding:32px 32px 40px;
+        opacity:0; pointer-events:none;
+        transition:opacity 0.35s cubic-bezier(.22,1,.36,1);
+        overflow-y:auto;
+    }
+    #searchOverlay.active { opacity:1; pointer-events:auto; }
+    #searchOverlay::-webkit-scrollbar { width:4px; }
+    #searchOverlay::-webkit-scrollbar-track { background:transparent; }
+    #searchOverlay::-webkit-scrollbar-thumb { background:rgba(0,150,255,.25); border-radius:4px; }
+
+    .overlay-search-container {
+        width:100%; max-width:1100px;
+        display:flex; flex-direction:column; align-items:center;
+    }
+
+    /* Close button */
+    .overlay-close-btn {
+        position:fixed; top:20px; right:24px;
+        display:flex; align-items:center; gap:6px;
+        background:rgba(255,255,255,.88);
+        border:1px solid rgba(0,150,255,.28);
+        border-radius:100px; padding:7px 16px;
+        color:#0060cc; font-size:11px; font-weight:700; letter-spacing:.07em;
+        cursor:pointer; z-index:1002;
+        backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+        transition:all .2s ease;
+    }
+    .overlay-close-btn::before { content:'✕'; font-size:10px; margin-right:2px; }
+    .overlay-close-btn:hover { background:#fff; border-color:#FACC15; color:#78350f; }
+
+    /* Status pill */
+    .overlay-status-bar {
+        display:inline-flex; align-items:center; gap:10px;
+        background:rgba(255,255,255,.88);
+        border:1px solid rgba(0,150,255,.28);
+        border-radius:100px; padding:8px 20px;
+        margin-bottom:22px;
+        backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    }
+    .overlay-live-dot {
+        width:7px; height:7px; background:#0096FF; border-radius:50%;
+        box-shadow:0 0 0 3px rgba(0,150,255,.20);
+        animation:beat 2s infinite;
+    }
+    .overlay-status-text { font-size:13px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#0060cc; }
+    .overlay-status-sep  { width:1px; height:14px; background:rgba(0,150,255,.28); }
+    .overlay-status-model { font-size:12px; color:#0096FF; }
+
+    /* Hidden legacy elements kept for JS compatibility */
+    #searchOverlay .flex.items-center.justify-center.gap-2 { display:none!important; }
+    #overlay-search-form { display:none!important; }
+
+    /* Results scroll area */
+    #overlayResultsContainer {
+        width:100%; overflow:visible;
+        max-height:calc(100vh - 120px); overflow-y:auto;
+        padding:4px 2px 40px;
+    }
+    #overlayResultsContainer::-webkit-scrollbar { width:4px; }
+    #overlayResultsContainer::-webkit-scrollbar-track { background:transparent; }
+    #overlayResultsContainer::-webkit-scrollbar-thumb { background:rgba(0,150,255,.22); border-radius:4px; }
+
+    /* ── RESULT CARD shell ── */
+    #overlayResultsContainer > div {
+        background:rgba(255,255,255,.92);
+        border:1px solid rgba(0,150,255,.22);
+        border-radius:24px;
+        box-shadow:0 2px 24px rgba(0,150,255,.12), 0 1px 4px rgba(0,150,255,.07);
+        overflow:hidden!important;
+        animation:overlayIn .42s cubic-bezier(.22,1,.36,1) both;
+    }
+
+    /* AI badge */
+    #overlayResultsContainer .abs-badge {
+        display:inline-flex; align-items:center; gap:8px;
+        background:linear-gradient(135deg, #FACC15, #F59E0B);
+        border-radius:100px; padding:6px 16px 6px 10px;
+    }
+    #overlayResultsContainer .abs-badge svg { width:15px; height:15px; }
+    #overlayResultsContainer .abs-badge span { font-size:13px; font-weight:800; letter-spacing:.04em; color:#422006; }
+
+    /* Card header strip */
+    #overlayResultsContainer .card-hd {
+        padding:20px 26px 16px;
+        display:flex; align-items:center; justify-content:space-between;
+        background:rgba(0,150,255,.06);
+        border-bottom:1px solid rgba(0,150,255,.12);
+    }
+    #overlayResultsContainer .card-hd-right { font-size:11px; color:#66bfff; }
+
+    /* Body two-col */
+    #overlayResultsContainer .card-bd {
+        padding:28px 26px; display:grid;
+        grid-template-columns:1fr 240px; gap:24px;
+    }
+    #overlayResultsContainer p,
+    #overlayResultsContainer #geminiSays {
+        font-size:16px!important; line-height:1.85!important; color:#003a7a!important;
+    }
+
+    /* Key points panel */
+    #overlayResultsContainer .kp-panel {
+        background:rgba(0,150,255,.06);
+        border:1px solid rgba(0,150,255,.18);
+        border-radius:16px; padding:16px 15px;
+        align-self:start;
+    }
+    #overlayResultsContainer .kp-head {
+        font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+        color:#0060cc; margin-bottom:10px;
+        display:flex; align-items:center; gap:6px;
+    }
+    #overlayResultsContainer .kp-head::before {
+        content:''; width:3px; height:11px; background:#FACC15;
+        border-radius:2px; flex-shrink:0;
+    }
+    #overlayResultsContainer .kp-list { list-style:none; padding:0; margin:0; }
+    #overlayResultsContainer .kp-list li {
+        display:flex; align-items:flex-start; gap:9px;
+        font-size:14px; color:#004a99; line-height:1.65;
+        padding:5px 0; border-bottom:1px solid rgba(0,150,255,.10);
+    }
+    #overlayResultsContainer .kp-list li:last-child { border-bottom:none; padding-bottom:0; }
+    #overlayResultsContainer .kp-bullet {
+        width:6px; height:6px; border-radius:50%;
+        background:#FACC15; flex-shrink:0; margin-top:6px;
+        box-shadow:0 0 0 2px rgba(250,204,21,.22);
+    }
+
+    /* Section divider */
+    #overlayResultsContainer .row-div { height:1px; background:rgba(0,150,255,.10); margin:0 22px; }
+
+    /* Section block */
+    #overlayResultsContainer .sec-block { padding:18px 26px; }
+    #overlayResultsContainer .sec-label {
+        font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+        color:#0060cc; margin-bottom:11px;
+        display:flex; align-items:center; gap:7px;
+    }
+    #overlayResultsContainer .sec-label::before {
+        content:''; width:5px; height:5px; border-radius:50%;
+        background:#FACC15; flex-shrink:0;
+    }
+
+    /* Suggestion buttons */
+    #overlayResultsContainer .suggestion-btn,
+    #overlayResultsContainer #suggestionsList button {
+        padding:10px 14px!important;
+        background:rgba(0,150,255,.06)!important;
+        border:1px solid rgba(0,150,255,.18)!important;
+        border-radius:12px!important;
+        font-size:14px!important; color:#0060cc!important;
+        text-align:left; line-height:1.4;
+        transition:all .18s ease;
+        white-space:normal; word-wrap:break-word;
+    }
+    #overlayResultsContainer .suggestion-btn:hover,
+    #overlayResultsContainer #suggestionsList button:hover {
+        background:#fff!important; border-color:#FACC15!important;
+        color:#78350f!important; transform:translateY(-2px);
+        box-shadow:0 4px 12px rgba(250,204,21,.13)!important;
+    }
+
+    /* Quick action pills */
+    #overlayResultsContainer #navigationList button {
+        padding:7px 16px!important;
+        background:rgba(0,150,255,.06)!important;
+        border:1px solid rgba(0,150,255,.18)!important;
+        border-radius:100px!important;
+        font-size:14px!important; color:#0060cc!important;
+        transition:all .18s ease;
+    }
+    #overlayResultsContainer #navigationList button:hover {
+        background:#fff!important; border-color:rgba(0,150,255,.45)!important;
+        color:#003a7a!important; box-shadow:0 2px 8px rgba(0,150,255,.12)!important;
+    }
+
+    /* Related links */
+    #overlayResultsContainer .related-link-item {
+        display:flex; align-items:center; gap:12px;
+        padding:11px 14px!important;
+        background:rgba(0,150,255,.06)!important;
+        border:1px solid rgba(0,150,255,.15)!important;
+        border-radius:12px!important;
+        text-decoration:none; cursor:pointer;
+        transition:all .18s ease;
+    }
+    #overlayResultsContainer .related-link-item:hover {
+        background:#fff!important; border-color:rgba(250,204,21,.50)!important;
+        box-shadow:0 3px 12px rgba(250,204,21,.11)!important;
+        padding-left:14px!important;
+    }
+    #overlayResultsContainer .link-icon {
+        width:32px!important; height:32px!important; border-radius:10px!important;
+        background:rgba(0,150,255,.10)!important;
+        border:1px solid rgba(0,150,255,.20)!important;
+        font-size:13px;
+    }
+    #overlayResultsContainer .link-title  { font-size:15px!important; font-weight:600!important; color:#003a7a!important; }
+    #overlayResultsContainer .link-context { font-size:13px!important; color:#66bfff!important; }
+    #overlayResultsContainer .external-link-icon { color:transparent!important; transition:color .18s ease; }
+    #overlayResultsContainer .related-link-item:hover .external-link-icon { color:#78350f!important; }
+
+    /* Loading skeleton */
+    #overlayResultsContainer .skeleton-bar {
+        background:linear-gradient(90deg,rgba(0,150,255,.10) 25%,rgba(0,150,255,.20) 50%,rgba(0,150,255,.10) 75%)!important;
+        background-size:200% 100%!important;
+        animation:shimmer 1.5s ease-in-out infinite!important;
+        border-radius:10px; height:44px;
+    }
+
+    /* Related images */
+    .related-image-card {
+        position:relative; overflow:hidden; border-radius:14px;
+        box-shadow:0 4px 16px rgba(0,150,255,.12); transition:all .3s ease;
+        aspect-ratio:4/3; border:1px solid rgba(0,150,255,.18);
+    }
+    .related-image-card img { width:100%; height:100%; object-fit:cover; transition:transform .4s ease; }
+    .related-image-card:hover { box-shadow:0 10px 28px rgba(0,150,255,.18); transform:translateY(-3px); }
+    .related-image-card:hover img { transform:scale(1.05); }
+    .image-overlay {
+        position:absolute; bottom:0; left:0; right:0;
+        background:linear-gradient(to top,rgba(0,58,122,.78),transparent);
+        padding:12px; color:rgba(220,240,255,.95); font-size:.8rem; font-weight:500;
+    }
+
+    /* Section slide-in */
+    #suggestionsSection  { animation:slideUp .5s ease-out .15s backwards; overflow:visible!important; }
+    #navigationSection   { animation:slideUp .5s ease-out .3s  backwards; overflow:visible!important; }
+    #relatedImagesSection{ animation:slideUp .5s ease-out .45s backwards; }
+    #relatedLinksSection { animation:slideUp .5s ease-out .55s backwards; }
+    #resultsDisplay { overflow:visible!important; }
+    #suggestionsList, #navigationList { overflow:visible!important; }
+
+    /* Heading overrides inside overlay */
+    #overlayResultsContainer h3 { color:#003a7a!important; }
+    #overlayResultsContainer h4 { color:#004a99!important; }
+    #overlayResultsContainer .border-t { border-color:rgba(0,150,255,.12)!important; }
+    #overlayResultsContainer .text-red-600 { color:#dc2626!important; }
+
+    /* ── HERO title ── */
+    .hero-title span { white-space:nowrap; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width:1024px) { .card-img{width:280px;height:280px;} .stack-card h3{font-size:2.2rem;} }
+    @media (max-width:768px) {
+        .card-content{flex-direction:column;align-items:center;text-align:center;}
+        .card-img{width:100%;max-width:420px;height:auto;aspect-ratio:16/9;}
+        .stack-card{padding:20px;min-height:auto;}
+        .stack-card h3{font-size:1.8rem;}
+        .stack-card button{width:100%!important;}
+        #overlayResultsContainer .card-bd{grid-template-columns:1fr!important;}
+        #searchOverlay{padding:22px 14px 14px;}
+    }
+    @media (max-width:480px) {
+        .stack-card h3{font-size:1.5rem;}
+        #searchOverlay{padding:16px 10px 10px;}
+        .overlay-close-btn{top:12px;right:12px;}
+    }
 </style>
 {% endblock %}
 
@@ -96,29 +381,28 @@
 <div id="overlayBackdrop"></div>
 
 <div id="searchOverlay">
-  <button class="overlay-close-btn" id="overlayCloseBtn" title="Close">×</button>
+  <button class="overlay-close-btn" id="overlayCloseBtn" title="Close">ESC</button>
   <div class="overlay-search-container">
-    <div class="flex items-center justify-center gap-2 mb-4">
-      <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2C10.9 2 10 2.9 10 4C10 5.1 10.5 6 11.3 6.6C10.5 7 10 7.9 10 9C10 10.7 11.3 12 13 12C14.7 12 16 10.7 16 9C16 7.9 15.5 7 14.7 6.6C15.5 6 16 5.1 16 4C16 2.9 15.1 2 14 2H12ZM5 12C3.3 12 2 13.3 2 15V16C2 18.2 5.1 20 9 20C10.2 20 11.3 19.8 12.2 19.5C11.5 18.8 11 17.9 11 17C11 15.3 12.3 14 14 14H19C19 13.3 18.7 12.7 18.2 12.3C17 12.1 15.5 12 14 12H10C8.5 12 7 12.1 5.8 12.3C5.5 12.1 5.3 12 5 12ZM14 15C13.4 15 13 15.4 13 16V18C13 18.6 13.4 19 14 19H21C21.6 19 22 18.6 22 18V16C22 15.4 21.6 15 21 15H14Z"/>
-      </svg>
-      <span class="text-white font-semibold text-sm tracking-wide">AI Powered Search</span>
+
+    <!-- Status pill -->
+    <div class="overlay-status-bar">
+      <span class="overlay-live-dot"></span>
+      <span class="overlay-status-text">AI Powered Search</span>
+      <span class="overlay-status-sep"></span>
+      <span class="overlay-status-model">Powered by Groq &amp; OpenAI</span>
     </div>
-    <form id="overlay-search-form" class="relative mb-8">
-      <input type="text" id="overlay-search-input"
-        placeholder="{{ search_placeholder }}"
-        class="w-full pl-6 pr-24 py-4 rounded-full border-2 border-white/50 bg-white/90 backdrop-blur-sm shadow-2xl focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 outline-none text-base text-[#0a0a0a] placeholder-gray-600 font-medium transition-all duration-200">
-      <button type="button" id="overlay-clear-btn"
-        class="absolute right-16 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 opacity-0 pointer-events-none transition-all duration-200"
-        title="Clear search"><i class="fas fa-times text-lg"></i></button>
-      <button type="submit" class="absolute right-5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors">
-        <i class="fas fa-search text-lg"></i></button>
+
+    <!-- Hidden elements kept for JS compatibility -->
+    <div class="flex items-center justify-center gap-2" style="display:none!important;"></div>
+    <form id="overlay-search-form" class="relative mb-8" style="display:none!important;">
+      <input type="text" id="overlay-search-input" placeholder="{{ search_placeholder }}">
     </form>
+
     <div id="overlayResultsContainer" class="w-full"></div>
   </div>
 </div>
 
-<!-- HEADER -->
+<!-- ══ HEADER ══ -->
 <header class="fixed top-0 left-0 w-full z-50 bg-[#f5f5f5] shadow-sm">
     <div class="max-w-7xl mx-auto flex items-center justify-between px-6 py-3">
         <a href="/" class="flex items-center ml-[-40px]">
@@ -127,17 +411,17 @@
         <nav class="hidden lg:flex items-center space-x-6 text-sm font-semibold text-[#0a0a0a]">
             {% for link in nav_links %}
                 {% if link.link_url and link.link_url != '#' %}
-                    <a href="{{ link.link_url }}" target="_blank" class="hover:text-[#1c2790] whitespace-nowrap">{{ link.link_text }}</a>
+                    <a href="{{ link.link_url }}" target="_blank" class="hover:text-[#0096FF] whitespace-nowrap">{{ link.link_text }}</a>
                 {% else %}
-                    <a href="/nav-page/{{ link.id }}" class="hover:text-[#1c2790] whitespace-nowrap">{{ link.link_text }}</a>
+                    <a href="/nav-page/{{ link.id }}" class="hover:text-[#0096FF] whitespace-nowrap">{{ link.link_text }}</a>
                 {% endif %}
             {% endfor %}
             {% if published_pages %}
                 <div class="relative group">
-                    <a href="#" class="hover:text-[#1c2790] whitespace-nowrap">Custom Pages ▾</a>
+                    <a href="#" class="hover:text-[#0096FF] whitespace-nowrap">Custom Pages ▾</a>
                     <div class="hidden group-hover:block absolute left-0 mt-0 w-48 bg-white shadow-lg rounded-lg py-2 z-50">
                         {% for page in published_pages %}
-                            <a href="/page/{{ page.slug }}" class="block px-4 py-2 text-sm text-[#0a0a0a] hover:bg-[#f5f5f5] hover:text-[#1c2790]">{{ page.title }}</a>
+                            <a href="/page/{{ page.slug }}" class="block px-4 py-2 text-sm text-[#0a0a0a] hover:bg-[#f5f5f5] hover:text-[#0096FF]">{{ page.title }}</a>
                         {% endfor %}
                     </div>
                 </div>
@@ -151,33 +435,23 @@
         <nav class="flex flex-col space-y-3 text-sm font-semibold text-[#0a0a0a]">
             {% for link in nav_links %}
                 {% if link.link_url and link.link_url != '#' %}
-                    <a href="{{ link.link_url }}" target="_blank" class="hover:text-[#1c2790]">{{ link.link_text }}</a>
+                    <a href="{{ link.link_url }}" target="_blank" class="hover:text-[#0096FF]">{{ link.link_text }}</a>
                 {% else %}
-                    <a href="/nav-page/{{ link.id }}" class="hover:text-[#1c2790]">{{ link.link_text }}</a>
+                    <a href="/nav-page/{{ link.id }}" class="hover:text-[#0096FF]">{{ link.link_text }}</a>
                 {% endif %}
             {% endfor %}
         </nav>
     </div>
 </header>
 
-<!-- HERO SECTION
-     hero_image        → background image (editable in admin)
-     hero_title        → heading text (editable in admin, supports HTML like <br> and <span>)
-     search_placeholder → input placeholder (editable in admin)
-
-     NOTE: The .hero-title CSS rule above applies `white-space: nowrap` to any <span>
-     inside the heading, so a DB value like:
-       LEADING THE MOVEMENT IN <br>ADVANCING INNOVATION AND <br>PRODUCTIVITY IN THE
-       <span class="text-[#cdae2c]">PUBLIC SECTOR</span>
-     will always keep "PUBLIC SECTOR" on one unbroken line.
--->
+<!-- ══ HERO ══ -->
 <section class="relative w-full bg-gradient-to-b from-gray-900 to-gray-800"
-  style="background-image: linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)), url('{{ url_for('static', filename=hero_image) }}');
-         background-position: center; background-size: cover; background-repeat: no-repeat;
-         background-attachment: fixed; height: 100vh; min-height: 100vh; z-index: 10; pointer-events: none;">
+  style="background-image:linear-gradient(rgba(0,0,0,0.35),rgba(0,0,0,0.35)),url('{{ url_for('static', filename=hero_image) }}');
+         background-position:center;background-size:cover;background-repeat:no-repeat;
+         background-attachment:fixed;height:100vh;min-height:100vh;z-index:10;pointer-events:none;">
 
-  <!-- Search Bar -->
-  <div class="absolute top-[25%] md:top-[28%] left-1/2 -translate-x-1/2 w-full px-4 z-20" style="pointer-events: auto;">
+  <!-- Search bar -->
+  <div class="absolute top-[25%] md:top-[28%] left-1/2 -translate-x-1/2 w-full px-4 z-20" style="pointer-events:auto;">
     <div class="max-w-2xl mx-auto">
       <div class="flex items-center justify-center gap-2 mb-4">
         <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
@@ -188,21 +462,21 @@
       <form id="gemini-search-form" class="relative">
         <input type="text" id="search-input"
           placeholder="{{ search_placeholder }}"
-          class="w-full pl-6 pr-24 py-4 rounded-full border-2 border-white/50 bg-white/90 backdrop-blur-sm shadow-2xl focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 outline-none text-base text-[#0a0a0a] placeholder-gray-600 font-medium transition-all duration-200">
+          class="w-full pl-6 pr-24 py-4 rounded-full border-2 border-white/50 bg-white/90 backdrop-blur-sm shadow-2xl focus:ring-2 focus:ring-[#0096FF] focus:border-[#0096FF] outline-none text-base text-[#0a0a0a] placeholder-gray-600 font-medium transition-all duration-200">
         <button type="button" id="clear-btn"
           class="absolute right-16 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 opacity-0 pointer-events-none transition-all duration-200"
           title="Clear search"><i class="fas fa-times text-lg"></i></button>
-        <button type="submit" class="absolute right-5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors">
+        <button type="submit" class="absolute right-5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-[#0096FF] transition-colors">
           <i class="fas fa-search text-lg"></i></button>
       </form>
     </div>
 
-    <!-- AI Results Display -->
+    <!-- Inline results (hidden — results go to overlay) -->
     <div id="resultsContainer" class="w-full max-w-2xl mx-auto mt-6 hidden animate-[slideUp_0.6s_ease-out]">
       <div id="loadingState" class="hidden">
         <div class="relative bg-white/95 backdrop-blur-xl rounded-3xl p-10 shadow-[0_8px_32px_rgba(0,0,0,0.18)] border border-white/40">
           <div class="flex items-center gap-3 mb-6">
-            <svg class="sparkle-icon w-6 h-6 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+            <svg class="sparkle-icon w-6 h-6" style="color:#0096FF;" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/>
             </svg>
             <h3 class="text-lg font-semibold text-gray-800">Analyzing your query...</h3>
@@ -210,7 +484,7 @@
           <div class="space-y-3">
             <div class="skeleton-bar"></div>
             <div class="skeleton-bar"></div>
-            <div class="skeleton-bar" style="width: 85%;"></div>
+            <div class="skeleton-bar" style="width:85%;"></div>
           </div>
         </div>
       </div>
@@ -218,7 +492,7 @@
         <p id="errorMessage" class="text-red-400 text-xl font-semibold"></p>
       </div>
       <div id="resultsDisplay" class="space-y-8 hidden">
-        <div class="relative bg-white/95 backdrop-blur-xl rounded-3xl p-10 shadow-[0_8px_32px_rgba(0,0,0,0.18)] border border-white/40 transition-all duration-300 hover:shadow-[0_12px_38px_rgba(0,0,0,0.22)]" style="overflow: visible;">
+        <div class="relative bg-white/95 backdrop-blur-xl rounded-3xl p-10 shadow-[0_8px_32px_rgba(0,0,0,0.18)] border border-white/40 transition-all duration-300 hover:shadow-[0_12px_38px_rgba(0,0,0,0.22)]" style="overflow:visible;">
           <div class="absolute -top-5 left-8 bg-[#f7c948] px-5 py-2 rounded-full shadow-lg flex items-center gap-2">
             <svg class="w-7 h-7 text-black" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C10.9 2 10 2.9 10 4C10 5.1 10.5 6 11.3 6.6C10.5 7 10 7.9 10 9C10 10.7 11.3 12 13 12C14.7 12 16 10.7 16 9C16 7.9 15.5 7 14.7 6.6C15.5 6 16 5.1 16 4C16 2.9 15.1 2 14 2H12ZM5 12C3.3 12 2 13.3 2 15V16C2 18.2 5.1 20 9 20C10.2 20 11.3 19.8 12.2 19.5C11.5 18.8 11 17.9 11 17C11 15.3 12.3 14 14 14H19C19 13.3 18.7 12.7 18.2 12.3C17 12.1 15.5 12 14 12H10C8.5 12 7 12.1 5.8 12.3C5.5 12.1 5.3 12 5 12ZM14 15C13.4 15 13 15.4 13 16V18C13 18.6 13.4 19 14 19H21C21.6 19 22 18.6 22 18V16C22 15.4 21.6 15 21 15H14Z"/>
@@ -230,59 +504,54 @@
               <p id="geminiSays" class="text-left text-gray-800 leading-relaxed text-[1.05rem] mb-6"></p>
               <img id="resultImage" class="w-full rounded-xl mt-4 max-h-72 object-cover shadow-lg hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-xl" alt="Result">
             </div>
-            <div class="bg-[#f2f6ff] rounded-2xl p-6 shadow-inner border border-[#dbe6ff]">
-              <h4 class="font-bold text-[#1c2f64] mb-4 text-left text-lg">Key Points</h4>
-              <ul id="keyPointsList" class="space-y-3 text-gray-700 text-[0.95rem] leading-relaxed list-disc pl-5 text-left"></ul>
+            <div class="rounded-2xl p-6 shadow-inner border" style="background:rgba(0,150,255,.06);border-color:rgba(0,150,255,.18);">
+              <h4 class="font-bold mb-4 text-left text-lg" style="color:#003a7a;">Key Points</h4>
+              <ul id="keyPointsList" class="space-y-3 text-[0.95rem] leading-relaxed list-disc pl-5 text-left" style="color:#004a99;"></ul>
             </div>
           </div>
-          <div id="suggestionsSection" class="hidden mt-10 pt-8 border-t border-gray-200 relative z-10" style="overflow: visible;">
-            <h4 class="text-gray-900 font-bold mb-6 text-xl">Related Topics</h4>
-            <div id="suggestionsList" class="grid grid-cols-1 md:grid-cols-2 gap-5" style="overflow: visible;"></div>
+          <div id="suggestionsSection" class="hidden mt-10 pt-8 border-t relative z-10" style="overflow:visible;border-color:rgba(0,150,255,.15);">
+            <h4 class="font-bold mb-6 text-xl" style="color:#003a7a;">Related Topics</h4>
+            <div id="suggestionsList" class="grid grid-cols-1 md:grid-cols-2 gap-5" style="overflow:visible;"></div>
           </div>
-          <div id="navigationSection" class="hidden mt-12 pt-8 border-t border-gray-200" style="overflow: visible;">
-            <h4 class="text-gray-900 font-bold mb-6 text-xl">Quick Actions</h4>
+          <div id="navigationSection" class="hidden mt-12 pt-8 border-t" style="overflow:visible;border-color:rgba(0,150,255,.15);">
+            <h4 class="font-bold mb-6 text-xl" style="color:#003a7a;">Quick Actions</h4>
             <div id="navigationList" class="flex flex-wrap gap-4"></div>
           </div>
-          <div id="relatedImagesSection" class="hidden mt-10 pt-8 border-t border-gray-200 relative z-10" style="overflow: visible;">
-            <h4 class="text-gray-900 font-bold mb-6 text-xl flex items-center gap-2">
-              <span class="inline-block w-2 h-2 bg-[#FACC15] rounded-full"></span>Related Images
+          <div id="relatedImagesSection" class="hidden mt-10 pt-8 border-t relative z-10" style="overflow:visible;border-color:rgba(0,150,255,.15);">
+            <h4 class="font-bold mb-6 text-xl flex items-center gap-2" style="color:#003a7a;">
+              <span class="inline-block w-2 h-2 rounded-full" style="background:#FACC15;"></span>Related Images
             </h4>
-            <div id="relatedImagesList" class="grid grid-cols-1 md:grid-cols-2 gap-4" style="overflow: visible;"></div>
+            <div id="relatedImagesList" class="grid grid-cols-1 md:grid-cols-2 gap-4" style="overflow:visible;"></div>
           </div>
-          <div id="relatedLinksSection" class="hidden mt-10 pt-8 border-t border-gray-200 relative z-10" style="overflow: visible;">
-            <h4 class="text-gray-900 font-bold mb-6 text-xl flex items-center gap-2">
-              <span class="inline-block w-2 h-2 bg-[#1c2790] rounded-full"></span>Related Links
+          <div id="relatedLinksSection" class="hidden mt-10 pt-8 border-t relative z-10" style="overflow:visible;border-color:rgba(0,150,255,.15);">
+            <h4 class="font-bold mb-6 text-xl flex items-center gap-2" style="color:#003a7a;">
+              <span class="inline-block w-2 h-2 rounded-full" style="background:#0096FF;"></span>Related Links
             </h4>
-            <div id="relatedLinksList" class="space-y-3" style="overflow: visible;"></div>
+            <div id="relatedLinksList" class="space-y-3" style="overflow:visible;"></div>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!--
-    HERO TITLE
-    - Reads from the database via {{ hero_title | safe }}
-    - | safe is required so <br>, <span class="...">, etc. render as HTML
-    - The CSS rule `.hero-title span { white-space: nowrap; }` ensures any
-      <span> in the DB value (e.g. PUBLIC SECTOR) stays on one line.
-    - Example DB value:
-        LEADING THE MOVEMENT IN <br>ADVANCING INNOVATION AND
-        <br>PRODUCTIVITY IN THE <span class="text-[#cdae2c]">PUBLIC SECTOR</span>
-  -->
-  <div class="absolute bottom-12 md:bottom-16 lg:bottom-20 right-6 md:right-12 lg:right-20 z-40 max-w-6xl" style="pointer-events: auto;">
+  <!-- Hero title -->
+  <div class="absolute bottom-12 md:bottom-16 lg:bottom-20 right-6 md:right-12 lg:right-20 z-40 max-w-6xl" style="pointer-events:auto;">
     <h1 class="hero-title text-right text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight drop-shadow-2xl">
       {{ hero_title | safe }}
     </h1>
   </div>
-
 </section>
 
-<!-- STACKED CARDS -->
+<!-- ══ STACKED CARDS ══ -->
+<!--
+  The stack-container height is intentionally left without an inline height here.
+  JS calculates the correct height from the actual card count so that every card —
+  including ones added later via the admin — gets the same scroll room.
+-->
 <section id="stacked-cards" class="relative w-full py-20 bg-[#f5f5f5]">
-    <div class="stack-container">
+    <div class="stack-container" id="stackContainer">
         {% for card in cards %}
-            <div class="stack-card" style="z-index: {{ loop.index }}">
+            <div class="stack-card" style="z-index:{{ loop.index }};" data-card-index="{{ loop.index0 }}">
                 <div class="card-content">
                     <img src="{{ url_for('static', filename='images/' + card.image) }}" class="card-img" alt="{{ card.title }}">
                     <div class="flex flex-col w-full">
@@ -321,23 +590,23 @@
     </div>
 </section>
 
-<!-- CUSTOM PAGES -->
+<!-- ══ CUSTOM PAGES ══ -->
 {% if published_pages %}
 <section class="relative w-full py-20 bg-white">
     <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
         <div class="text-center mb-12">
-            <h2 class="text-4xl md:text-5xl font-bold text-[#1c2790] mb-4">Explore Our Pages</h2>
+            <h2 class="text-4xl md:text-5xl font-bold mb-4" style="color:#0096FF;">Explore Our Pages</h2>
             <p class="text-lg text-gray-600">Discover more content and resources</p>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {% for page in published_pages %}
-                <a href="/page/{{ page.slug }}" class="group bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-[#1c2790]">
+                <a href="/page/{{ page.slug }}" class="group bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300" style="hover:border-color:#0096FF;">
                     <div class="p-6 h-full flex flex-col">
-                        <h3 class="text-xl font-bold text-[#1c2790] mb-2 group-hover:text-[#FACC15] transition-colors">{{ page.title }}</h3>
+                        <h3 class="text-xl font-bold mb-2 transition-colors" style="color:#0096FF;">{{ page.title }}</h3>
                         {% if page.description %}
                             <p class="text-gray-600 text-sm mb-4 flex-grow">{{ page.description }}</p>
                         {% endif %}
-                        <div class="inline-flex items-center text-[#1c2790] font-semibold group-hover:text-[#FACC15] transition-colors">
+                        <div class="inline-flex items-center font-semibold transition-colors" style="color:#0096FF;">
                             View Page
                             <svg class="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
@@ -351,10 +620,9 @@
 </section>
 {% endif %}
 
-<!-- FOOTER -->
+<!-- ══ FOOTER ══ -->
 <footer class="bg-gradient-to-r from-slate-800 to-slate-900 text-white text-sm">
     <div class="py-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto px-4">
-
         <div class="footer-section">
             <img src="{{ url_for('static', filename=logo_image) }}" alt="Logo" class="h-10 mb-3 brightness-0 invert hover:scale-105 transition-transform duration-300">
             <div class="font-bold text-base mb-2">{{ company_name }}</div>
@@ -366,7 +634,6 @@
                 Email: <a href="mailto:{{ company_email }}" class="text-blue-400 hover:text-blue-300 transition-colors duration-300 hover:underline">{{ company_email }}</a>
             </address>
         </div>
-
         <div class="footer-section">
             <h4 class="font-bold mb-4 text-slate-200 text-sm bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">About DAP</h4>
             <ul class="space-y-2">
@@ -376,7 +643,6 @@
                 {% endfor %}
             </ul>
         </div>
-
         <div class="footer-section">
             <h4 class="font-bold mb-4 text-slate-200 text-sm bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">COE-PSP</h4>
             <ul class="space-y-2">
@@ -386,13 +652,11 @@
                 {% endfor %}
             </ul>
         </div>
-
         <div class="footer-section">
             <img src="{{ url_for('static', filename=apo_logo) }}" alt="APO Logo" class="h-8 mb-3 brightness-0 invert hover:scale-105 transition-transform duration-300">
             <p class="text-xs text-slate-300 leading-relaxed mb-3">The Philippines is a member of the Asian Productivity Organization. The Development Academy of the Philippines serves as the country's National Productivity Organization (NPO).</p>
             <p class="text-xs text-slate-300 mb-3">Visit <a href="https://www.apo-tokyo.org" class="text-blue-400 hover:text-blue-300 transition-colors duration-300 hover:underline">www.apo-tokyo.org</a> to learn more.</p>
         </div>
-
     </div>
     <div class="text-center py-4 px-4 bg-slate-900 text-slate-400 text-xs border-t border-slate-700">
         <p class="flex items-center justify-center gap-2">
@@ -403,67 +667,185 @@
 </footer>
 
 <script>
-    const AI_BADGE_SVG = '<svg class="w-7 h-7 text-black" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C10.9 2 10 2.9 10 4C10 5.1 10.5 6 11.3 6.6C10.5 7 10 7.9 10 9C10 10.7 11.3 12 13 12C14.7 12 16 10.7 16 9C16 7.9 15.5 7 14.7 6.6C15.5 6 16 5.1 16 4C16 2.9 15.1 2 14 2H12ZM5 12C3.3 12 2 13.3 2 15V16C2 18.2 5.1 20 9 20C10.2 20 11.3 19.8 12.2 19.5C11.5 18.8 11 17.9 11 17C11 15.3 12.3 14 14 14H19C19 13.3 18.7 12.7 18.2 12.3C17 12.1 15.5 12 14 12H10C8.5 12 7 12.1 5.8 12.3C5.5 12.1 5.3 12 5 12ZM14 15C13.4 15 13 15.4 13 16V18C13 18.6 13.4 19 14 19H21C21.6 19 22 18.6 22 18V16C22 15.4 21.6 15 21 15H14Z"/></svg>';
+    /* ══════════════════════════════════════════════
+       STACKED CARDS — SCROLL ANIMATION
+       Works for any number of cards added via admin.
 
+       How it works:
+       ─────────────
+       1. On load, we read the actual card count and set
+          stack-container height = (count × VH_PER_CARD) + BUFFER_VH.
+          This gives each card enough scroll room to become
+          "active" before the next one takes over.
+
+       2. The scroll handler classifies each card as:
+          • .past   — its center has already cleared the trigger line
+          • .active — it's the frontmost visible card (last past one, or
+                      first one if none have passed yet)
+          • (neither) — not yet reached
+
+       3. z-index from Jinja (loop.index) already ensures correct
+          stacking paint order. .active raises z-index to 50 via CSS.
+    ══════════════════════════════════════════════ */
+    (function () {
+        const TRIGGER_RATIO  = 0.5;   /* fraction of viewport height — card activates when its top reaches here */
+        const VH_PER_CARD    = 90;    /* vh of scroll room given to each card */
+        const BUFFER_VH      = 20;    /* extra vh at the end so the last card isn't cut off */
+
+        const container = document.getElementById('stackContainer');
+        const cards     = Array.from(document.querySelectorAll('.stack-card'));
+
+        if (!container || !cards.length) return;
+
+        /* ── 1. Set container height based on card count ── */
+        function setContainerHeight() {
+            const vh = window.innerHeight / 100;
+            container.style.height = (cards.length * VH_PER_CARD * vh + BUFFER_VH * vh) + 'px';
+        }
+
+        /* ── 2. Classify every card on each scroll tick ── */
+        function updateCards() {
+            const triggerY = window.innerHeight * TRIGGER_RATIO;
+            let lastPastIndex = -1;
+
+            /* First pass: mark past cards */
+            cards.forEach((card, i) => {
+                const rect = card.getBoundingClientRect();
+                const isPast = rect.top < triggerY;
+                card.classList.toggle('past', isPast);
+                card.classList.remove('active');
+                if (isPast) lastPastIndex = i;
+            });
+
+            /* Second pass: the "active" card is the last past one.
+               If none have scrolled past yet, activate the first card. */
+            const activeIndex = lastPastIndex >= 0 ? lastPastIndex : 0;
+            cards[activeIndex].classList.remove('past');
+            cards[activeIndex].classList.add('active');
+        }
+
+        /* ── 3. Wire up events ── */
+        setContainerHeight();
+        updateCards();   /* run once on load so the first card is already active */
+
+        window.addEventListener('scroll', updateCards, { passive: true });
+        window.addEventListener('resize', () => { setContainerHeight(); updateCards(); }, { passive: true });
+    })();
+
+
+    /* ══ BUILD RESULTS HTML ══ */
     function buildResultsHTML(data) {
-        let html = '<div class="relative bg-white/95 backdrop-blur-xl rounded-3xl p-10 shadow-[0_8px_32px_rgba(0,0,0,0.18)] border border-white/40 transition-all duration-300 hover:shadow-[0_12px_38px_rgba(0,0,0,0.22)]" style="overflow: visible;">'
-            + '<div class="absolute -top-5 left-8 bg-[#f7c948] px-5 py-2 rounded-full shadow-lg flex items-center gap-2">'
-            + AI_BADGE_SVG + '<span class="text-black font-semibold tracking-wide text-sm">AI says</span></div>'
-            + '<div class="grid grid-cols-1 lg:grid-cols-3 gap-10 mt-6"><div class="lg:col-span-2">'
-            + '<p class="text-left text-gray-800 leading-relaxed text-[1.05rem] mb-6">' + (data.gemini_says || 'No response') + '</p>';
+        const AI_ICON = '<svg style="width:15px;height:15px;flex-shrink:0;" viewBox="0 0 24 24" fill="#422006"><path d="M12 2C10.9 2 10 2.9 10 4C10 5.1 10.5 6 11.3 6.6C10.5 7 10 7.9 10 9C10 10.7 11.3 12 13 12C14.7 12 16 10.7 16 9C16 7.9 15.5 7 14.7 6.6C15.5 6 16 5.1 16 4C16 2.9 15.1 2 14 2H12ZM5 12C3.3 12 2 13.3 2 15V16C2 18.2 5.1 20 9 20C10.2 20 11.3 19.8 12.2 19.5C11.5 18.8 11 17.9 11 17C11 15.3 12.3 14 14 14H19C19 13.3 18.7 12.7 18.2 12.3C17 12.1 15.5 12 14 12H10C8.5 12 7 12.1 5.8 12.3C5.5 12.1 5.3 12 5 12ZM14 15C13.4 15 13 15.4 13 16V18C13 18.6 13.4 19 14 19H21C21.6 19 22 18.6 22 18V16C22 15.4 21.6 15 21 15H14Z"/></svg>';
+        const LINK_ICON = '<svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="#0096FF" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>';
+        const ARROW_ICON = '<svg style="width:12px;height:12px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4m-4-6l6 6m0 0l-6 6m6-6H3"/></svg>';
 
-        if (data.image) html += '<img src="' + data.image + '" class="w-full rounded-xl mt-4 max-h-72 object-cover shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl" alt="Result">';
+        let html = '<div style="overflow:visible;">';
 
-        html += '</div><div class="bg-[#f2f6ff] rounded-2xl p-6 shadow-inner border border-[#dbe6ff]">'
-            + '<h4 class="font-bold text-[#1c2f64] mb-4 text-left text-lg">Key Points</h4>';
+        /* ── Card header ── */
+        html += '<div class="card-hd">'
+            + '<div class="abs-badge">' + AI_ICON + '<span>AI says</span></div>'
+            + '<span class="card-hd-right">Based on your query</span>'
+            + '</div>';
 
+        /* ── Body: answer + key points ── */
+        html += '<div class="card-bd">';
+
+        /* Main answer */
+        html += '<div><p style="font-size:16px;line-height:1.85;color:#003a7a;">'
+            + (data.gemini_says || 'No response available.') + '</p>';
+        if (data.image) {
+            html += '<img src="' + data.image + '" style="width:100%;border-radius:12px;margin-top:16px;max-height:240px;object-fit:cover;border:1px solid rgba(0,150,255,.18);" alt="Result">';
+        }
+        html += '</div>';
+
+        /* Key points */
+        html += '<div class="kp-panel"><div class="kp-head">Key points</div>';
         if (data.key_points && data.key_points.length) {
-            html += '<ul class="space-y-3 text-gray-700 text-[0.95rem] leading-relaxed list-disc pl-5 text-left">';
-            data.key_points.forEach(p => { if (p) html += '<li>' + p + '</li>'; });
+            html += '<ul class="kp-list">';
+            data.key_points.forEach(pt => {
+                if (pt) html += '<li><span class="kp-bullet"></span><span style="font-size:14px;color:#004a99;">' + pt + '</span></li>';
+            });
             html += '</ul>';
         } else {
-            html += '<div class="py-4 text-center"><p class="text-gray-500 italic">Retrieving key information...</p></div>';
+            html += '<p style="font-size:12px;color:#66bfff;font-style:italic;">Retrieving key points...</p>';
         }
-        html += '</div></div>';
-
-        if (data.global_suggestions && data.global_suggestions.length) {
-            html += '<div class="mt-10 pt-8 border-t border-gray-200 relative z-10" style="overflow: visible;"><h4 class="text-gray-900 font-bold mb-6 text-xl">Related Topics</h4><div class="grid grid-cols-1 md:grid-cols-2 gap-5" style="overflow: visible;">';
-            data.global_suggestions.forEach(s => {
-                html += '<button type="button" class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition text-sm suggestion-btn" data-suggestion="' + s.replace(/"/g,'&quot;') + '">' + s + '</button>';
-            });
-            html += '</div></div>';
-        }
-
-        if (data.quick_navigation && data.quick_navigation.length) {
-            html += '<div class="mt-12 pt-8 border-t border-gray-200" style="overflow: visible;"><h4 class="text-gray-900 font-bold mb-6 text-xl">Quick Actions</h4><div class="flex flex-wrap gap-4">';
-            data.quick_navigation.forEach(n => { html += '<button type="button" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition text-sm">' + n + '</button>'; });
-            html += '</div></div>';
-        }
-
-        if (data.related_images && data.related_images.length) {
-            html += '<div class="mt-10 pt-8 border-t border-gray-200 relative z-10" style="overflow: visible;"><h4 class="text-gray-900 font-bold mb-6 text-xl flex items-center gap-2"><span class="inline-block w-2 h-2 bg-[#FACC15] rounded-full"></span>Related Images</h4><div class="grid grid-cols-1 md:grid-cols-2 gap-4" style="overflow: visible;">';
-            data.related_images.forEach(img => {
-                html += '<div class="related-image-card"><img src="' + img.url + '" alt="' + (img.alt_text || 'Related image') + '" class="w-full h-full object-cover rounded-lg"><div class="image-overlay">' + (img.alt_text || img.source || 'Related image') + '</div></div>';
-            });
-            html += '</div></div>';
-        }
-
-        if (data.related_links && data.related_links.length) {
-            html += '<div class="mt-10 pt-8 border-t border-gray-200 relative z-10" style="overflow: visible;"><h4 class="text-gray-900 font-bold mb-6 text-xl flex items-center gap-2"><span class="inline-block w-2 h-2 bg-[#1c2790] rounded-full"></span>Related Links</h4><div class="space-y-3" style="overflow: visible;">';
-            data.related_links.forEach(link => {
-                html += '<a href="' + link.url + '" target="_blank" class="related-link-item"><div class="link-icon">🔗</div><div class="link-content"><div class="link-title">' + link.title + '</div><p class="link-context">' + (link.context || 'Related resource') + '</p></div><svg class="external-link-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4m-4-6l6 6m0 0l-6 6m6-6H3"></path></svg></a>';
-            });
-            html += '</div></div>';
-        }
-
         html += '</div>';
+
+        html += '</div>'; /* end card-bd */
+
+        /* ── Related topics ── */
+        if (data.global_suggestions && data.global_suggestions.length) {
+            html += '<div class="row-div"></div><div class="sec-block">'
+                + '<div class="sec-label" style="font-size:12px;">Related topics</div>'
+                + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+            data.global_suggestions.forEach(s => {
+                html += '<button type="button" class="suggestion-btn" data-suggestion="' + s.replace(/"/g, '&quot;') + '">' + s + '</button>';
+            });
+            html += '</div></div>';
+        }
+
+        /* ── Quick actions ── */
+        if (data.quick_navigation && data.quick_navigation.length) {
+            html += '<div class="row-div"></div><div class="sec-block">'
+                + '<div class="sec-label" style="font-size:12px;">Quick actions</div>'
+                + '<div id="navigationList" style="display:flex;flex-wrap:wrap;gap:8px;">';
+            data.quick_navigation.forEach(n => {
+                html += '<button type="button" style="padding:8px 18px;background:rgba(0,150,255,.06);border:1px solid rgba(0,150,255,.18);border-radius:100px;font-size:14px;color:#0060cc;cursor:pointer;transition:all .18s;">' + n + '</button>';
+            });
+            html += '</div></div>';
+        }
+
+        /* ── Related images ── */
+        if (data.related_images && data.related_images.length) {
+            html += '<div class="row-div"></div><div class="sec-block">'
+                + '<div class="sec-label" style="font-size:12px;">Related images</div>'
+                + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
+            data.related_images.forEach(img => {
+                html += '<div class="related-image-card"><img src="' + img.url + '" alt="' + (img.alt_text || 'Related image') + '"><div class="image-overlay">' + (img.alt_text || img.source || 'Related image') + '</div></div>';
+            });
+            html += '</div></div>';
+        }
+
+        /* ── Related links ── */
+        if (data.related_links && data.related_links.length) {
+            html += '<div class="row-div"></div><div class="sec-block">'
+                + '<div class="sec-label" style="font-size:12px;">Related links</div>'
+                + '<div style="display:flex;flex-direction:column;gap:7px;">';
+            data.related_links.forEach(link => {
+                html += '<a href="' + link.url + '" target="_blank" class="related-link-item">'
+                    + '<div class="link-icon" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:10px;">' + LINK_ICON + '</div>'
+                    + '<div class="link-content" style="flex:1;min-width:0;">'
+                    + '<div class="link-title" style="font-size:15px;font-weight:600;color:#003a7a;">' + link.title + '</div>'
+                    + '<p class="link-context" style="margin:2px 0 0;font-size:13px;color:#66bfff;">' + (link.context || 'Related resource') + '</p>'
+                    + '</div>'
+                    + '<span class="external-link-icon" style="flex-shrink:0;">' + ARROW_ICON + '</span>'
+                    + '</a>';
+            });
+            html += '</div></div>';
+        }
+
+        html += '</div>'; /* end outer wrapper */
         return html;
     }
 
-    const LOADING_HTML = '<div class="relative bg-white/95 backdrop-blur-xl rounded-3xl p-10 shadow-[0_8px_32px_rgba(0,0,0,0.18)] border border-white/40"><div class="flex items-center gap-3 mb-6"><svg class="sparkle-icon w-6 h-6 text-blue-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/></svg><h3 class="text-lg font-semibold text-gray-800">Analyzing your query...</h3></div><div class="space-y-3"><div class="skeleton-bar"></div><div class="skeleton-bar"></div><div class="skeleton-bar" style="width: 85%;"></div></div></div>';
+    /* ══ LOADING STATE ══ */
+    const LOADING_HTML = '<div style="padding:28px 24px;background:rgba(255,255,255,.92);border:1px solid rgba(0,150,255,.22);border-radius:24px;box-shadow:0 2px 24px rgba(0,150,255,.12);animation:overlayIn .42s cubic-bezier(.22,1,.36,1) both;">'
+        + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">'
+        + '<svg class="sparkle-icon" style="width:20px;height:20px;flex-shrink:0;" viewBox="0 0 24 24" fill="#FACC15"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/></svg>'
+        + '<span style="font-size:14px;font-weight:600;color:#003a7a;">Analyzing your query...</span></div>'
+        + '<div style="display:flex;flex-direction:column;gap:10px;">'
+        + '<div class="skeleton-bar"></div>'
+        + '<div class="skeleton-bar"></div>'
+        + '<div class="skeleton-bar" style="width:75%;"></div>'
+        + '</div></div>';
 
-    const ERROR_HTML = (msg) => '<div class="relative bg-white/95 backdrop-blur-xl rounded-3xl p-10 shadow-[0_8px_32px_rgba(0,0,0,0.18)] border border-white/40"><div class="flex items-center gap-3 text-red-600"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><p class="text-lg font-semibold">' + msg + '</p></div></div>';
+    /* ══ ERROR STATE ══ */
+    const ERROR_HTML = (msg) => '<div style="padding:24px;background:rgba(255,255,255,.92);border:1px solid rgba(220,80,80,.2);border-radius:24px;animation:overlayIn .42s cubic-bezier(.22,1,.36,1) both;">'
+        + '<div style="display:flex;align-items:center;gap:10px;color:#dc2626;">'
+        + '<svg style="width:20px;height:20px;flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+        + '<span style="font-size:14px;font-weight:600;">' + msg + '</span></div></div>';
 
+    /* ══ HERO FORM SUBMIT ══ */
     document.getElementById('gemini-search-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const query = document.getElementById('search-input').value.trim();
@@ -473,16 +855,17 @@
         document.getElementById('overlayResultsContainer').innerHTML = LOADING_HTML;
         document.getElementById('resultsContainer').classList.add('hidden');
         try {
-            const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-            if (!response.ok) throw new Error(`API responded with status: ${response.status}`);
-            const data = await response.json();
+            const res = await fetch('/api/search?q=' + encodeURIComponent(query));
+            if (!res.ok) throw new Error('API responded with status: ' + res.status);
+            const data = await res.json();
             document.getElementById('overlayResultsContainer').innerHTML = buildResultsHTML(data);
             attachSuggestionListeners(document.getElementById('overlayResultsContainer'));
-        } catch (error) {
-            document.getElementById('overlayResultsContainer').innerHTML = ERROR_HTML(error.message || 'Failed to fetch results. Please try again.');
+        } catch (err) {
+            document.getElementById('overlayResultsContainer').innerHTML = ERROR_HTML(err.message || 'Failed to fetch results. Please try again.');
         }
     });
 
+    /* ══ MOBILE MENU ══ */
     document.getElementById('menu-toggle').addEventListener('click', () => {
         const menu = document.getElementById('mobile-menu');
         const icon = document.getElementById('menu-icon');
@@ -491,11 +874,11 @@
         icon.classList.toggle('fa-times');
     });
 
+    /* ══ HERO SEARCH CLEAR ══ */
     const searchInput = document.getElementById('search-input');
     const clearBtn    = document.getElementById('clear-btn');
-
     searchInput.addEventListener('input', () => {
-        clearBtn.style.opacity = searchInput.value.trim() ? '1' : '0';
+        clearBtn.style.opacity       = searchInput.value.trim() ? '1' : '0';
         clearBtn.style.pointerEvents = searchInput.value.trim() ? 'auto' : 'none';
     });
     clearBtn.addEventListener('click', () => {
@@ -506,13 +889,7 @@
         document.getElementById('resultsContainer').classList.add('hidden');
     });
 
-    window.addEventListener('scroll', () => {
-        document.querySelectorAll('.stack-card').forEach(card => {
-            const rect = card.getBoundingClientRect();
-            card.classList.toggle('active', rect.top < window.innerHeight * 0.5);
-        });
-    });
-
+    /* ══ OVERLAY LOGIC ══ */
     const overlayBackdrop    = document.getElementById('overlayBackdrop');
     const searchOverlay      = document.getElementById('searchOverlay');
     const overlayCloseBtn    = document.getElementById('overlayCloseBtn');
@@ -524,13 +901,12 @@
         overlayBackdrop.classList.add('active');
         searchOverlay.classList.add('active');
         document.body.style.overflow = 'hidden';
-        overlaySearchInput.focus();
     }
     function closeOverlay() {
         overlayBackdrop.classList.remove('active');
         searchOverlay.classList.remove('active');
         document.body.style.overflow = 'auto';
-        overlaySearchInput.value = '';
+        if (overlaySearchInput) overlaySearchInput.value = '';
         document.getElementById('overlayResultsContainer').innerHTML = '';
         if (overlayClearBtn) { overlayClearBtn.style.opacity = '0'; overlayClearBtn.style.pointerEvents = 'none'; }
     }
@@ -546,7 +922,7 @@
 
     if (overlayClearBtn) {
         overlaySearchInput.addEventListener('input', () => {
-            overlayClearBtn.style.opacity = overlaySearchInput.value.trim() ? '1' : '0';
+            overlayClearBtn.style.opacity       = overlaySearchInput.value.trim() ? '1' : '0';
             overlayClearBtn.style.pointerEvents = overlaySearchInput.value.trim() ? 'auto' : 'none';
         });
         overlayClearBtn.addEventListener('click', (e) => {
@@ -568,19 +944,20 @@
         const query = overlaySearchInput.value.trim();
         if (!query) return;
         searchInput.value = query;
-        const overlayResultsContainer = document.getElementById('overlayResultsContainer');
-        overlayResultsContainer.innerHTML = LOADING_HTML;
+        const container = document.getElementById('overlayResultsContainer');
+        container.innerHTML = LOADING_HTML;
         try {
-            const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-            if (!response.ok) throw new Error(`API responded with status: ${response.status}`);
-            const data = await response.json();
-            overlayResultsContainer.innerHTML = buildResultsHTML(data);
-            attachSuggestionListeners(overlayResultsContainer);
-        } catch (error) {
-            overlayResultsContainer.innerHTML = ERROR_HTML(error.message || 'Failed to fetch results. Please try again.');
+            const res = await fetch('/api/search?q=' + encodeURIComponent(query));
+            if (!res.ok) throw new Error('API responded with status: ' + res.status);
+            const data = await res.json();
+            container.innerHTML = buildResultsHTML(data);
+            attachSuggestionListeners(container);
+        } catch (err) {
+            container.innerHTML = ERROR_HTML(err.message || 'Failed to fetch results. Please try again.');
         }
     });
 
+    /* Global suggestion click delegation */
     document.addEventListener('click', (e) => {
         if (e.target.classList.contains('suggestion-btn')) {
             overlaySearchInput.value = e.target.getAttribute('data-suggestion');
