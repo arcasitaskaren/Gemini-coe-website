@@ -23,11 +23,15 @@ import string
 app = Flask(__name__)
 app.config.from_object(Config)
 
+# ✅ FIX: Detect environment — cache only works reliably on local dev
+IS_PRODUCTION = os.environ.get('FLASK_ENV', 'production') == 'production'
+
 # Debug: Verify API key is loaded
 api_key_check = os.getenv('GROQ_API_KEY', 'NOT FOUND')
 print(f"\n[DEBUG] GROQ_API_KEY from environment: {'LOADED' if api_key_check != 'NOT FOUND' else 'NOT FOUND'}")
 if api_key_check != 'NOT FOUND':
     print(f"[DEBUG] API Key starts with: {api_key_check[:10]}...")
+print(f"[DEBUG] IS_PRODUCTION: {IS_PRODUCTION}")
 print()
 
 # Initialize extensions
@@ -54,9 +58,9 @@ def fromjson_filter(value):
 # Create upload folder if it doesn't exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # Helper utilities
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 
 def escape_html(text):
     if not text:
@@ -114,9 +118,9 @@ def is_greeting(query):
     return False
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# -----------------------------------------------------------------------------
 #  ENHANCED SEARCH ENGINE
-# ═════════════════════════════════════════════════════════════════════════════
+# -----------------------------------------------------------------------------
 
 SYNONYMS = {
     'training':       ['capacity development', 'learning', 'course', 'seminar', 'workshop', 'program'],
@@ -207,11 +211,11 @@ def _extract_snippet(haystack: str, tokens: list, window: int = 130) -> str:
             best_pos = pos
             break
     if best_pos == -1:
-        return haystack[:window] + ('…' if len(haystack) > window else '')
+        return haystack[:window] + ('...' if len(haystack) > window else '')
     start   = max(0, best_pos - 40)
     end     = min(len(haystack), best_pos + window)
     snippet = haystack[start:end].strip()
-    return ('…' if start > 0 else '') + snippet + ('…' if end < len(haystack) else '')
+    return ('...' if start > 0 else '') + snippet + ('...' if end < len(haystack) else '')
 
 
 def _safe_json_list(raw) -> list:
@@ -247,9 +251,9 @@ def _image_url(filename: str) -> str:
     return f'images/{filename}'
 
 
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # Main DB search
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 
 def search_website_content(query: str) -> dict:
     results = {
@@ -378,7 +382,7 @@ def search_website_content(query: str) -> dict:
             )
         results['context_text'] = '\n'.join(context_parts)
         app.logger.info(
-            f"DB search '{query}': {len(matches)} candidates → "
+            f"DB search '{query}': {len(matches)} candidates -> "
             f"{len(results['suggestions'])} suggestions, {len(results['images'])} images"
         )
     except Exception as e:
@@ -387,9 +391,11 @@ def search_website_content(query: str) -> dict:
     return results
 
 
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # Groq API
-# ─────────────────────────────────────────────
+# ✅ FIX 1: Cache disabled on production (Render ephemeral filesystem)
+# ✅ FIX 2: System prompt no longer caps response at 200 words
+# ---------------------------------------------
 
 def call_groq_api(query: str, website_search: dict = None) -> dict:
     api_key = app.config.get('GROQ_API_KEY', '') or os.environ.get('GROQ_API_KEY', '')
@@ -399,17 +405,25 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
 
     print(f"[v0] Calling Groq API for query: {query}")
 
-    cache_dir  = os.path.join(app.root_path, 'cache')
-    os.makedirs(cache_dir, exist_ok=True)
-    cache_file = os.path.join(cache_dir, f"ai_{hashlib.md5(query.encode()).hexdigest()}.json")
-    if os.path.exists(cache_file) and (time.time() - os.path.getmtime(cache_file) < 3600):
-        try:
-            with open(cache_file, 'r') as f:
-                cached = json.load(f)
-            print(f"[v0] Cache hit")
-            return cached
-        except Exception:
-            pass
+    # ✅ FIX 1: Only use file cache in local development.
+    # On Render (production), the filesystem is ephemeral — cached files
+    # written in one request may not exist in another dyno/worker, and can
+    # serve stale or incomplete responses. Skip the cache entirely in production.
+    USE_CACHE = not IS_PRODUCTION
+    cache_file = None
+
+    if USE_CACHE:
+        cache_dir  = os.path.join(app.root_path, 'cache')
+        os.makedirs(cache_dir, exist_ok=True)
+        cache_file = os.path.join(cache_dir, f"ai_{hashlib.md5(query.encode()).hexdigest()}.json")
+        if os.path.exists(cache_file) and (time.time() - os.path.getmtime(cache_file) < 3600):
+            try:
+                with open(cache_file, 'r') as f:
+                    cached = json.load(f)
+                print(f"[v0] Cache hit")
+                return cached
+            except Exception:
+                pass
 
     if website_search is None:
         website_search = search_website_content(query)
@@ -417,6 +431,8 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
     context_text   = website_search.get('context_text', '')
     has_db_content = bool(context_text.strip())
 
+    # ✅ FIX 2: Removed "= 200 words" hard cap that was truncating live responses.
+    # Now instructs the model to give detailed, thorough answers between 150-300 words.
     system_prompt = (
         "You are Tutoy, the official AI assistant for DAP-COE "
         "(Development Academy of the Philippines – Center of Excellence on Public Sector Productivity). "
@@ -425,9 +441,10 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
         "2. Prioritise information from the 'Website Context' section when available. "
         "3. If website context is empty or off-topic, use general knowledge about public sector "
         "   productivity, Philippine governance, and DAP programs. "
-        "4. gemini_says: clear, helpful, ≤ 200 words. "
-        "5. key_points: exactly 4 strings. "
-        "6. global_suggestions: exactly 3 strings. "
+        "4. gemini_says: write a clear, helpful, and detailed response between 150 and 300 words. "
+        "   Be thorough and informative – do not truncate or summarise too briefly. "
+        "5. key_points: exactly 4 strings, each a concise but meaningful bullet point. "
+        "6. global_suggestions: exactly 3 strings representing useful follow-up questions. "
         "7. Leave 'image' as empty string '' – images are handled separately."
     )
 
@@ -466,7 +483,7 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
     try:
         url     = "https://api.groq.com/openai/v1/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-        print("[v0] Making request to Groq API…")
+        print("[v0] Making request to Groq API...")
         resp = requests.post(url, headers=headers, json=payload, timeout=30)
         print(f"[v0] Response status: {resp.status_code}")
 
@@ -530,12 +547,16 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
             'related_links':              website_search.get('related_links', [])[:8],
         }
 
-        try:
-            with open(cache_file, 'w') as f:
-                json.dump(result, f)
-            print("[v0] Response cached")
-        except Exception as e:
-            print(f"[v0] Cache write error: {e}")
+        # ✅ FIX 3: Only write cache in local development
+        if USE_CACHE and cache_file:
+            try:
+                with open(cache_file, 'w') as f:
+                    json.dump(result, f)
+                print("[v0] Response cached (local dev only)")
+            except Exception as e:
+                print(f"[v0] Cache write error: {e}")
+        else:
+            print("[v0] Cache skipped (production mode)")
 
         return result
 
@@ -548,9 +569,9 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
     return None
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# -----------------------------------------------------------------------------
 #  MAIN SITE ROUTES
-# ═════════════════════════════════════════════════════════════════════════════
+# -----------------------------------------------------------------------------
 
 @app.route('/nav-page/<int:nav_id>')
 def nav_page(nav_id):
@@ -651,9 +672,9 @@ def index():
     return resp
 
 
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # AI SEARCH ENDPOINT
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 
 @app.route('/api/search', methods=['GET'])
 def api_search():
@@ -731,9 +752,9 @@ def api_search():
     })
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# -----------------------------------------------------------------------------
 #  ADMIN ROUTES
-# ═════════════════════════════════════════════════════════════════════════════
+# -----------------------------------------------------------------------------
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_login():
@@ -775,9 +796,9 @@ def page_builder():
     return render_template('page_builder.html', logo_image=get_content('logo_image', 'images/dap-logo.png'))
 
 
-# ─────────────────────────────────────────────
-# ✅ FIXED: update_content — guards against saving "undefined"/"null"/"None"
-# ─────────────────────────────────────────────
+# ---------------------------------------------
+# update_content — guards against saving "undefined"/"null"/"None"
+# ---------------------------------------------
 @app.route('/admin/api/update-content', methods=['POST'])
 @login_required
 def update_content():
@@ -789,11 +810,9 @@ def update_content():
             key   = request.form.get('key')
             value = request.form.get('value', '')
 
-        # Guard: key must be present
         if not key:
             return no_cache_json({'success': False, 'error': 'Key is required'})
 
-        # Guard: refuse to store poisoned JS values
         value_str = str(value).strip() if value is not None else ''
         if value_str in ('undefined', 'null', 'None'):
             return no_cache_json({
@@ -1059,9 +1078,9 @@ def update_nav_link_api():
         return no_cache_json({'success': False, 'error': str(e)})
 
 
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # ADD / DELETE CARD
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 
 @app.route('/admin/api/add-card', methods=['POST'])
 @login_required
@@ -1139,9 +1158,9 @@ def delete_card_api():
         return no_cache_json({'success': False, 'error': str(e)}, 500)
 
 
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # ADD / DELETE NAV LINK
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 
 @app.route('/admin/api/add-nav-link', methods=['POST'])
 @login_required
@@ -1219,9 +1238,9 @@ def update_professional():
         return no_cache_json({'success': False, 'error': str(e)})
 
 
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # PAGE BUILDER ROUTES
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 
 @app.route('/admin/api/pages', methods=['GET'])
 @login_required
@@ -1440,9 +1459,9 @@ def reorder_blocks():
         return no_cache_json({'success': False, 'error': str(e)})
 
 
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 # DB INIT
-# ─────────────────────────────────────────────
+# ---------------------------------------------
 
 def init_db():
     with app.app_context():
@@ -1458,8 +1477,8 @@ def init_db():
             ('loading_text', 'Generating...', 4),
             ('ai_label', 'AI says', 5),
             ('key_points_title', 'Key Points', 6),
-            ('related_topics_title', '🌐 Related Topics', 7),
-            ('quick_actions_title', '⚡ Quick Actions', 8),
+            ('related_topics_title', 'Related Topics', 7),
+            ('quick_actions_title', 'Quick Actions', 8),
             ('logo_image', 'images/dap-logo.png', 9),
             ('gemini_image', 'images/gemini.png', 10),
             ('apo_logo', 'images/apo.png', 11),
