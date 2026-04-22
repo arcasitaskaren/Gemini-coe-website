@@ -23,12 +23,6 @@ import string
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Store API key in app config
-app.config['GROQ_API_KEY'] = os.getenv("GROQ_API_KEY")
-
-if not app.config['GROQ_API_KEY']:
-    print("WARNING: GROQ_API_KEY is not set. Check your .env or environment variables.")
-
 # Debug: Verify API key is loaded
 api_key_check = os.getenv('GROQ_API_KEY', 'NOT FOUND')
 print(f"\n[DEBUG] GROQ_API_KEY from environment: {'LOADED' if api_key_check != 'NOT FOUND' else 'NOT FOUND'}")
@@ -60,9 +54,9 @@ def fromjson_filter(value):
 # Create upload folder if it doesn't exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# ---------------------------------------------
+# ─────────────────────────────────────────────
 # Helper utilities
-# ---------------------------------------------
+# ─────────────────────────────────────────────
 
 def escape_html(text):
     if not text:
@@ -88,6 +82,25 @@ def get_all_nav_links():
 def get_all_professionals():
     return db.session.query(SuggestedProfessional).order_by(SuggestedProfessional.professional_order).all()
 
+def clear_ai_cache():
+    """Delete all cached AI responses so the next search hits fresh DB data."""
+    cache_dir = os.path.join(app.root_path, 'cache')
+    if os.path.exists(cache_dir):
+        for f in os.listdir(cache_dir):
+            if f.startswith('ai_') and f.endswith('.json'):
+                try:
+                    os.remove(os.path.join(cache_dir, f))
+                except OSError:
+                    pass
+
+def no_cache_json(data, status=200):
+    """Return a JSON response with cache-busting headers."""
+    resp = make_response(jsonify(data), status)
+    resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Expires'] = '0'
+    return resp
+
 def is_greeting(query):
     greetings = [
         'hello', 'hi', 'hey', 'greetings', 'good morning', 'good afternoon',
@@ -101,18 +114,9 @@ def is_greeting(query):
     return False
 
 
-# -----------------------------------------------------------------------------
+# ═════════════════════════════════════════════════════════════════════════════
 #  ENHANCED SEARCH ENGINE
-#  Pipeline:
-#   1. Tokenise query -> remove stopwords
-#   2. Expand tokens with domain synonyms
-#   3. Score every DB record (Card, NavigationLink, ContentSection)
-#      - whole-word match  -> 2.0 pts
-#      - substring match   -> 0.5 pts
-#      - synonym match     -> 1.0 pts  (0.3 substring)
-#   4. Collect images from matched records
-#   5. Build plain-text context for Groq
-# -----------------------------------------------------------------------------
+# ═════════════════════════════════════════════════════════════════════════════
 
 SYNONYMS = {
     'training':       ['capacity development', 'learning', 'course', 'seminar', 'workshop', 'program'],
@@ -153,13 +157,11 @@ STOPWORDS = {
 
 
 def _tokenise(text: str) -> list:
-    """Lowercase, strip punctuation, drop stopwords, minimum 2 chars."""
     words = re.findall(r"[a-zA-Z0-9']+", text.lower())
     return [w for w in words if w not in STOPWORDS and len(w) > 1]
 
 
 def _expand_keywords(tokens: list) -> list:
-    """Return original tokens + synonym expansions, deduplicated."""
     expanded = list(tokens)
     for t in tokens:
         for key, syns in SYNONYMS.items():
@@ -178,13 +180,11 @@ def _score_text(tokens: list, expanded: list, haystack: str) -> float:
         return 0.0
     hay   = haystack.lower()
     score = 0.0
-
     for t in tokens:
         if re.search(rf'\b{re.escape(t)}\b', hay):
             score += 2.0
         elif t in hay:
             score += 0.5
-
     original_set = set(tokens)
     for syn in expanded:
         if syn not in original_set:
@@ -192,13 +192,11 @@ def _score_text(tokens: list, expanded: list, haystack: str) -> float:
                 score += 1.0
             elif syn in hay:
                 score += 0.3
-
     max_possible = max(len(tokens) * 2.0, 1.0)
     return min(score / max_possible, 1.5)
 
 
 def _extract_snippet(haystack: str, tokens: list, window: int = 130) -> str:
-    """Pull the most relevant passage from a text blob."""
     if not haystack:
         return ''
     hay_lower = haystack.lower()
@@ -209,11 +207,11 @@ def _extract_snippet(haystack: str, tokens: list, window: int = 130) -> str:
             best_pos = pos
             break
     if best_pos == -1:
-        return haystack[:window] + ('\u2026' if len(haystack) > window else '')
+        return haystack[:window] + ('…' if len(haystack) > window else '')
     start   = max(0, best_pos - 40)
     end     = min(len(haystack), best_pos + window)
     snippet = haystack[start:end].strip()
-    return ('\u2026' if start > 0 else '') + snippet + ('\u2026' if end < len(haystack) else '')
+    return ('…' if start > 0 else '') + snippet + ('…' if end < len(haystack) else '')
 
 
 def _safe_json_list(raw) -> list:
@@ -241,7 +239,6 @@ def _safe_json_dict(raw) -> dict:
 
 
 def _image_url(filename: str) -> str:
-    """Normalise image filename to a consistent relative URL."""
     if not filename:
         return ''
     filename = filename.strip()
@@ -250,9 +247,9 @@ def _image_url(filename: str) -> str:
     return f'images/{filename}'
 
 
-# ---------------------------------------------
+# ─────────────────────────────────────────────
 # Main DB search
-# ---------------------------------------------
+# ─────────────────────────────────────────────
 
 def search_website_content(query: str) -> dict:
     results = {
@@ -272,7 +269,6 @@ def search_website_content(query: str) -> dict:
     matches  = []
 
     try:
-        # -- Cards ----------------------------------------------------------
         for card in db.session.query(Card).all():
             title_score   = _score_text(tokens, expanded, card.title or '')
             btn_contents  = _safe_json_dict(card.button_contents)
@@ -282,19 +278,12 @@ def search_website_content(query: str) -> dict:
             content_blob  = ' '.join(str(v) for v in btn_contents.values())
             content_score = _score_text(tokens, expanded, content_blob)
             overall       = max(title_score, content_score * 0.85)
-
             if overall < 0.1:
                 continue
-
             snippet = _extract_snippet(content_blob or card.title or '', tokens)
-
             card_images = []
             if card.image:
-                card_images.append({
-                    'url':      _image_url(card.image),
-                    'alt_text': card.title,
-                    'source':   card.title,
-                })
+                card_images.append({'url': _image_url(card.image), 'alt_text': card.title, 'source': card.title})
             for btn_idx, btn_img_raw in btn_images.items():
                 if isinstance(btn_img_raw, list):
                     for img_entry in btn_img_raw:
@@ -304,7 +293,6 @@ def search_website_content(query: str) -> dict:
                             card_images.append({'url': _image_url(fname), 'alt_text': caption, 'source': card.title})
                 elif isinstance(btn_img_raw, str) and btn_img_raw:
                     card_images.append({'url': _image_url(btn_img_raw), 'alt_text': card.title, 'source': card.title})
-
             card_links = []
             for btn_idx, link_url in btn_links.items():
                 if link_url:
@@ -313,28 +301,19 @@ def search_website_content(query: str) -> dict:
                     except (ValueError, IndexError):
                         label = 'View'
                     card_links.append({'title': label, 'url': link_url, 'context': card.title})
-
             matches.append({
-                'score':        overall,
-                'record_type':  'Card',
-                'record_id':    card.id,
-                'record_title': card.title,
-                'snippet':      snippet,
-                'images':       card_images,
-                'links':        card_links,
+                'score': overall, 'record_type': 'Card', 'record_id': card.id,
+                'record_title': card.title, 'snippet': snippet,
+                'images': card_images, 'links': card_links,
             })
 
-        # -- Navigation Links ------------------------------------------------
         for nav in db.session.query(NavigationLink).all():
             title_score   = _score_text(tokens, expanded, nav.link_text or '')
             content_score = _score_text(tokens, expanded, nav.page_content or '')
             overall       = max(title_score, content_score * 0.85)
-
             if overall < 0.1:
                 continue
-
             snippet = _extract_snippet(nav.page_content or nav.link_text or '', tokens)
-
             nav_images = []
             for img_entry in _safe_json_list(nav.images):
                 if isinstance(img_entry, dict):
@@ -347,51 +326,36 @@ def search_website_content(query: str) -> dict:
                     continue
                 if fname:
                     nav_images.append({'url': _image_url(fname), 'alt_text': caption, 'source': nav.link_text})
-
             nav_links_out = []
             if nav.link_url and nav.link_url not in ('#', ''):
                 nav_links_out.append({'title': nav.link_text, 'url': nav.link_url, 'context': nav.link_text})
             else:
                 nav_links_out.append({'title': nav.link_text, 'url': f'/nav-page/{nav.id}', 'context': nav.link_text})
-
             for url in re.findall(r'https?://[^\s<>"{}|\\^`\[\]]+', nav.page_content or ''):
                 nav_links_out.append({
                     'title':   url.replace('https://', '').replace('http://', '').split('/')[0],
-                    'url':     url,
-                    'context': nav.link_text,
+                    'url':     url, 'context': nav.link_text,
                 })
-
             matches.append({
-                'score':        overall,
-                'record_type':  'NavigationLink',
-                'record_id':    nav.id,
-                'record_title': nav.link_text,
-                'snippet':      snippet,
-                'images':       nav_images,
-                'links':        nav_links_out,
+                'score': overall, 'record_type': 'NavigationLink', 'record_id': nav.id,
+                'record_title': nav.link_text, 'snippet': snippet,
+                'images': nav_images, 'links': nav_links_out,
             })
 
-        # -- ContentSection --------------------------------------------------
         for cs in db.session.query(ContentSection).all():
             score = _score_text(tokens, expanded, cs.content_value or '')
             if score < 0.2:
                 continue
             matches.append({
-                'score':        score,
-                'record_type':  'ContentSection',
-                'record_id':    cs.id,
+                'score': score, 'record_type': 'ContentSection', 'record_id': cs.id,
                 'record_title': cs.content_key.replace('_', ' ').title(),
-                'snippet':      _extract_snippet(cs.content_value or '', tokens),
-                'images':       [],
-                'links':        [],
+                'snippet': _extract_snippet(cs.content_value or '', tokens),
+                'images': [], 'links': [],
             })
 
-        # -- Sort + aggregate ------------------------------------------------
         matches.sort(key=lambda x: x['score'], reverse=True)
-
         seen_images, seen_links = set(), set()
         context_parts = []
-
         for m in matches[:8]:
             results['suggestions'].append({
                 'text':         f"{m['record_title']}: {m['snippet']}",
@@ -401,36 +365,31 @@ def search_website_content(query: str) -> dict:
                 'record_id':    m['record_id'],
                 'record_title': m['record_title'],
             })
-
             for img in m['images']:
                 if img['url'] and img['url'] not in seen_images and len(results['images']) < 6:
                     seen_images.add(img['url'])
                     results['images'].append(img)
-
             for lnk in m['links']:
                 if lnk['url'] and lnk['url'] not in seen_links and len(results['related_links']) < 8:
                     seen_links.add(lnk['url'])
                     results['related_links'].append(lnk)
-
             context_parts.append(
                 f"[{m['record_type']}] {m['record_title']} (score {m['score']:.2f}): {m['snippet']}"
             )
-
         results['context_text'] = '\n'.join(context_parts)
         app.logger.info(
-            f"DB search '{query}': {len(matches)} candidates -> "
+            f"DB search '{query}': {len(matches)} candidates → "
             f"{len(results['suggestions'])} suggestions, {len(results['images'])} images"
         )
-
     except Exception as e:
         app.logger.error(f"search_website_content error: {e}")
 
     return results
 
 
-# ---------------------------------------------
+# ─────────────────────────────────────────────
 # Groq API
-# ---------------------------------------------
+# ─────────────────────────────────────────────
 
 def call_groq_api(query: str, website_search: dict = None) -> dict:
     api_key = app.config.get('GROQ_API_KEY', '') or os.environ.get('GROQ_API_KEY', '')
@@ -440,7 +399,6 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
 
     print(f"[v0] Calling Groq API for query: {query}")
 
-    # Cache
     cache_dir  = os.path.join(app.root_path, 'cache')
     os.makedirs(cache_dir, exist_ok=True)
     cache_file = os.path.join(cache_dir, f"ai_{hashlib.md5(query.encode()).hexdigest()}.json")
@@ -448,7 +406,7 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
         try:
             with open(cache_file, 'r') as f:
                 cached = json.load(f)
-            print("[v0] Cache hit")
+            print(f"[v0] Cache hit")
             return cached
         except Exception:
             pass
@@ -459,25 +417,24 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
     context_text   = website_search.get('context_text', '')
     has_db_content = bool(context_text.strip())
 
-    # System prompt
     system_prompt = (
         "You are Tutoy, the official AI assistant for DAP-COE "
-        "(Development Academy of the Philippines - Center of Excellence on Public Sector Productivity). "
+        "(Development Academy of the Philippines – Center of Excellence on Public Sector Productivity). "
         "RULES: "
-        "1. Respond with VALID JSON ONLY - no markdown, no backticks, no extra text. "
+        "1. Respond with VALID JSON ONLY – no markdown, no backticks, no extra text. "
         "2. Prioritise information from the 'Website Context' section when available. "
         "3. If website context is empty or off-topic, use general knowledge about public sector "
         "   productivity, Philippine governance, and DAP programs. "
-        "4. gemini_says: clear, helpful, 200 words or fewer. "
+        "4. gemini_says: clear, helpful, ≤ 200 words. "
         "5. key_points: exactly 4 strings. "
         "6. global_suggestions: exactly 3 strings. "
-        "7. Leave 'image' as empty string '' - images are handled separately."
+        "7. Leave 'image' as empty string '' – images are handled separately."
     )
 
     context_block = (
         f"\n\n=== Website Context (prefer this) ===\n{context_text}\n=== End Context ==="
         if has_db_content
-        else "\n\n(No specific website content matched - use general knowledge.)"
+        else "\n\n(No specific website content matched – use general knowledge.)"
     )
 
     user_prompt = (
@@ -509,7 +466,7 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
     try:
         url     = "https://api.groq.com/openai/v1/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-        print("[v0] Making request to Groq API...")
+        print("[v0] Making request to Groq API…")
         resp = requests.post(url, headers=headers, json=payload, timeout=30)
         print(f"[v0] Response status: {resp.status_code}")
 
@@ -530,7 +487,6 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
 
         print(f"[v0] Groq response (first 200): {text[:200]}")
 
-        # Parse JSON (with recovery)
         parsed = None
         try:
             parsed = json.loads(text)
@@ -592,9 +548,9 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
     return None
 
 
-# -----------------------------------------------------------------------------
+# ═════════════════════════════════════════════════════════════════════════════
 #  MAIN SITE ROUTES
-# -----------------------------------------------------------------------------
+# ═════════════════════════════════════════════════════════════════════════════
 
 @app.route('/nav-page/<int:nav_id>')
 def nav_page(nav_id):
@@ -659,7 +615,8 @@ def view_page(slug):
 
 @app.route('/')
 def index():
-    from flask import make_response
+    now                = datetime.now()
+    current_year       = now.year
     hero_title         = get_content('hero_title', 'LEADING THE MOVEMENT IN <br>ADVANCING INNOVATION AND <br>PRODUCTIVITY IN THE <span class="text-[#cdae2c]">PUBLIC SECTOR</span>')
     hero_image         = get_content('hero_image', 'images/Hero-Banner.png')
     hero_opacity       = get_content('hero_opacity', '90')
@@ -676,9 +633,9 @@ def index():
     logo_image         = get_content('logo_image', 'images/dap-logo.png')
     gemini_image       = get_content('gemini_image', 'images/gemini.png')
     apo_logo           = get_content('apo_logo', 'images/apo.png')
-    current_year       = datetime.now().year
 
     context = dict(
+        now=now,
         hero_title=hero_title, hero_image=hero_image, hero_opacity=hero_opacity,
         search_placeholder=search_placeholder, cards=cards, nav_links=nav_links,
         published_pages=published_pages, company_name=company_name,
@@ -694,9 +651,9 @@ def index():
     return resp
 
 
-# ---------------------------------------------
+# ─────────────────────────────────────────────
 # AI SEARCH ENDPOINT
-# ---------------------------------------------
+# ─────────────────────────────────────────────
 
 @app.route('/api/search', methods=['GET'])
 def api_search():
@@ -710,12 +667,11 @@ def api_search():
             'website_content_suggestions': [], 'related_images': [], 'related_links': [],
         })
 
-    # Greeting short-circuit
     if is_greeting(query):
         return jsonify({
             'gemini_says': (
                 "Hello! I'm Tutoy, the official AI assistant for DAP-COE "
-                "(Development Academy of the Philippines - Center of Excellence on Public Sector Productivity). "
+                "(Development Academy of the Philippines – Center of Excellence on Public Sector Productivity). "
                 "I'm here to help you explore our programs, training courses, and services."
             ),
             'key_points': [
@@ -734,10 +690,8 @@ def api_search():
             'website_content_suggestions': [], 'related_images': [], 'related_links': [],
         })
 
-    # 1. DB search (runs once, reused by Groq)
     website_search = search_website_content(query)
 
-    # Hero image fallback from card title match
     matched_image = ''
     for card in get_all_cards():
         if query.lower() in (card.title or '').lower():
@@ -746,7 +700,6 @@ def api_search():
     if not matched_image and website_search.get('images'):
         matched_image = website_search['images'][0]['url']
 
-    # 2. Groq call with DB context already prepared
     ai_response = call_groq_api(query, website_search=website_search)
 
     if ai_response:
@@ -758,14 +711,12 @@ def api_search():
         ai_response.setdefault('related_links',  [])
         return jsonify(ai_response)
 
-    # 3. Groq failed - DB-only fallback
-    print("[v0] Groq API returned None - DB-only fallback")
+    print("[v0] Groq API returned None – DB-only fallback")
     db_snippets = [s.get('text', '') for s in website_search.get('suggestions', [])[:4]]
-
     fallback_says = (
         f'Here\'s what I found on our website about "{query}".'
         if website_search.get('suggestions')
-        else 'I couldn\'t connect to the AI service right now. Try searching "trainings", "GovLab", or "community".'
+        else f'I couldn\'t connect to the AI service right now. Try searching "trainings", "GovLab", or "community".'
     )
 
     return jsonify({
@@ -780,9 +731,9 @@ def api_search():
     })
 
 
-# -----------------------------------------------------------------------------
+# ═════════════════════════════════════════════════════════════════════════════
 #  ADMIN ROUTES
-# -----------------------------------------------------------------------------
+# ═════════════════════════════════════════════════════════════════════════════
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_login():
@@ -799,11 +750,13 @@ def admin_login():
         login_error = 'Invalid credentials'
     return render_template('admin_login.html', login_error=login_error)
 
+
 @app.route('/admin/logout')
 @login_required
 def admin_logout():
     logout_user()
     return redirect(url_for('admin_login'))
+
 
 @app.route('/admin/panel')
 @login_required
@@ -815,10 +768,12 @@ def admin_panel():
                            professionals=get_all_professionals(),
                            logo_image=get_content('logo_image', 'images/dap-logo.png'))
 
+
 @app.route('/admin/page-builder')
 @login_required
 def page_builder():
     return render_template('page_builder.html', logo_image=get_content('logo_image', 'images/dap-logo.png'))
+
 
 @app.route('/admin/api/update-content', methods=['POST'])
 @login_required
@@ -832,11 +787,13 @@ def update_content():
         if content:
             content.content_value = value
             db.session.commit()
-            return jsonify({'success': True, 'message': 'Content saved'})
-        return jsonify({'success': False, 'error': 'Not found'})
+            clear_ai_cache()
+            return no_cache_json({'success': True, 'message': 'Content saved'})
+        return no_cache_json({'success': False, 'error': 'Not found'})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)})
+        return no_cache_json({'success': False, 'error': str(e)})
+
 
 @app.route('/admin/api/update-card', methods=['POST'])
 @login_required
@@ -844,10 +801,10 @@ def update_card():
     try:
         card_id = request.form.get('id')
         if not card_id:
-            return jsonify({'success': False, 'error': 'Card ID required'})
+            return no_cache_json({'success': False, 'error': 'Card ID required'})
         card = db.session.get(Card, int(card_id))
         if not card:
-            return jsonify({'success': False, 'error': 'Card not found'})
+            return no_cache_json({'success': False, 'error': 'Card not found'})
         card.title            = request.form.get('title') or card.title
         card.image            = request.form.get('image') or card.image
         card.background_image = request.form.get('background_image', '') or card.background_image
@@ -863,10 +820,12 @@ def update_card():
         except Exception:
             card.button_images = json.dumps({})
         db.session.commit()
-        return jsonify({'success': True, 'message': 'Card saved'})
+        clear_ai_cache()
+        return no_cache_json({'success': True, 'message': 'Card saved'})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)})
+        return no_cache_json({'success': False, 'error': str(e)})
+
 
 @app.route('/admin/api/upload-image', methods=['POST'])
 @login_required
@@ -874,14 +833,15 @@ def upload_image():
     try:
         file = request.files.get('file') or request.files.get('image')
         if not file or file.filename == '':
-            return jsonify({'success': False, 'error': 'No file uploaded'})
+            return no_cache_json({'success': False, 'error': 'No file uploaded'})
         if not allowed_file(file.filename):
-            return jsonify({'success': False, 'error': 'Invalid file type'})
+            return no_cache_json({'success': False, 'error': 'Invalid file type'})
         filename = f"{int(datetime.now().timestamp())}_{secure_filename(file.filename)}"
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        return jsonify({'success': True, 'filename': filename})
+        return no_cache_json({'success': True, 'filename': filename})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return no_cache_json({'success': False, 'error': str(e)})
+
 
 @app.route('/admin/api/update-card-title', methods=['POST'])
 @login_required
@@ -891,11 +851,13 @@ def update_card_title():
         if card:
             card.title = request.form.get('title', '')
             db.session.commit()
-            return jsonify({'success': True})
-        return jsonify({'success': False, 'error': 'Not found'})
+            clear_ai_cache()
+            return no_cache_json({'success': True})
+        return no_cache_json({'success': False, 'error': 'Not found'})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)})
+        return no_cache_json({'success': False, 'error': str(e)})
+
 
 @app.route('/admin/api/update-card-image', methods=['POST'])
 @login_required
@@ -905,11 +867,13 @@ def update_card_image():
         if card:
             card.image = request.form.get('image', '')
             db.session.commit()
-            return jsonify({'success': True})
-        return jsonify({'success': False, 'error': 'Not found'})
+            clear_ai_cache()
+            return no_cache_json({'success': True})
+        return no_cache_json({'success': False, 'error': 'Not found'})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)})
+        return no_cache_json({'success': False, 'error': str(e)})
+
 
 @app.route('/admin/api/update-button', methods=['POST'])
 @login_required
@@ -918,7 +882,7 @@ def update_button():
         data = request.json
         card = db.session.get(Card, int(data.get('card_id', 0)))
         if not card:
-            return jsonify({'success': False, 'error': 'Card not found'})
+            return no_cache_json({'success': False, 'error': 'Card not found'})
         idx = str(data.get('button_index'))
 
         def _load(f):
@@ -951,10 +915,12 @@ def update_button():
         card.button_background_images = json.dumps(btn_bgs)
         card.button_images            = json.dumps(btn_imgs)
         db.session.commit()
-        return jsonify({'success': True, 'message': 'Button saved'})
+        clear_ai_cache()
+        return no_cache_json({'success': True, 'message': 'Button saved'})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)})
+        return no_cache_json({'success': False, 'error': str(e)})
+
 
 @app.route('/admin/api/update-button-link', methods=['POST'])
 @login_required
@@ -963,7 +929,7 @@ def update_button_link():
         data = request.json
         card = db.session.get(Card, data.get('card_id'))
         if not card:
-            return jsonify({'success': False, 'message': 'Card not found'})
+            return no_cache_json({'success': False, 'message': 'Card not found'})
         btn_links = card.get_button_links()
         link_url  = data.get('link_url', '')
         idx       = str(data.get('button_index'))
@@ -971,26 +937,30 @@ def update_button_link():
         else: btn_links.pop(idx, None)
         card.button_links = json.dumps(btn_links)
         db.session.commit()
-        return jsonify({'success': True})
+        clear_ai_cache()
+        return no_cache_json({'success': True})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'message': str(e)})
+        return no_cache_json({'success': False, 'message': str(e)})
+
 
 @app.route('/admin/api/update-button-images', methods=['POST'])
 @login_required
 def update_button_images():
     try:
         data = request.json
-        card = Card.query.get(data.get('card_id'))
+        card = db.session.get(Card, data.get('card_id'))
         if not card:
-            return jsonify({'success': False, 'message': 'Card not found'})
+            return no_cache_json({'success': False, 'message': 'Card not found'})
         btn_imgs = card.get_button_images()
         btn_imgs[str(data.get('button_index'))] = data.get('images', [])
         card.button_images = json.dumps(btn_imgs)
         db.session.commit()
-        return jsonify({'success': True})
+        clear_ai_cache()
+        return no_cache_json({'success': True})
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)})
+        return no_cache_json({'success': False, 'message': str(e)})
+
 
 @app.route('/admin/api/delete-gallery-image', methods=['POST'])
 @login_required
@@ -999,7 +969,7 @@ def delete_gallery_image():
         data      = request.json
         card      = db.session.get(Card, int(data.get('card_id')))
         if not card:
-            return jsonify({'success': False, 'message': 'Card not found'})
+            return no_cache_json({'success': False, 'message': 'Card not found'})
         btn_imgs  = card.get_button_images()
         idx       = str(data.get('button_index'))
         img_index = data.get('image_index')
@@ -1009,25 +979,29 @@ def delete_gallery_image():
                 del btn_imgs[idx]
             card.button_images = json.dumps(btn_imgs)
             db.session.commit()
-            return jsonify({'success': True})
-        return jsonify({'success': False, 'message': 'Image not found'})
+            clear_ai_cache()
+            return no_cache_json({'success': True})
+        return no_cache_json({'success': False, 'message': 'Image not found'})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'message': str(e)})
+        return no_cache_json({'success': False, 'message': str(e)})
+
 
 @app.route('/admin/api/update-nav-images', methods=['POST'])
 @login_required
 def update_nav_images():
     try:
         data     = request.json
-        nav_link = NavigationLink.query.get(data.get('nav_id'))
+        nav_link = db.session.get(NavigationLink, data.get('nav_id'))
         if not nav_link:
-            return jsonify({'success': False, 'message': 'Not found'})
+            return no_cache_json({'success': False, 'message': 'Not found'})
         nav_link.images = json.dumps(data.get('images', []))
         db.session.commit()
-        return jsonify({'success': True})
+        clear_ai_cache()
+        return no_cache_json({'success': True})
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)})
+        return no_cache_json({'success': False, 'message': str(e)})
+
 
 @app.route('/admin/api/update-nav-link', methods=['POST'])
 @login_required
@@ -1059,41 +1033,155 @@ def update_nav_link_api():
             if background_image: link.background_image = background_image
             if images:           link.images           = json.dumps(images)
             db.session.commit()
-            return jsonify({'success': True})
-        return jsonify({'success': False, 'error': 'Not found'})
+            clear_ai_cache()
+            return no_cache_json({'success': True})
+        return no_cache_json({'success': False, 'error': 'Not found'})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)})
+        return no_cache_json({'success': False, 'error': str(e)})
+
+
+# ─────────────────────────────────────────────
+# ADD / DELETE CARD
+# ─────────────────────────────────────────────
+
+@app.route('/admin/api/add-card', methods=['POST'])
+@login_required
+def add_card_api():
+    """Create a brand-new Card row."""
+    try:
+        title       = request.form.get('title', '').strip()
+        image       = request.form.get('image', '').strip()
+        buttons_raw = request.form.get('buttons', '[]')
+
+        if not title:
+            return no_cache_json({'success': False, 'error': 'Card title is required'}, 400)
+
+        try:
+            buttons_list = json.loads(buttons_raw)
+            if not isinstance(buttons_list, list):
+                buttons_list = []
+        except (json.JSONDecodeError, TypeError):
+            buttons_list = []
+
+        max_order = db.session.query(db.func.max(Card.card_order)).scalar() or 0
+
+        new_card = Card(
+            title                    = title,
+            image                    = image or None,
+            buttons                  = json.dumps(buttons_list),
+            button_contents          = json.dumps({}),
+            button_links             = json.dumps({}),
+            button_images            = json.dumps({}),
+            button_background_images = json.dumps({}),
+            card_order               = max_order + 1,
+        )
+        db.session.add(new_card)
+        db.session.commit()
+        clear_ai_cache()
+
+        return no_cache_json({
+            'success': True,
+            'message': 'Card created',
+            'card': {
+                'id':         new_card.id,
+                'title':      new_card.title,
+                'image':      new_card.image,
+                'buttons':    buttons_list,
+                'card_order': new_card.card_order,
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return no_cache_json({'success': False, 'error': str(e)}, 500)
+
+
+@app.route('/admin/api/delete-card', methods=['POST'])
+@login_required
+def delete_card_api():
+    """Permanently delete a Card and all its associated button data."""
+    try:
+        data    = request.get_json(silent=True) or {}
+        card_id = data.get('id')
+
+        if not card_id:
+            return no_cache_json({'success': False, 'error': 'Card ID required'}, 400)
+
+        card = db.session.get(Card, int(card_id))
+        if not card:
+            return no_cache_json({'success': False, 'error': 'Card not found'}, 404)
+
+        db.session.delete(card)
+        db.session.commit()
+        clear_ai_cache()
+
+        return no_cache_json({'success': True, 'message': f'Card {card_id} deleted'})
+    except Exception as e:
+        db.session.rollback()
+        return no_cache_json({'success': False, 'error': str(e)}, 500)
+
+
+# ─────────────────────────────────────────────
+# ADD / DELETE NAV LINK
+# ─────────────────────────────────────────────
 
 @app.route('/admin/api/add-nav-link', methods=['POST'])
 @login_required
 def add_nav_link_api():
+    """Create a brand-new NavigationLink row."""
     try:
+        link_text    = request.form.get('text', '').strip()
+        link_url     = request.form.get('url',  '').strip() or None
+        page_content = request.form.get('content', '')
+        image        = request.form.get('image', '').strip() or None
+
+        if not link_text:
+            return no_cache_json({'success': False, 'error': 'Link text is required'}, 400)
+
         max_order = db.session.query(db.func.max(NavigationLink.link_order)).scalar() or 0
-        db.session.add(NavigationLink(
-            link_text=request.form.get('text'),
-            link_url=request.form.get('url'),
-            page_content=request.form.get('content', ''),
-            image=request.form.get('image'),
-            link_order=max_order + 1
-        ))
+
+        new_nav = NavigationLink(
+            link_text    = link_text,
+            link_url     = link_url,
+            page_content = page_content,
+            image        = image,
+            images       = json.dumps([]),
+            link_order   = max_order + 1,
+        )
+        db.session.add(new_nav)
         db.session.commit()
-        return jsonify({'success': True})
+        clear_ai_cache()
+
+        return no_cache_json({
+            'success': True,
+            'message': 'Navigation link created',
+            'nav': {
+                'id':         new_nav.id,
+                'link_text':  new_nav.link_text,
+                'link_url':   new_nav.link_url,
+                'link_order': new_nav.link_order,
+            }
+        })
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        db.session.rollback()
+        return no_cache_json({'success': False, 'error': str(e)}, 500)
+
 
 @app.route('/admin/api/delete-nav-link', methods=['POST'])
 @login_required
 def delete_nav_link_api():
+    """Permanently delete a NavigationLink row."""
     try:
-        link = NavigationLink.query.get(request.form.get('id'))
+        link = db.session.get(NavigationLink, request.form.get('id'))
         if link:
             db.session.delete(link)
             db.session.commit()
-            return jsonify({'success': True})
-        return jsonify({'success': False, 'error': 'Not found'})
+            clear_ai_cache()
+            return no_cache_json({'success': True})
+        return no_cache_json({'success': False, 'error': 'Not found'})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return no_cache_json({'success': False, 'error': str(e)})
+
 
 @app.route('/admin/api/update-professional', methods=['POST'])
 @login_required
@@ -1105,29 +1193,31 @@ def update_professional():
             prof.title       = request.form.get('title', '')
             prof.description = request.form.get('description', '')
             db.session.commit()
-            return jsonify({'success': True})
-        return jsonify({'success': False, 'error': 'Not found'})
+            clear_ai_cache()
+            return no_cache_json({'success': True})
+        return no_cache_json({'success': False, 'error': 'Not found'})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)})
+        return no_cache_json({'success': False, 'error': str(e)})
 
 
-# ---------------------------------------------
+# ─────────────────────────────────────────────
 # PAGE BUILDER ROUTES
-# ---------------------------------------------
+# ─────────────────────────────────────────────
 
 @app.route('/admin/api/pages', methods=['GET'])
 @login_required
 def get_pages():
     try:
         pages = db.session.query(Page).order_by(Page.page_order).all()
-        return jsonify({'success': True, 'pages': [{
+        return no_cache_json({'success': True, 'pages': [{
             'id': p.id, 'title': p.title, 'slug': p.slug,
             'layout_template': p.layout_template, 'is_published': p.is_published,
             'blocks_count': len(p.blocks),
         } for p in pages]})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return no_cache_json({'success': False, 'error': str(e)})
+
 
 @app.route('/admin/api/save-page', methods=['POST'])
 @login_required
@@ -1139,7 +1229,7 @@ def save_page_builder():
         is_published = data.get('is_published', False)
         blocks       = data.get('blocks', [])
         if not title or not slug:
-            return jsonify({'success': False, 'error': 'Title and slug required'})
+            return no_cache_json({'success': False, 'error': 'Title and slug required'})
         slug = ''.join(c for c in slug.lower().replace(' ', '-') if c.isalnum() or c == '-')
         page = db.session.query(Page).filter_by(slug=slug).first()
         if page:
@@ -1171,12 +1261,14 @@ def save_page_builder():
             db.session.add(PageBlock(page_id=page.id, block_type=block_type,
                                      block_order=idx, content=content, heading=heading))
         db.session.commit()
-        return jsonify({'success': True, 'message': 'Page saved',
-                        'page': {'id': page.id, 'title': page.title,
-                                 'slug': page.slug, 'is_published': page.is_published}})
+        clear_ai_cache()
+        return no_cache_json({'success': True, 'message': 'Page saved',
+                              'page': {'id': page.id, 'title': page.title,
+                                       'slug': page.slug, 'is_published': page.is_published}})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)})
+        return no_cache_json({'success': False, 'error': str(e)})
+
 
 @app.route('/admin/api/pages', methods=['POST'])
 @login_required
@@ -1185,7 +1277,7 @@ def create_page():
         data  = request.get_json()
         title = data.get('title', '')
         if not title:
-            return jsonify({'success': False, 'error': 'Title required'})
+            return no_cache_json({'success': False, 'error': 'Title required'})
         slug  = ''.join(c for c in title.lower().replace(' ', '-') if c.isalnum() or c == '-')
         if db.session.query(Page).filter_by(slug=slug).first():
             slug = f"{slug}-{''.join(secrets.choice(string.ascii_lowercase) for _ in range(4))}"
@@ -1194,10 +1286,11 @@ def create_page():
                      page_order=db.session.query(Page).count())
         db.session.add(page)
         db.session.commit()
-        return jsonify({'success': True, 'page': {'id': page.id, 'title': page.title, 'slug': page.slug}})
+        return no_cache_json({'success': True, 'page': {'id': page.id, 'title': page.title, 'slug': page.slug}})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)})
+        return no_cache_json({'success': False, 'error': str(e)})
+
 
 @app.route('/admin/api/pages/<int:page_id>', methods=['GET'])
 @login_required
@@ -1205,8 +1298,8 @@ def get_page(page_id):
     try:
         page = db.session.get(Page, page_id)
         if not page:
-            return jsonify({'success': False, 'error': 'Not found'})
-        return jsonify({'success': True, 'page': {
+            return no_cache_json({'success': False, 'error': 'Not found'})
+        return no_cache_json({'success': True, 'page': {
             'id': page.id, 'title': page.title, 'slug': page.slug,
             'description': page.description, 'layout_template': page.layout_template,
             'is_published': page.is_published,
@@ -1222,7 +1315,8 @@ def get_page(page_id):
             } for b in page.get_blocks_ordered()],
         }})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return no_cache_json({'success': False, 'error': str(e)})
+
 
 @app.route('/admin/api/pages/<int:page_id>', methods=['PUT'])
 @login_required
@@ -1230,15 +1324,17 @@ def update_page(page_id):
     try:
         page = db.session.get(Page, page_id)
         if not page:
-            return jsonify({'success': False, 'error': 'Not found'})
+            return no_cache_json({'success': False, 'error': 'Not found'})
         data = request.get_json()
         for f in ('title', 'description', 'layout_template', 'is_published'):
             if f in data: setattr(page, f, data[f])
         db.session.commit()
-        return jsonify({'success': True})
+        clear_ai_cache()
+        return no_cache_json({'success': True})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)})
+        return no_cache_json({'success': False, 'error': str(e)})
+
 
 @app.route('/admin/api/pages/<int:page_id>', methods=['DELETE'])
 @login_required
@@ -1246,13 +1342,15 @@ def delete_page(page_id):
     try:
         page = db.session.get(Page, page_id)
         if not page:
-            return jsonify({'success': False, 'error': 'Not found'})
+            return no_cache_json({'success': False, 'error': 'Not found'})
         db.session.delete(page)
         db.session.commit()
-        return jsonify({'success': True})
+        clear_ai_cache()
+        return no_cache_json({'success': True})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)})
+        return no_cache_json({'success': False, 'error': str(e)})
+
 
 @app.route('/admin/api/blocks', methods=['POST'])
 @login_required
@@ -1261,15 +1359,16 @@ def create_block():
         data = request.get_json()
         page = db.session.get(Page, data.get('page_id'))
         if not page:
-            return jsonify({'success': False, 'error': 'Page not found'})
+            return no_cache_json({'success': False, 'error': 'Page not found'})
         block = PageBlock(page_id=page.id, block_type=data.get('block_type', 'text'),
                           block_order=len(page.blocks))
         db.session.add(block)
         db.session.commit()
-        return jsonify({'success': True, 'block': {'id': block.id, 'type': block.block_type}})
+        return no_cache_json({'success': True, 'block': {'id': block.id, 'type': block.block_type}})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)})
+        return no_cache_json({'success': False, 'error': str(e)})
+
 
 @app.route('/admin/api/blocks/<int:block_id>', methods=['PUT'])
 @login_required
@@ -1277,7 +1376,7 @@ def update_block(block_id):
     try:
         block = db.session.get(PageBlock, block_id)
         if not block:
-            return jsonify({'success': False, 'error': 'Not found'})
+            return no_cache_json({'success': False, 'error': 'Not found'})
         data  = request.get_json()
         for f in ('content', 'heading', 'subheading', 'image_url', 'image_alt_text',
                   'image_caption', 'card_title', 'card_description', 'card_image',
@@ -1286,10 +1385,12 @@ def update_block(block_id):
         if 'card_buttons' in data:
             block.card_buttons = json.dumps(data['card_buttons'])
         db.session.commit()
-        return jsonify({'success': True})
+        clear_ai_cache()
+        return no_cache_json({'success': True})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)})
+        return no_cache_json({'success': False, 'error': str(e)})
+
 
 @app.route('/admin/api/blocks/<int:block_id>', methods=['DELETE'])
 @login_required
@@ -1297,13 +1398,15 @@ def delete_block(block_id):
     try:
         block = db.session.get(PageBlock, block_id)
         if not block:
-            return jsonify({'success': False, 'error': 'Not found'})
+            return no_cache_json({'success': False, 'error': 'Not found'})
         db.session.delete(block)
         db.session.commit()
-        return jsonify({'success': True})
+        clear_ai_cache()
+        return no_cache_json({'success': True})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)})
+        return no_cache_json({'success': False, 'error': str(e)})
+
 
 @app.route('/admin/api/blocks/reorder', methods=['POST'])
 @login_required
@@ -1313,15 +1416,15 @@ def reorder_blocks():
             block = db.session.get(PageBlock, item['block_id'])
             if block: block.block_order = item['order']
         db.session.commit()
-        return jsonify({'success': True})
+        return no_cache_json({'success': True})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)})
+        return no_cache_json({'success': False, 'error': str(e)})
 
 
-# ---------------------------------------------
+# ─────────────────────────────────────────────
 # DB INIT
-# ---------------------------------------------
+# ─────────────────────────────────────────────
 
 def init_db():
     with app.app_context():
@@ -1337,17 +1440,17 @@ def init_db():
             ('loading_text', 'Generating...', 4),
             ('ai_label', 'AI says', 5),
             ('key_points_title', 'Key Points', 6),
-            ('related_topics_title', 'Related Topics', 7),
-            ('quick_actions_title', 'Quick Actions', 8),
+            ('related_topics_title', '🌐 Related Topics', 7),
+            ('quick_actions_title', '⚡ Quick Actions', 8),
             ('logo_image', 'images/dap-logo.png', 9),
             ('gemini_image', 'images/gemini.png', 10),
             ('apo_logo', 'images/apo.png', 11),
-            ('company_name', 'Development Academy of The Philippines', 12),
-            ('company_subtitle', 'Center of Excellence on Public Sector Productivity', 13),
-            ('company_address', 'DAP Building, San Miguel Avenue, Pasig City 1500', 14),
-            ('company_phone', '+632 631 0921 to 30', 15),
-            ('company_fax', '+632 631 2123', 16),
-            ('company_email', 'coe_psp@dap.edu.ph', 17),
+            ('Agency_name', 'Development Academy of The Philippines', 12),
+            ('Agency_subtitle', 'Center of Excellence on Public Sector Productivity', 13),
+            ('Agency_address', 'DAP Building, San Miguel Avenue, Pasig City 1500', 14),
+            ('Agency_phone', '+632 631 0921 to 30', 15),
+            ('Agency_fax', '+632 631 2123', 16),
+            ('Agency_email', 'coe_psp@dap.edu.ph', 17),
             ('site_title', 'COE Public-Sector Productivity', 18),
         ]
         for key, value, order in default_content:
