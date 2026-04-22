@@ -55,7 +55,9 @@ def fromjson_filter(value):
     except (json.JSONDecodeError, TypeError):
         return []
 
-# Create upload folder if it doesn't exist
+# ✅ FIX: Always ensure static/images exists at startup (not just UPLOAD_FOLDER)
+STATIC_IMAGES_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'static', 'images')
+os.makedirs(STATIC_IMAGES_DIR, exist_ok=True)
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # ---------------------------------------------
@@ -405,10 +407,6 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
 
     print(f"[v0] Calling Groq API for query: {query}")
 
-    # ✅ FIX 1: Only use file cache in local development.
-    # On Render (production), the filesystem is ephemeral — cached files
-    # written in one request may not exist in another dyno/worker, and can
-    # serve stale or incomplete responses. Skip the cache entirely in production.
     USE_CACHE = not IS_PRODUCTION
     cache_file = None
 
@@ -431,8 +429,6 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
     context_text   = website_search.get('context_text', '')
     has_db_content = bool(context_text.strip())
 
-    # ✅ FIX 2: Removed "= 200 words" hard cap that was truncating live responses.
-    # Now instructs the model to give detailed, thorough answers between 150-300 words.
     system_prompt = (
         "You are Tutoy, the official AI assistant for DAP-COE "
         "(Development Academy of the Philippines – Center of Excellence on Public Sector Productivity). "
@@ -547,7 +543,6 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
             'related_links':              website_search.get('related_links', [])[:8],
         }
 
-        # ✅ FIX 3: Only write cache in local development
         if USE_CACHE and cache_file:
             try:
                 with open(cache_file, 'w') as f:
@@ -864,6 +859,19 @@ def update_card():
         return no_cache_json({'success': False, 'error': str(e)})
 
 
+# =============================================================================
+# ✅ FIXED: upload_image
+#
+# ROOT CAUSE: Files were being saved to app.config['UPLOAD_FOLDER'] (typically
+# "static/uploads" or a custom path), but the admin JS always serves images
+# from "/static/images/<filename>".  The two paths never matched → 404.
+#
+# FIX:
+#   1. Always save to  <project_root>/static/images/  regardless of UPLOAD_FOLDER.
+#   2. Return ONLY the bare filename (e.g. "abc_photo.jpg").
+#      The JS constructs the full URL as  /static/images/<filename>  itself.
+#   3. os.makedirs with exist_ok=True so the folder is always present.
+# =============================================================================
 @app.route('/admin/api/upload-image', methods=['POST'])
 @login_required
 def upload_image():
@@ -872,9 +880,19 @@ def upload_image():
         if not file or file.filename == '':
             return no_cache_json({'success': False, 'error': 'No file uploaded'})
         if not allowed_file(file.filename):
-            return no_cache_json({'success': False, 'error': 'Invalid file type'})
-        filename = f"{int(datetime.now().timestamp())}_{secure_filename(file.filename)}"
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            return no_cache_json({'success': False, 'error': 'Invalid file type. Allowed: PNG, JPG, JPEG, WEBP, GIF, SVG'})
+
+        # Build a unique filename preserving the original name
+        original  = secure_filename(file.filename)
+        timestamp = int(datetime.now().timestamp())
+        filename  = f"{timestamp}_{original}"
+
+        # ✅ KEY FIX: always save to static/images/ so Flask can serve it
+        images_dir = os.path.join(app.root_path, 'static', 'images')
+        os.makedirs(images_dir, exist_ok=True)
+        file.save(os.path.join(images_dir, filename))
+
+        # ✅ Return ONLY the bare filename — JS adds /static/images/ prefix
         return no_cache_json({'success': True, 'filename': filename})
     except Exception as e:
         return no_cache_json({'success': False, 'error': str(e)})
