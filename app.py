@@ -775,21 +775,39 @@ def page_builder():
     return render_template('page_builder.html', logo_image=get_content('logo_image', 'images/dap-logo.png'))
 
 
+# ─────────────────────────────────────────────
+# ✅ FIXED: update_content — guards against saving "undefined"/"null"/"None"
+# ─────────────────────────────────────────────
 @app.route('/admin/api/update-content', methods=['POST'])
 @login_required
 def update_content():
     try:
         if request.is_json:
-            key, value = request.json.get('key'), request.json.get('value', '')
+            key   = request.json.get('key')
+            value = request.json.get('value', '')
         else:
-            key, value = request.form.get('key'), request.form.get('value', '')
+            key   = request.form.get('key')
+            value = request.form.get('value', '')
+
+        # Guard: key must be present
+        if not key:
+            return no_cache_json({'success': False, 'error': 'Key is required'})
+
+        # Guard: refuse to store poisoned JS values
+        value_str = str(value).strip() if value is not None else ''
+        if value_str in ('undefined', 'null', 'None'):
+            return no_cache_json({
+                'success': False,
+                'error': f'Invalid value "{value_str}" was blocked — not saved. Please enter real content.'
+            })
+
         content = db.session.query(ContentSection).filter_by(content_key=key).first()
         if content:
-            content.content_value = value
+            content.content_value = value_str
             db.session.commit()
             clear_ai_cache()
             return no_cache_json({'success': True, 'message': 'Content saved'})
-        return no_cache_json({'success': False, 'error': 'Not found'})
+        return no_cache_json({'success': False, 'error': f'Content key "{key}" not found'})
     except Exception as e:
         db.session.rollback()
         return no_cache_json({'success': False, 'error': str(e)})
@@ -1445,12 +1463,12 @@ def init_db():
             ('logo_image', 'images/dap-logo.png', 9),
             ('gemini_image', 'images/gemini.png', 10),
             ('apo_logo', 'images/apo.png', 11),
-            ('Agency_name', 'Development Academy of The Philippines', 12),
-            ('Agency_subtitle', 'Center of Excellence on Public Sector Productivity', 13),
-            ('Agency_address', 'DAP Building, San Miguel Avenue, Pasig City 1500', 14),
-            ('Agency_phone', '+632 631 0921 to 30', 15),
-            ('Agency_fax', '+632 631 2123', 16),
-            ('Agency_email', 'coe_psp@dap.edu.ph', 17),
+            ('company_name', 'Development Academy of The Philippines', 12),
+            ('company_subtitle', 'Center of Excellence on Public Sector Productivity', 13),
+            ('company_address', 'DAP Building, San Miguel Avenue, Pasig City 1500', 14),
+            ('company_phone', '+632 631 0921 to 30', 15),
+            ('company_fax', '+632 631 2123', 16),
+            ('company_email', 'coe_psp@dap.edu.ph', 17),
             ('site_title', 'COE Public-Sector Productivity', 18),
         ]
         for key, value, order in default_content:
