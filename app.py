@@ -23,8 +23,13 @@ import string
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# ✅ FIX: Detect environment — cache only works reliably on local dev
+# ✅ Detect environment — cache only works reliably on local dev
 IS_PRODUCTION = os.environ.get('FLASK_ENV', 'production') == 'production'
+
+# ✅ Gov.ph upload server config (set these in Render environment variables)
+GOV_UPLOAD_URL   = os.environ.get('GOV_UPLOAD_URL',   'https://coe-psp.dap.gov.ph/upload_receiver')
+GOV_IMAGE_BASE   = os.environ.get('GOV_IMAGE_BASE',   'https://coe-psp.dap.gov.ph/static/images')
+GOV_UPLOAD_TOKEN = os.environ.get('GOV_UPLOAD_TOKEN', '')
 
 # Debug: Verify API key is loaded
 api_key_check = os.getenv('GROQ_API_KEY', 'NOT FOUND')
@@ -32,6 +37,8 @@ print(f"\n[DEBUG] GROQ_API_KEY from environment: {'LOADED' if api_key_check != '
 if api_key_check != 'NOT FOUND':
     print(f"[DEBUG] API Key starts with: {api_key_check[:10]}...")
 print(f"[DEBUG] IS_PRODUCTION: {IS_PRODUCTION}")
+print(f"[DEBUG] GOV_UPLOAD_URL: {GOV_UPLOAD_URL}")
+print(f"[DEBUG] GOV_IMAGE_BASE: {GOV_IMAGE_BASE}")
 print()
 
 # Initialize extensions
@@ -55,9 +62,7 @@ def fromjson_filter(value):
     except (json.JSONDecodeError, TypeError):
         return []
 
-# ✅ FIX: Always ensure static/images exists at startup (not just UPLOAD_FOLDER)
-STATIC_IMAGES_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'static', 'images')
-os.makedirs(STATIC_IMAGES_DIR, exist_ok=True)
+# Create upload folder if it doesn't exist (for local dev only)
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # ---------------------------------------------
@@ -118,6 +123,38 @@ def is_greeting(query):
         if q == greeting or q.startswith(greeting + ' ') or q.startswith(greeting + '!'):
             return True
     return False
+
+
+# -----------------------------------------------------------------------------
+#  IMAGE URL HELPER
+#  ✅ FIX: Now builds full URLs pointing to the gov.ph static server.
+#         Handles both legacy bare filenames and already-full URLs gracefully.
+# -----------------------------------------------------------------------------
+
+def _image_url(filename: str) -> str:
+    """
+    Convert a stored filename/path to a fully-qualified URL served from the
+    gov.ph static server.
+
+    Handles:
+      - Already full URLs  →  returned as-is
+      - 'images/foo.png'   →  strips prefix, builds full URL
+      - 'static/foo.png'   →  strips prefix, builds full URL
+      - 'foo.png'          →  builds full URL directly
+    """
+    if not filename:
+        return ''
+    filename = filename.strip()
+    # Already a full URL — return unchanged
+    if filename.startswith('http://') or filename.startswith('https://'):
+        return filename
+    # Strip any legacy path prefixes, keep just the bare filename
+    bare = filename
+    for prefix in ('static/images/', 'images/', 'static/'):
+        if bare.startswith(prefix):
+            bare = bare[len(prefix):]
+            break
+    return f"{GOV_IMAGE_BASE}/{bare}"
 
 
 # -----------------------------------------------------------------------------
@@ -242,15 +279,6 @@ def _safe_json_dict(raw) -> dict:
         return parsed if isinstance(parsed, dict) else {}
     except Exception:
         return {}
-
-
-def _image_url(filename: str) -> str:
-    if not filename:
-        return ''
-    filename = filename.strip()
-    if filename.startswith(('images/', 'static/')):
-        return filename
-    return f'images/{filename}'
 
 
 # ---------------------------------------------
@@ -407,6 +435,7 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
 
     print(f"[v0] Calling Groq API for query: {query}")
 
+    # ✅ Only use file cache in local development.
     USE_CACHE = not IS_PRODUCTION
     cache_file = None
 
@@ -859,19 +888,18 @@ def update_card():
         return no_cache_json({'success': False, 'error': str(e)})
 
 
-# =============================================================================
-# ✅ FIXED: upload_image
+# -----------------------------------------------------------------------------
+#  UPLOAD IMAGE
+#  ✅ FIX: On production (Render), forward the upload to the gov.ph server
+#          instead of saving locally (Render filesystem is ephemeral).
+#          On local dev, save locally as before.
 #
-# ROOT CAUSE: Files were being saved to app.config['UPLOAD_FOLDER'] (typically
-# "static/uploads" or a custom path), but the admin JS always serves images
-# from "/static/images/<filename>".  The two paths never matched → 404.
-#
-# FIX:
-#   1. Always save to  <project_root>/static/images/  regardless of UPLOAD_FOLDER.
-#   2. Return ONLY the bare filename (e.g. "abc_photo.jpg").
-#      The JS constructs the full URL as  /static/images/<filename>  itself.
-#   3. os.makedirs with exist_ok=True so the folder is always present.
-# =============================================================================
+#  Required Render environment variables:
+#    GOV_UPLOAD_URL   = https://coe-psp.dap.gov.ph/upload_receiver
+#    GOV_IMAGE_BASE   = https://coe-psp.dap.gov.ph/static/images
+#    GOV_UPLOAD_TOKEN = <shared secret matching upload_receiver.py>
+# -----------------------------------------------------------------------------
+
 @app.route('/admin/api/upload-image', methods=['POST'])
 @login_required
 def upload_image():
@@ -880,21 +908,75 @@ def upload_image():
         if not file or file.filename == '':
             return no_cache_json({'success': False, 'error': 'No file uploaded'})
         if not allowed_file(file.filename):
-            return no_cache_json({'success': False, 'error': 'Invalid file type. Allowed: PNG, JPG, JPEG, WEBP, GIF, SVG'})
+            return no_cache_json({'success': False, 'error': 'Invalid file type'})
 
-        # Build a unique filename preserving the original name
-        original  = secure_filename(file.filename)
-        timestamp = int(datetime.now().timestamp())
-        filename  = f"{timestamp}_{original}"
+        if IS_PRODUCTION:
+            # ----------------------------------------------------------------
+            # PRODUCTION PATH: Forward file to gov.ph upload_receiver
+            # ----------------------------------------------------------------
+            headers = {}
+            if GOV_UPLOAD_TOKEN:
+                headers['Authorization'] = f'Bearer {GOV_UPLOAD_TOKEN}'
 
-        # ✅ KEY FIX: always save to static/images/ so Flask can serve it
-        images_dir = os.path.join(app.root_path, 'static', 'images')
-        os.makedirs(images_dir, exist_ok=True)
-        file.save(os.path.join(images_dir, filename))
+            try:
+                gov_resp = requests.post(
+                    GOV_UPLOAD_URL,
+                    files={'file': (file.filename, file.stream, file.mimetype)},
+                    headers=headers,
+                    timeout=30,
+                )
+            except requests.exceptions.ConnectionError as e:
+                print(f"[upload] Connection error to gov.ph: {e}")
+                return no_cache_json({'success': False, 'error': f'Could not reach upload server: {e}'})
+            except requests.exceptions.Timeout:
+                print("[upload] Timeout reaching gov.ph")
+                return no_cache_json({'success': False, 'error': 'Upload server timed out. Please try again.'})
 
-        # ✅ Return ONLY the bare filename — JS adds /static/images/ prefix
-        return no_cache_json({'success': True, 'filename': filename})
+            print(f"[upload] Gov.ph response status: {gov_resp.status_code}")
+
+            if gov_resp.status_code == 401:
+                return no_cache_json({'success': False, 'error': 'Upload server rejected the request (invalid token).'})
+
+            if gov_resp.status_code != 200:
+                return no_cache_json({
+                    'success': False,
+                    'error': f'Upload server returned {gov_resp.status_code}: {gov_resp.text[:200]}'
+                })
+
+            try:
+                gov_data = gov_resp.json()
+            except Exception:
+                return no_cache_json({'success': False, 'error': 'Upload server returned an invalid response.'})
+
+            if not gov_data.get('success'):
+                return no_cache_json({'success': False, 'error': gov_data.get('error', 'Upload failed on gov server.')})
+
+            filename = gov_data['filename']
+            full_url = f"{GOV_IMAGE_BASE}/{filename}"
+            print(f"[upload] File saved on gov.ph as: {filename} → {full_url}")
+
+            return no_cache_json({
+                'success':  True,
+                'filename': filename,
+                'url':      full_url,   # Full URL for immediate use in <img> tags
+            })
+
+        else:
+            # ----------------------------------------------------------------
+            # LOCAL DEV PATH: Save directly to local static/images
+            # ----------------------------------------------------------------
+            filename = f"{int(datetime.now().timestamp())}_{secure_filename(file.filename)}"
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            print(f"[upload] Local save: {filename}")
+            return no_cache_json({
+                'success':  True,
+                'filename': filename,
+                'url':      f"images/{filename}",
+            })
+
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return no_cache_json({'success': False, 'error': str(e)})
 
 
