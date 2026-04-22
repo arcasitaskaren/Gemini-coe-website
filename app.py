@@ -36,9 +36,9 @@ app.config.from_object(Config)
 IS_PRODUCTION = os.environ.get('FLASK_ENV', 'production') == 'production'
 
 # ✅ Gov.ph upload server config (set these in Render environment variables)
-GOV_UPLOAD_URL = os.environ.get('GOV_UPLOAD_URL', 'https://coe-psp.dap.gov.ph:5001/upload_receiver')  # local dev
+GOV_UPLOAD_URL = os.environ.get('GOV_UPLOAD_URL', 'http://coe-psp.dap.gov.ph:5001/upload_receiver')  # local dev
 # For production, set GOV_UPLOAD_URL in environment variables to the public URL with port
-GOV_IMAGE_BASE   = os.environ.get('GOV_IMAGE_BASE',   'https://coe-psp.dap.gov.ph/static/images')
+GOV_IMAGE_BASE   = os.environ.get('GOV_IMAGE_BASE',   'http://coe-psp.dap.gov.ph/static/images')
 GOV_UPLOAD_TOKEN = os.environ.get('GOV_UPLOAD_TOKEN', '')
 
 # Debug: Verify API key is loaded
