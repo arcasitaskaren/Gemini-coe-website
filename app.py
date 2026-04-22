@@ -4,15 +4,6 @@ from dotenv import load_dotenv
 # Load .env FIRST (use absolute path for production reliability)
 basedir = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(basedir, ".env"))
-# In your main Flask app (app.py)
-import subprocess
-import threading
-
-# Run upload_receiver in a background thread
-def start_upload_receiver():
-    subprocess.Popen(['python', 'upload_receiver.py'])
-
-threading.Thread(target=start_upload_receiver, daemon=True).start()
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, make_response
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
@@ -32,14 +23,8 @@ import string
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# ✅ Detect environment — cache only works reliably on local dev
+# ✅ FIX: Detect environment — cache only works reliably on local dev
 IS_PRODUCTION = os.environ.get('FLASK_ENV', 'production') == 'production'
-
-# ✅ Gov.ph upload server config (set these in Render environment variables)
-GOV_UPLOAD_URL = os.environ.get('GOV_UPLOAD_URL', 'http://coe-psp.dap.gov.ph:5001/upload_receiver')  # local dev
-# For production, set GOV_UPLOAD_URL in environment variables to the public URL with port
-GOV_IMAGE_BASE   = os.environ.get('GOV_IMAGE_BASE',   'http://coe-psp.dap.gov.ph/static/images')
-GOV_UPLOAD_TOKEN = os.environ.get('GOV_UPLOAD_TOKEN', '')
 
 # Debug: Verify API key is loaded
 api_key_check = os.getenv('GROQ_API_KEY', 'NOT FOUND')
@@ -47,8 +32,6 @@ print(f"\n[DEBUG] GROQ_API_KEY from environment: {'LOADED' if api_key_check != '
 if api_key_check != 'NOT FOUND':
     print(f"[DEBUG] API Key starts with: {api_key_check[:10]}...")
 print(f"[DEBUG] IS_PRODUCTION: {IS_PRODUCTION}")
-print(f"[DEBUG] GOV_UPLOAD_URL: {GOV_UPLOAD_URL}")
-print(f"[DEBUG] GOV_IMAGE_BASE: {GOV_IMAGE_BASE}")
 print()
 
 # Initialize extensions
@@ -72,7 +55,7 @@ def fromjson_filter(value):
     except (json.JSONDecodeError, TypeError):
         return []
 
-# Create upload folder if it doesn't exist (for local dev only)
+# Create upload folder if it doesn't exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # ---------------------------------------------
@@ -133,38 +116,6 @@ def is_greeting(query):
         if q == greeting or q.startswith(greeting + ' ') or q.startswith(greeting + '!'):
             return True
     return False
-
-
-# -----------------------------------------------------------------------------
-#  IMAGE URL HELPER
-#  ✅ FIX: Now builds full URLs pointing to the gov.ph static server.
-#         Handles both legacy bare filenames and already-full URLs gracefully.
-# -----------------------------------------------------------------------------
-
-def _image_url(filename: str) -> str:
-    """
-    Convert a stored filename/path to a fully-qualified URL served from the
-    gov.ph static server.
-
-    Handles:
-      - Already full URLs  →  returned as-is
-      - 'images/foo.png'   →  strips prefix, builds full URL
-      - 'static/foo.png'   →  strips prefix, builds full URL
-      - 'foo.png'          →  builds full URL directly
-    """
-    if not filename:
-        return ''
-    filename = filename.strip()
-    # Already a full URL — return unchanged
-    if filename.startswith('http://') or filename.startswith('https://'):
-        return filename
-    # Strip any legacy path prefixes, keep just the bare filename
-    bare = filename
-    for prefix in ('static/images/', 'images/', 'static/'):
-        if bare.startswith(prefix):
-            bare = bare[len(prefix):]
-            break
-    return f"{GOV_IMAGE_BASE}/{bare}"
 
 
 # -----------------------------------------------------------------------------
@@ -289,6 +240,15 @@ def _safe_json_dict(raw) -> dict:
         return parsed if isinstance(parsed, dict) else {}
     except Exception:
         return {}
+
+
+def _image_url(filename: str) -> str:
+    if not filename:
+        return ''
+    filename = filename.strip()
+    if filename.startswith(('images/', 'static/')):
+        return filename
+    return f'images/{filename}'
 
 
 # ---------------------------------------------
@@ -445,7 +405,10 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
 
     print(f"[v0] Calling Groq API for query: {query}")
 
-    # ✅ Only use file cache in local development.
+    # ✅ FIX 1: Only use file cache in local development.
+    # On Render (production), the filesystem is ephemeral — cached files
+    # written in one request may not exist in another dyno/worker, and can
+    # serve stale or incomplete responses. Skip the cache entirely in production.
     USE_CACHE = not IS_PRODUCTION
     cache_file = None
 
@@ -468,6 +431,8 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
     context_text   = website_search.get('context_text', '')
     has_db_content = bool(context_text.strip())
 
+    # ✅ FIX 2: Removed "= 200 words" hard cap that was truncating live responses.
+    # Now instructs the model to give detailed, thorough answers between 150-300 words.
     system_prompt = (
         "You are Tutoy, the official AI assistant for DAP-COE "
         "(Development Academy of the Philippines – Center of Excellence on Public Sector Productivity). "
@@ -490,7 +455,7 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
     )
 
     user_prompt = (
-        f"User query: {query}\n"
+        f"User query: {query}"
         f"{context_block}\n\n"
         "Respond with ONLY valid JSON:\n"
         '{\n'
@@ -582,6 +547,7 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
             'related_links':              website_search.get('related_links', [])[:8],
         }
 
+        # ✅ FIX 3: Only write cache in local development
         if USE_CACHE and cache_file:
             try:
                 with open(cache_file, 'w') as f:
@@ -816,15 +782,12 @@ def admin_logout():
 @app.route('/admin/panel')
 @login_required
 def admin_panel():
-    return render_template(
-        'admin_panel.html',
-        content_sections=get_all_content(),
-        cards=get_all_cards(),
-        nav_links=get_all_nav_links(),
-        professionals=get_all_professionals(),
-        logo_image=get_content('logo_image', 'images/dap-logo.png'),
-        GOV_IMAGE_BASE=GOV_IMAGE_BASE,   # ← NEW: used by all <img> tags in template
-    )
+    return render_template('admin_panel.html',
+                           content_sections=get_all_content(),
+                           cards=get_all_cards(),
+                           nav_links=get_all_nav_links(),
+                           professionals=get_all_professionals(),
+                           logo_image=get_content('logo_image', 'images/dap-logo.png'))
 
 
 @app.route('/admin/page-builder')
@@ -901,18 +864,6 @@ def update_card():
         return no_cache_json({'success': False, 'error': str(e)})
 
 
-# -----------------------------------------------------------------------------
-#  UPLOAD IMAGE
-#  ✅ FIX: On production (Render), forward the upload to the gov.ph server
-#          instead of saving locally (Render filesystem is ephemeral).
-#          On local dev, save locally as before.
-#
-#  Required Render environment variables:
-#    GOV_UPLOAD_URL   = https://coe-psp.dap.gov.ph/upload_receiver
-#    GOV_IMAGE_BASE   = https://coe-psp.dap.gov.ph/static/images
-#    GOV_UPLOAD_TOKEN = <shared secret matching upload_receiver.py>
-# -----------------------------------------------------------------------------
-
 @app.route('/admin/api/upload-image', methods=['POST'])
 @login_required
 def upload_image():
@@ -922,74 +873,10 @@ def upload_image():
             return no_cache_json({'success': False, 'error': 'No file uploaded'})
         if not allowed_file(file.filename):
             return no_cache_json({'success': False, 'error': 'Invalid file type'})
-
-        if IS_PRODUCTION:
-            # ----------------------------------------------------------------
-            # PRODUCTION PATH: Forward file to gov.ph upload_receiver
-            # ----------------------------------------------------------------
-            headers = {}
-            if GOV_UPLOAD_TOKEN:
-                headers['Authorization'] = f'Bearer {GOV_UPLOAD_TOKEN}'
-
-            try:
-                gov_resp = requests.post(
-                    GOV_UPLOAD_URL,
-                    files={'file': (file.filename, file.stream, file.mimetype)},
-                    headers=headers,
-                    timeout=30,
-                )
-            except requests.exceptions.ConnectionError as e:
-                print(f"[upload] Connection error to gov.ph: {e}")
-                return no_cache_json({'success': False, 'error': f'Could not reach upload server: {e}'})
-            except requests.exceptions.Timeout:
-                print("[upload] Timeout reaching gov.ph")
-                return no_cache_json({'success': False, 'error': 'Upload server timed out. Please try again.'})
-
-            print(f"[upload] Gov.ph response status: {gov_resp.status_code}")
-
-            if gov_resp.status_code == 401:
-                return no_cache_json({'success': False, 'error': 'Upload server rejected the request (invalid token).'})
-
-            if gov_resp.status_code != 200:
-                return no_cache_json({
-                    'success': False,
-                    'error': f'Upload server returned {gov_resp.status_code}: {gov_resp.text[:200]}'
-                })
-
-            try:
-                gov_data = gov_resp.json()
-            except Exception:
-                return no_cache_json({'success': False, 'error': 'Upload server returned an invalid response.'})
-
-            if not gov_data.get('success'):
-                return no_cache_json({'success': False, 'error': gov_data.get('error', 'Upload failed on gov server.')})
-
-            filename = gov_data['filename']
-            full_url = f"{GOV_IMAGE_BASE}/{filename}"
-            print(f"[upload] File saved on gov.ph as: {filename} → {full_url}")
-
-            return no_cache_json({
-                'success':  True,
-                'filename': filename,
-                'url':      full_url,   # Full URL for immediate use in <img> tags
-            })
-
-        else:
-            # ----------------------------------------------------------------
-            # LOCAL DEV PATH: Save directly to local static/images
-            # ----------------------------------------------------------------
-            filename = f"{int(datetime.now().timestamp())}_{secure_filename(file.filename)}"
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            print(f"[upload] Local save: {filename}")
-            return no_cache_json({
-                'success':  True,
-                'filename': filename,
-                'url':      f"images/{filename}",
-            })
-
+        filename = f"{int(datetime.now().timestamp())}_{secure_filename(file.filename)}"
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        return no_cache_json({'success': True, 'filename': filename})
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         return no_cache_json({'success': False, 'error': str(e)})
 
 
@@ -1621,29 +1508,7 @@ def init_db():
             if not db.session.query(NavigationLink).filter_by(link_text=link_text).first():
                 db.session.add(NavigationLink(link_text=link_text, link_url='#', link_order=i + 1))
         db.session.commit()
-        
-@app.route('/admin/api/upload-health')
-@login_required
-def upload_health():
-    """Ping the gov.ph upload_receiver and report back to the admin panel."""
-    try:
-        headers = {}
-        if GOV_UPLOAD_TOKEN:
-            headers['Authorization'] = f'Bearer {GOV_UPLOAD_TOKEN}'
-        resp = requests.get(
-            GOV_UPLOAD_URL.replace('/upload_receiver', '/health'),
-            headers=headers,
-            timeout=6,
-        )
-        if resp.status_code == 200:
-            return no_cache_json({'ok': True, 'url': GOV_UPLOAD_URL})
-        return no_cache_json({'ok': False, 'error': f'Server returned HTTP {resp.status_code}'})
-    except requests.exceptions.ConnectionError:
-        return no_cache_json({'ok': False, 'error': 'Connection refused — is upload_receiver.py running?'})
-    except requests.exceptions.Timeout:
-        return no_cache_json({'ok': False, 'error': 'Request timed out'})
-    except Exception as e:
-        return no_cache_json({'ok': False, 'error': str(e)})
+
 
 if __name__ == '__main__':
     init_db()
