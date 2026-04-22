@@ -806,12 +806,15 @@ def admin_logout():
 @app.route('/admin/panel')
 @login_required
 def admin_panel():
-    return render_template('admin_panel.html',
-                           content_sections=get_all_content(),
-                           cards=get_all_cards(),
-                           nav_links=get_all_nav_links(),
-                           professionals=get_all_professionals(),
-                           logo_image=get_content('logo_image', 'images/dap-logo.png'))
+    return render_template(
+        'admin_panel.html',
+        content_sections=get_all_content(),
+        cards=get_all_cards(),
+        nav_links=get_all_nav_links(),
+        professionals=get_all_professionals(),
+        logo_image=get_content('logo_image', 'images/dap-logo.png'),
+        GOV_IMAGE_BASE=GOV_IMAGE_BASE,   # ← NEW: used by all <img> tags in template
+    )
 
 
 @app.route('/admin/page-builder')
@@ -1608,7 +1611,29 @@ def init_db():
             if not db.session.query(NavigationLink).filter_by(link_text=link_text).first():
                 db.session.add(NavigationLink(link_text=link_text, link_url='#', link_order=i + 1))
         db.session.commit()
-
+        
+@app.route('/admin/api/upload-health')
+@login_required
+def upload_health():
+    """Ping the gov.ph upload_receiver and report back to the admin panel."""
+    try:
+        headers = {}
+        if GOV_UPLOAD_TOKEN:
+            headers['Authorization'] = f'Bearer {GOV_UPLOAD_TOKEN}'
+        resp = requests.get(
+            GOV_UPLOAD_URL.replace('/upload_receiver', '/health'),
+            headers=headers,
+            timeout=6,
+        )
+        if resp.status_code == 200:
+            return no_cache_json({'ok': True, 'url': GOV_UPLOAD_URL})
+        return no_cache_json({'ok': False, 'error': f'Server returned HTTP {resp.status_code}'})
+    except requests.exceptions.ConnectionError:
+        return no_cache_json({'ok': False, 'error': 'Connection refused — is upload_receiver.py running?'})
+    except requests.exceptions.Timeout:
+        return no_cache_json({'ok': False, 'error': 'Request timed out'})
+    except Exception as e:
+        return no_cache_json({'ok': False, 'error': str(e)})
 
 if __name__ == '__main__':
     init_db()
