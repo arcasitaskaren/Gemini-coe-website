@@ -23,8 +23,16 @@ import string
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# ✅ FIX: Detect environment — cache only works reliably on local dev
+# FIX 1: Detect environment
 IS_PRODUCTION = os.environ.get('FLASK_ENV', 'production') == 'production'
+
+# FIX 2: Define GOV_IMAGE_BASE — the public URL where uploaded images are served.
+# Since uploads go to static/images/, Flask serves them at /static/images/<filename>.
+# Override with the GOV_IMAGE_BASE environment variable if needed.
+GOV_IMAGE_BASE = os.environ.get(
+    'GOV_IMAGE_BASE',
+    'http://coe-psp.dap.gov.ph/static/images'
+)
 
 # Debug: Verify API key is loaded
 api_key_check = os.getenv('GROQ_API_KEY', 'NOT FOUND')
@@ -32,6 +40,7 @@ print(f"\n[DEBUG] GROQ_API_KEY from environment: {'LOADED' if api_key_check != '
 if api_key_check != 'NOT FOUND':
     print(f"[DEBUG] API Key starts with: {api_key_check[:10]}...")
 print(f"[DEBUG] IS_PRODUCTION: {IS_PRODUCTION}")
+print(f"[DEBUG] GOV_IMAGE_BASE: {GOV_IMAGE_BASE}")
 print()
 
 # Initialize extensions
@@ -39,6 +48,12 @@ db.init_app(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'admin_login'
+
+# FIX 3: Context processor — injects GOV_IMAGE_BASE into EVERY template automatically.
+# This is why {{ GOV_IMAGE_BASE }} works in index.html and admin_panel.html.
+@app.context_processor
+def inject_globals():
+    return dict(GOV_IMAGE_BASE=GOV_IMAGE_BASE)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -243,12 +258,21 @@ def _safe_json_dict(raw) -> dict:
 
 
 def _image_url(filename: str) -> str:
+    """
+    FIX 4: Build a full public URL for an image filename.
+    Stored filenames are bare (e.g. '1234_hero.png') or prefixed
+    with 'images/' or 'static/'. We always strip those prefixes and
+    prepend GOV_IMAGE_BASE so the browser can fetch the file.
+    """
     if not filename:
         return ''
     filename = filename.strip()
-    if filename.startswith(('images/', 'static/')):
+    # Already a full URL — return as-is
+    if filename.startswith('http://') or filename.startswith('https://'):
         return filename
-    return f'images/{filename}'
+    # Strip any leading path segments so we get just the bare filename
+    bare = re.sub(r'^(static/images/|images/|static/)', '', filename)
+    return f'{GOV_IMAGE_BASE}/{bare}'
 
 
 # ---------------------------------------------
@@ -393,8 +417,6 @@ def search_website_content(query: str) -> dict:
 
 # ---------------------------------------------
 # Groq API
-# ✅ FIX 1: Cache disabled on production (Render ephemeral filesystem)
-# ✅ FIX 2: System prompt no longer caps response at 200 words
 # ---------------------------------------------
 
 def call_groq_api(query: str, website_search: dict = None) -> dict:
@@ -405,10 +427,6 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
 
     print(f"[v0] Calling Groq API for query: {query}")
 
-    # ✅ FIX 1: Only use file cache in local development.
-    # On Render (production), the filesystem is ephemeral — cached files
-    # written in one request may not exist in another dyno/worker, and can
-    # serve stale or incomplete responses. Skip the cache entirely in production.
     USE_CACHE = not IS_PRODUCTION
     cache_file = None
 
@@ -431,8 +449,6 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
     context_text   = website_search.get('context_text', '')
     has_db_content = bool(context_text.strip())
 
-    # ✅ FIX 2: Removed "= 200 words" hard cap that was truncating live responses.
-    # Now instructs the model to give detailed, thorough answers between 150-300 words.
     system_prompt = (
         "You are Tutoy, the official AI assistant for DAP-COE "
         "(Development Academy of the Philippines – Center of Excellence on Public Sector Productivity). "
@@ -547,7 +563,6 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
             'related_links':              website_search.get('related_links', [])[:8],
         }
 
-        # ✅ FIX 3: Only write cache in local development
         if USE_CACHE and cache_file:
             try:
                 with open(cache_file, 'w') as f:
@@ -796,6 +811,31 @@ def page_builder():
     return render_template('page_builder.html', logo_image=get_content('logo_image', 'images/dap-logo.png'))
 
 
+# FIX 5: Upload health-check endpoint — called by admin panel JS on load.
+# Returns the upload server status and the GOV_IMAGE_BASE URL so admins
+# can confirm where images will be publicly served from.
+@app.route('/admin/api/upload-health')
+@login_required
+def upload_health():
+    upload_folder = app.config.get('UPLOAD_FOLDER', '')
+    try:
+        test_path = os.path.join(upload_folder, '.health_check')
+        with open(test_path, 'w') as f:
+            f.write('ok')
+        os.remove(test_path)
+        return no_cache_json({
+            'ok': True,
+            'url': GOV_IMAGE_BASE,
+            'upload_folder': upload_folder,
+        })
+    except Exception as e:
+        return no_cache_json({
+            'ok': False,
+            'error': str(e),
+            'upload_folder': upload_folder,
+        })
+
+
 # ---------------------------------------------
 # update_content — guards against saving "undefined"/"null"/"None"
 # ---------------------------------------------
@@ -864,6 +904,9 @@ def update_card():
         return no_cache_json({'success': False, 'error': str(e)})
 
 
+# FIX 6: upload_image now returns 'url' — the full public URL built from
+# GOV_IMAGE_BASE. The admin panel JS uses this for instant previews after
+# upload without needing a page reload.
 @app.route('/admin/api/upload-image', methods=['POST'])
 @login_required
 def upload_image():
@@ -873,9 +916,19 @@ def upload_image():
             return no_cache_json({'success': False, 'error': 'No file uploaded'})
         if not allowed_file(file.filename):
             return no_cache_json({'success': False, 'error': 'Invalid file type'})
-        filename = f"{int(datetime.now().timestamp())}_{secure_filename(file.filename)}"
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        return no_cache_json({'success': True, 'filename': filename})
+
+        filename  = f"{int(datetime.now().timestamp())}_{secure_filename(file.filename)}"
+        save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(save_path)
+
+        # Build the full public URL so the admin JS can render previews immediately
+        full_url = f"{GOV_IMAGE_BASE}/{filename}"
+
+        return no_cache_json({
+            'success':  True,
+            'filename': filename,
+            'url':      full_url,
+        })
     except Exception as e:
         return no_cache_json({'success': False, 'error': str(e)})
 
