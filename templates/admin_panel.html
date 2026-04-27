@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Admin — COE CMS{% endblock %}
+{% block title %}Admin  COE CMS{% endblock %}
 
 {% block extra_css %}
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -347,14 +347,14 @@ textarea{resize:vertical;min-height:108px;}
 
       <!-- ? Upload server health banner -->
       <div id="uploadStatusBanner" class="upload-status-banner checking">
-        <i class="fas fa-circle-notch fa-spin"></i> <span id="uploadStatusMsg">Checking upload server connection…</span>
+        <i class="fas fa-circle-notch fa-spin"></i> <span id="uploadStatusMsg">Checking upload server connection</span>
       </div>
 
       <div class="stats-strip">
         <div class="stat-card"><div class="stat-icon" style="background:var(--blue-dim);color:var(--blue);"><i class="fas fa-file-alt"></i></div><div class="stat-body"><div class="stat-num" style="color:var(--blue);">{{ content_sections|length }}</div><div class="stat-lbl">Text Sections</div></div></div>
         <div class="stat-card"><div class="stat-icon" style="background:var(--green-dim);color:var(--green);"><i class="fas fa-layer-group"></i></div><div class="stat-body"><div class="stat-num" style="color:var(--green);">{{ cards|length }}</div><div class="stat-lbl">Stacked Cards</div></div></div>
         <div class="stat-card"><div class="stat-icon" style="background:var(--purple-dim);color:var(--purple);"><i class="fas fa-bars"></i></div><div class="stat-body"><div class="stat-num" style="color:var(--purple);">{{ nav_links|length }}</div><div class="stat-lbl">Nav Links</div></div></div>
-        <div class="stat-card"><div class="stat-icon" style="background:var(--amber-dim);color:var(--amber);"><i class="fas fa-mouse-pointer"></i></div><div class="stat-body"><div class="stat-num" style="color:var(--amber);" id="dash-btn-count">—</div><div class="stat-lbl">Total Buttons</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:var(--amber-dim);color:var(--amber);"><i class="fas fa-mouse-pointer"></i></div><div class="stat-body"><div class="stat-num" style="color:var(--amber);" id="dash-btn-count"></div><div class="stat-lbl">Total Buttons</div></div></div>
       </div>
       <div class="card" style="margin-bottom:16px;">
         <div style="font-family:var(--font-head);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:14px;">Quick Actions</div>
@@ -372,7 +372,7 @@ textarea{resize:vertical;min-height:108px;}
           <div class="card-head"><div><div class="card-eyebrow">Content</div><div class="card-name">Recent Sections</div></div><span class="chip chip-blue">{{ content_sections|length }} items</span></div>
           <div class="activity-feed">
             {% for section in content_sections[:5] %}
-            <div class="act-item"><div class="act-dot blue"></div><div class="act-body"><div class="act-text" style="font-weight:600;">{{ section.content_key.replace('_',' ').title() }}</div><div class="act-time" style="color:var(--muted);font-size:11px;margin-top:1px;">{{ section.content_value[:60] }}{% if section.content_value|length > 60 %}…{% endif %}</div></div><button class="btn btn-ghost btn-xs" onclick="switchTab('content',document.querySelector('[data-tab=content]'))">Edit</button></div>
+            <div class="act-item"><div class="act-dot blue"></div><div class="act-body"><div class="act-text" style="font-weight:600;">{{ section.content_key.replace('_',' ').title() }}</div><div class="act-time" style="color:var(--muted);font-size:11px;margin-top:1px;">{{ section.content_value[:60] }}{% if section.content_value|length > 60 %}{% endif %}</div></div><button class="btn btn-ghost btn-xs" onclick="switchTab('content',document.querySelector('[data-tab=content]'))">Edit</button></div>
             {% endfor %}
           </div>
         </div>
@@ -380,7 +380,7 @@ textarea{resize:vertical;min-height:108px;}
           <div class="card-head"><div><div class="card-eyebrow">Layout</div><div class="card-name">Card Overview</div></div><span class="chip chip-green">{{ cards|length }} cards</span></div>
           <div class="activity-feed">
             {% for card in cards %}
-            <div class="act-item"><div class="act-dot green"></div><div class="act-body"><div class="act-text" style="font-weight:600;">{{ card.title }}</div><div class="act-time">{% set bl = card.buttons|fromjson if card.buttons else [] %}{{ bl|length }} button{{ 's' if bl|length != 1 }} · {{ card.image }}</div></div><button class="btn btn-ghost btn-xs" onclick="switchTab('cards',document.querySelector('[data-tab=cards]'))">Edit</button></div>
+            <div class="act-item"><div class="act-dot green"></div><div class="act-body"><div class="act-text" style="font-weight:600;">{{ card.title }}</div><div class="act-time">{% set bl = card.buttons|fromjson if card.buttons else [] %}{{ bl|length }} button{{ 's' if bl|length != 1 }}  {{ card.image }}</div></div><button class="btn btn-ghost btn-xs" onclick="switchTab('cards',document.querySelector('[data-tab=cards]'))">Edit</button></div>
             {% endfor %}
           </div>
         </div>
@@ -391,7 +391,7 @@ textarea{resize:vertical;min-height:108px;}
     <div id="tab-content" class="tab-pane">
       <div class="page-row">
         <div class="page-heading"><div class="page-icon pi-blue"><i class="fas fa-pen-nib"></i></div><div><div class="page-title">Text Sections</div><div class="page-subtitle">Edit content displayed across the site</div></div></div>
-        <div class="search-wrap"><i class="fas fa-search search-icon"></i><input class="search-box" id="contentSearch" type="text" placeholder="Search sections…" oninput="filterContent(this.value)"><button class="search-clear" id="searchClear" onclick="clearSearch()">?</button></div>
+        <div class="search-wrap"><i class="fas fa-search search-icon"></i><input class="search-box" id="contentSearch" type="text" placeholder="Search sections" oninput="filterContent(this.value)"><button class="search-clear" id="searchClear" onclick="clearSearch()">?</button></div>
       </div>
       {% for section in content_sections %}
       <div class="card content-card" data-key="{{ section.content_key }}">
@@ -403,18 +403,17 @@ textarea{resize:vertical;min-height:108px;}
             <div class="img-upload-field" id="iuf-content-{{ section.content_key }}" onclick="document.getElementById('file-content-{{ section.content_key }}').click()">
               <input type="file" id="file-content-{{ section.content_key }}" accept="image/*" onchange="handleContentImageUpload(this,'{{ section.content_key }}')">
               <div class="img-upload-thumb">
-  {% if card.image %}
-    <img src="{{ GOV_IMAGE_BASE }}/{{ card.image.replace('images/','').replace('static/','') }}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-image\'></i>'" alt="Current image">
-                {% else %}<i class="fas fa-image"></i>{% endif %}
-              </div>
-              <div class="img-upload-body"><span class="img-upload-label" id="label-content-{{ section.content_key }}">{{ section.content_value if section.content_value else 'No image selected' }}</span><span class="img-upload-hint">Click to upload · PNG, JPG, WEBP</span></div>
+  {% if section.content_value %}
+    <img src="{{ GOV_IMAGE_BASE }}/{{ section.content_value.replace('images/','').replace('static/','') }}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-image\'></i>'" alt="Current image">
+                {% else %}<i class="fas fa-image"></i>{% endif %}              </div>
+              <div class="img-upload-body"><span class="img-upload-label" id="label-content-{{ section.content_key }}">{{ section.content_value if section.content_value else 'No image selected' }}</span><span class="img-upload-hint">Click to upload  PNG, JPG, WEBP</span></div>
               <div class="img-upload-action"><i class="fas fa-upload"></i> Upload</div>
             </div>
             <input type="hidden" class="content-image-value img-upload-hidden" data-key="{{ section.content_key }}" value="{{ section.content_value }}">
           </div>
         {% else %}
           <div class="field" style="margin-bottom:0;">
-            <textarea class="content-textarea" data-key="{{ section.content_key }}" placeholder="Enter content…" rows="3" oninput="updateCharCount(this)">{{ section.content_value | safe }}</textarea>
+            <textarea class="content-textarea" data-key="{{ section.content_key }}" placeholder="Enter content" rows="3" oninput="updateCharCount(this)">{{ section.content_value | safe }}</textarea>
             <div class="field-meta"><div class="field-hint"><i class="fas fa-info-circle"></i> HTML tags are supported</div><span class="char-count" id="cc-{{ section.content_key }}">{{ section.content_value|length }} chars</span></div>
           </div>
         {% endif %}
@@ -440,7 +439,7 @@ textarea{resize:vertical;min-height:108px;}
       {% for card in cards %}
       <div class="card" id="card-block-{{ card.id }}">
         <div class="card-head">
-          <div><div class="card-eyebrow">Card #{{ card.id }}</div><div class="card-name">{{ card.title }}</div><div class="card-sub">{% set bl = card.buttons|fromjson if card.buttons else [] %}{{ bl|length }} button{{ 's' if bl|length != 1 }} · Image: {{ card.image }}</div></div>
+          <div><div class="card-eyebrow">Card #{{ card.id }}</div><div class="card-name">{{ card.title }}</div><div class="card-sub">{% set bl = card.buttons|fromjson if card.buttons else [] %}{{ bl|length }} button{{ 's' if bl|length != 1 }}  Image: {{ card.image }}</div></div>
           <div style="display:flex;gap:7px;align-items:center;flex-shrink:0;">
             <span class="chip chip-green">Active</span>
             <button class="btn-head-delete" onclick="confirmDeleteCard({{ card.id }},'{{ card.title|e }}')"><i class="fas fa-trash"></i> Delete</button>
@@ -457,7 +456,7 @@ textarea{resize:vertical;min-height:108px;}
                   <img src="{{ GOV_IMAGE_BASE }}/{{ card.image.replace('images/','').replace('static/','') }}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-image\'></i>'" alt="{{ card.title }}">
                 {% else %}<i class="fas fa-image"></i>{% endif %}
               </div>
-              <div class="img-upload-body"><span class="img-upload-label" id="label-card-{{ card.id }}">{{ card.image if card.image else 'No image selected' }}</span><span class="img-upload-hint">Click to upload · PNG, JPG, WEBP</span></div>
+              <div class="img-upload-body"><span class="img-upload-label" id="label-card-{{ card.id }}">{{ card.image if card.image else 'No image selected' }}</span><span class="img-upload-hint">Click to upload  PNG, JPG, WEBP</span></div>
               <div class="img-upload-action"><i class="fas fa-upload"></i> Upload</div>
             </div>
             <input type="hidden" class="card-image img-upload-hidden" data-card-id="{{ card.id }}" value="{{ card.image }}">
@@ -479,7 +478,7 @@ textarea{resize:vertical;min-height:108px;}
             <div class="acc-head" onclick="toggleAcc(this)"><div class="acc-head-left"><div class="acc-dot"></div>{{ button }}</div><i class="fas fa-chevron-down acc-chevron"></i></div>
             <div class="acc-body">
               <div class="field"><label style="color:var(--blue);">External Link <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(takes priority)</span></label><div class="input-affix"><span class="input-prefix">https://</span><input type="url" class="button-link" data-card-id="{{ card.id }}" data-button-index="{{ loop.index0 }}" value="{{ button_links.get(loop.index0|string,'') }}" placeholder="example.com/page"></div><div class="field-hint"><i class="fas fa-info-circle"></i> If set, clicking the button opens this URL.</div></div>
-              <div class="field"><label style="color:var(--green);">Content <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(shown if no link)</span></label><textarea class="button-content" data-card-id="{{ card.id }}" data-button-index="{{ loop.index0 }}" placeholder="Text/HTML displayed when button clicked…">{{ button_contents.get(loop.index0|string,'') }}</textarea></div>
+              <div class="field"><label style="color:var(--green);">Content <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(shown if no link)</span></label><textarea class="button-content" data-card-id="{{ card.id }}" data-button-index="{{ loop.index0 }}" placeholder="Text/HTML displayed when button clicked">{{ button_contents.get(loop.index0|string,'') }}</textarea></div>
               <div class="inset blue">
                 <label><i class="fas fa-image" style="margin-right:5px;"></i> Button Background Image</label>
                 <div class="img-upload-field" id="iuf-btnbg-{{ card.id }}-{{ loop.index0 }}" onclick="document.getElementById('file-btnbg-{{ card.id }}-{{ loop.index0 }}').click()">
@@ -490,7 +489,7 @@ textarea{resize:vertical;min-height:108px;}
                       <img src="{{ GOV_IMAGE_BASE }}/{{ bg_val.replace('images/','').replace('static/','') }}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-image\'></i>'" alt="BG">
                     {% else %}<i class="fas fa-image"></i>{% endif %}
                   </div>
-                  <div class="img-upload-body"><span class="img-upload-label">{{ bg_val if bg_val else 'No background image' }}</span><span class="img-upload-hint">Click to upload · PNG, JPG, WEBP</span></div>
+                  <div class="img-upload-body"><span class="img-upload-label">{{ bg_val if bg_val else 'No background image' }}</span><span class="img-upload-hint">Click to upload  PNG, JPG, WEBP</span></div>
                   <div class="img-upload-action"><i class="fas fa-upload"></i> Upload</div>
                 </div>
                 <input type="hidden" class="button-bg-image img-upload-hidden" data-card-id="{{ card.id }}" data-button-index="{{ loop.index0 }}" value="{{ bg_val }}">
@@ -544,14 +543,14 @@ textarea{resize:vertical;min-height:108px;}
                   <img src="{{ GOV_IMAGE_BASE }}/{{ nav.image.replace('images/','').replace('static/','') }}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-image\'></i>'" alt="{{ nav.link_text }}">
                 {% else %}<i class="fas fa-image"></i>{% endif %}
               </div>
-              <div class="img-upload-body"><span class="img-upload-label" id="label-nav-img-{{ nav.id }}">{{ nav.image if nav.image else 'No image selected' }}</span><span class="img-upload-hint">Click to upload · PNG, JPG, WEBP</span></div>
+              <div class="img-upload-body"><span class="img-upload-label" id="label-nav-img-{{ nav.id }}">{{ nav.image if nav.image else 'No image selected' }}</span><span class="img-upload-hint">Click to upload  PNG, JPG, WEBP</span></div>
               <div class="img-upload-action"><i class="fas fa-upload"></i> Upload</div>
             </div>
             <input type="hidden" class="nav-image img-upload-hidden" data-nav-id="{{ nav.id }}" value="{{ nav.image or '' }}">
           </div>
         </div>
         <div class="inset" style="margin-bottom:12px;"><label>External Link URL <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(optional)</span></label><div class="input-affix"><span class="input-prefix"><i class="fas fa-link"></i></span><input type="url" class="nav-link" data-nav-id="{{ nav.id }}" value="{{ nav.link_url or '' }}" placeholder="https://..."></div><div class="field-hint"><i class="fas fa-info-circle"></i> If set, navigation item opens this URL instead of page content.</div></div>
-        <div class="field"><label>Page Content <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(shown when no URL)</span></label><textarea class="nav-content" data-nav-id="{{ nav.id }}" placeholder="HTML or text displayed when this nav item is clicked…">{{ nav.page_content or '' }}</textarea></div>
+        <div class="field"><label>Page Content <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(shown when no URL)</span></label><textarea class="nav-content" data-nav-id="{{ nav.id }}" placeholder="HTML or text displayed when this nav item is clicked">{{ nav.page_content or '' }}</textarea></div>
         <div class="inset blue">
           <label><i class="fas fa-image" style="margin-right:5px;"></i> Background Image</label>
           <div class="img-upload-field" id="iuf-nav-bg-{{ nav.id }}" onclick="document.getElementById('file-nav-bg-{{ nav.id }}').click()">
@@ -561,7 +560,7 @@ textarea{resize:vertical;min-height:108px;}
                 <img src="{{ GOV_IMAGE_BASE }}/{{ nav.background_image.replace('images/','').replace('static/','') }}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-image\'></i>'" alt="Background">
               {% else %}<i class="fas fa-image"></i>{% endif %}
             </div>
-            <div class="img-upload-body"><span class="img-upload-label" id="label-nav-bg-{{ nav.id }}">{{ nav.background_image if nav.background_image else 'No background image' }}</span><span class="img-upload-hint">Click to upload · Used as page background</span></div>
+            <div class="img-upload-body"><span class="img-upload-label" id="label-nav-bg-{{ nav.id }}">{{ nav.background_image if nav.background_image else 'No background image' }}</span><span class="img-upload-hint">Click to upload  Used as page background</span></div>
             <div class="img-upload-action"><i class="fas fa-upload"></i> Upload</div>
           </div>
           <input type="hidden" class="nav-background-image img-upload-hidden" data-nav-id="{{ nav.id }}" value="{{ nav.background_image or '' }}">
@@ -600,7 +599,7 @@ textarea{resize:vertical;min-height:108px;}
       <div class="img-upload-field" id="iuf-new-card" onclick="document.getElementById('file-new-card').click()">
         <input type="file" id="file-new-card" accept="image/*" onchange="handleNewCardImageUpload(this)">
         <div class="img-upload-thumb" id="thumb-new-card"><i class="fas fa-image"></i></div>
-        <div class="img-upload-body"><span class="img-upload-label" id="label-new-card">No image selected</span><span class="img-upload-hint">Click to upload · PNG, JPG, WEBP</span></div>
+        <div class="img-upload-body"><span class="img-upload-label" id="label-new-card">No image selected</span><span class="img-upload-hint">Click to upload  PNG, JPG, WEBP</span></div>
         <div class="img-upload-action"><i class="fas fa-upload"></i> Upload</div>
       </div>
       <input type="hidden" id="newCardImage" value="">
@@ -640,14 +639,14 @@ textarea{resize:vertical;min-height:108px;}
     </div>
     <div class="field">
       <label>Page Content <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(shown if no URL)</span></label>
-      <textarea id="newNavContent" rows="4" placeholder="HTML or text shown when this nav item is clicked…"></textarea>
+      <textarea id="newNavContent" rows="4" placeholder="HTML or text shown when this nav item is clicked"></textarea>
     </div>
     <div class="field">
       <label><i class="fas fa-image" style="color:var(--green);margin-right:5px;"></i> Navigation Image <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(optional)</span></label>
       <div class="img-upload-field" id="iuf-new-nav" onclick="document.getElementById('file-new-nav').click()">
         <input type="file" id="file-new-nav" accept="image/*" onchange="handleNewNavImageUpload(this)">
         <div class="img-upload-thumb" id="thumb-new-nav"><i class="fas fa-image"></i></div>
-        <div class="img-upload-body"><span class="img-upload-label" id="label-new-nav">No image selected</span><span class="img-upload-hint">Click to upload · PNG, JPG, WEBP</span></div>
+        <div class="img-upload-body"><span class="img-upload-label" id="label-new-nav">No image selected</span><span class="img-upload-hint">Click to upload  PNG, JPG, WEBP</span></div>
         <div class="img-upload-action"><i class="fas fa-upload"></i> Upload</div>
       </div>
       <input type="hidden" id="newNavImage" value="">
@@ -670,20 +669,15 @@ textarea{resize:vertical;min-height:108px;}
 </div>
 
 <script>
-/* ============================================================
-   CONFIG — injected from Flask template
-   GOV_IMAGE_BASE is used for ALL image previews in JS too.
-   ============================================================ */
 const GOV_IMAGE_BASE = "{{ GOV_IMAGE_BASE }}";
-
-/* Helper: build a full image URL from a bare filename */
+ 
 function imgUrl(filename) {
   if (!filename) return '';
   if (filename.startsWith('http://') || filename.startsWith('https://')) return filename;
   const bare = filename.replace(/^(static\/images\/|images\/|static\/)/, '');
-  return GOV_IMAGE_BASE + '/' + bare;
+  return '/static/images/' + bare;
 }
-
+ 
 /* --------------------- TABS --------------------- */
 const BC_LABELS={dashboard:'Dashboard',content:'Text Sections',cards:'Stacked Cards',navigation:'Navigation Links'};
 function switchTab(tab,el){
@@ -694,7 +688,7 @@ function switchTab(tab,el){
   document.getElementById('bc-current').textContent=BC_LABELS[tab]||tab;
 }
 function toggleAcc(h){h.classList.toggle('open');h.nextElementSibling.classList.toggle('open');}
-
+ 
 /* --------------------- TOAST --------------------- */
 function showToast(msg,type='success'){
   const c=document.getElementById('toastContainer');
@@ -705,13 +699,11 @@ function showToast(msg,type='success'){
   c.appendChild(t);
   setTimeout(()=>{t.style.animation='toastOut .2s var(--ease) forwards';setTimeout(()=>t.remove(),220);},3200);
 }
-
-/* --------------------- UPLOAD SERVER HEALTH CHECK --------------------- */
+ 
+/* --------------------- UPLOAD HEALTH CHECK --------------------- */
 function checkUploadServer(){
   const banner = document.getElementById('uploadStatusBanner');
-  fetch('/admin/api/upload-health', {
-    credentials: 'same-origin'  // ensures session cookie is sent
-  })
+  fetch('/admin/api/upload-health', { credentials: 'include' })
     .then(r => {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
@@ -719,7 +711,7 @@ function checkUploadServer(){
     .then(d => {
       if(d.ok){
         banner.className = 'upload-status-banner ok';
-        banner.innerHTML = '<i class="fas fa-check-circle"></i> <span>Upload server OK — saving to <strong>' + d.upload_folder + '</strong></span>';
+        banner.innerHTML = '<i class="fas fa-check-circle"></i> <span>Upload server OK  saving to <strong>' + d.upload_folder + '</strong></span>';
       } else {
         banner.className = 'upload-status-banner err';
         banner.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span><strong>Upload error:</strong> ' + d.error + '</span>';
@@ -727,9 +719,10 @@ function checkUploadServer(){
     })
     .catch(err => {
       banner.className = 'upload-status-banner err';
-      banner.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>Health check failed: <strong>' + err.message + '</strong> — check server logs</span>';
+      banner.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>Health check failed: <strong>' + err.message + '</strong></span>';
     });
 }
+ 
 /* --------------------- PREVIEW --------------------- */
 let previewOn=false;
 function togglePreview(){
@@ -747,13 +740,13 @@ function updatePreview(){
   document.querySelectorAll('#tab-cards .card').forEach((card,i)=>{
     const ti=card.querySelector('.card-title'),im=card.querySelector('.card-image');
     if(!ti||!im)return;
-    html+=`<div class="pv-card"><div class="pv-lbl">Card ${i+1}</div><div class="pv-row"><strong>Title</strong>${ti.value||'—'}</div><div class="pv-row"><strong>Image</strong>${im.value||'—'}</div>`;
+    html+=`<div class="pv-card"><div class="pv-lbl">Card ${i+1}</div><div class="pv-row"><strong>Title</strong>${ti.value||''}</div><div class="pv-row"><strong>Image</strong>${im.value||''}</div>`;
     card.querySelectorAll('.button-link').forEach((b,bi)=>{html+=`<div class="pv-row"><strong>Btn ${bi+1}</strong>${b.value||'(no link)'}</div>`;});
     html+='</div>';
   });
   pc.innerHTML=html||'<p style="color:var(--muted);font-size:12px;text-align:center;padding:20px;">Switch to Cards tab to see preview</p>';
 }
-
+ 
 /* --------------------- SEARCH --------------------- */
 function filterContent(term){
   document.getElementById('searchClear').classList.toggle('show',term.length>0);
@@ -772,13 +765,12 @@ function updateCharCount(el){
   cc.className='char-count'+(n>2000?' over':n>1000?' warn':'');
 }
 function copyToClipboard(key){
-  const el=document.querySelector(`textarea.content-textarea[data-key="${key}"]`) ||
-            document.querySelector(`[data-key="${key}"]`);
+  const el=document.querySelector(`textarea.content-textarea[data-key="${key}"]`)||document.querySelector(`[data-key="${key}"]`);
   if(!el)return;
   navigator.clipboard.writeText(el.value).then(()=>showToast('Copied to clipboard','info'));
 }
 function showNotifications(){showToast('No new notifications','info');}
-
+ 
 /* --------------------- CONFIRM DIALOG --------------------- */
 let confirmCb=null;
 function showConfirm(title,msg,onOk){
@@ -790,27 +782,32 @@ function showConfirm(title,msg,onOk){
 document.getElementById('confirmOk').addEventListener('click',()=>{closeConfirm();if(confirmCb)confirmCb();});
 function closeConfirm(){document.getElementById('confirmOverlay').classList.remove('show');}
 function confirmReset(cardId){showConfirm('Discard Changes?','Unsaved changes will be lost.',()=>location.reload());}
-
+ 
 /* --------------------- IMAGE UPLOAD HELPERS --------------------- */
-/* ? uploadImageFile now returns the FULL URL from the server response */
+/* FIX: Added credentials: 'include' so session cookie is sent properly */
 function uploadImageFile(file, onSuccess, onError) {
   const fd = new FormData();
   fd.append('file', file);
-  fetch('/admin/api/upload-image', { method: 'POST', body: fd })
-    .then(r => r.json())
+  fetch('/admin/api/upload-image', {
+    method: 'POST',
+    body: fd,
+    credentials: 'include'   /* <-- THIS IS THE CRITICAL FIX */
+  })
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status + ' - session may have expired, please refresh and log in again');
+      return r.json();
+    })
     .then(d => {
       if (d.success && d.filename) {
-        /* Use the full URL returned by the server if available,
-           otherwise build it from GOV_IMAGE_BASE */
-        const fullUrl = d.url || imgUrl(d.filename);
+        const fullUrl = imgUrl(d.filename);
         onSuccess(d.filename, fullUrl);
       } else {
         throw new Error(d.error || 'Upload failed');
       }
     })
-    .catch(e => { if (onError) onError(e); });
+    .catch(e => { if (onError) onError(e); else showToast(e.message, 'error'); });
 }
-
+ 
 function setUploadFieldState(fieldEl, filename, thumbHtml) {
   const label = fieldEl.querySelector('.img-upload-label');
   if (label) label.textContent = filename;
@@ -820,7 +817,7 @@ function setUploadFieldState(fieldEl, filename, thumbHtml) {
   fieldEl.classList.add('flash-ok');
   setTimeout(() => fieldEl.classList.remove('flash-ok'), 1100);
 }
-
+ 
 function handleContentImageUpload(input, key) {
   const file = input.files[0]; if (!file) return;
   const field = document.getElementById(`iuf-content-${key}`);
@@ -829,10 +826,10 @@ function handleContentImageUpload(input, key) {
     const hidden = document.querySelector(`.content-image-value[data-key="${key}"]`);
     if (hidden) hidden.value = fn;
     setUploadFieldState(field, fn, `<img src="${fullUrl}" alt="preview" onerror="this.style.display='none'">`);
-    showToast('Image uploaded – click Save to apply');
+    showToast('Image uploaded  click Save to apply');
   }, e => { field.classList.remove('uploading'); showToast(e.message, 'error'); });
 }
-
+ 
 function handleCardImageUpload(input, cardId) {
   const file = input.files[0]; if (!file) return;
   const field = document.getElementById(`iuf-card-${cardId}`);
@@ -841,10 +838,10 @@ function handleCardImageUpload(input, cardId) {
     const hidden = document.querySelector(`.card-image[data-card-id="${cardId}"]`);
     if (hidden) hidden.value = fn;
     setUploadFieldState(field, fn, `<img src="${fullUrl}" alt="card" onerror="this.style.display='none'">`);
-    showToast('Card image uploaded – click Save to apply');
+    showToast('Card image uploaded  click Save Image to apply');
   }, e => { field.classList.remove('uploading'); showToast(e.message, 'error'); });
 }
-
+ 
 function handleButtonBgUpload(input) {
   const file = input.files[0]; if (!file) return;
   const { cardId, buttonIndex } = input.dataset;
@@ -854,10 +851,10 @@ function handleButtonBgUpload(input) {
     const hidden = document.querySelector(`.button-bg-image[data-card-id="${cardId}"][data-button-index="${buttonIndex}"]`);
     if (hidden) hidden.value = fn;
     setUploadFieldState(field, fn, `<img src="${fullUrl}" alt="bg" onerror="this.style.display='none'">`);
-    showToast('Background image uploaded – click Save Button to apply');
+    showToast('Background image uploaded  click Save Button to apply');
   }, e => { field.classList.remove('uploading'); showToast(e.message, 'error'); });
 }
-
+ 
 function handleNavImageUpload(input, navId) {
   const file = input.files[0]; if (!file) return;
   const field = document.getElementById(`iuf-nav-img-${navId}`);
@@ -866,10 +863,10 @@ function handleNavImageUpload(input, navId) {
     const hidden = document.querySelector(`.nav-image[data-nav-id="${navId}"]`);
     if (hidden) hidden.value = fn;
     setUploadFieldState(field, fn, `<img src="${fullUrl}" alt="nav" onerror="this.style.display='none'">`);
-    showToast('Nav image uploaded – click Save Navigation to apply');
+    showToast('Nav image uploaded  click Save Navigation to apply');
   }, e => { field.classList.remove('uploading'); showToast(e.message, 'error'); });
 }
-
+ 
 function handleNavBgUpload(input) {
   const file = input.files[0]; if (!file) return;
   const navId = input.dataset.navId;
@@ -879,10 +876,10 @@ function handleNavBgUpload(input) {
     const hidden = document.querySelector(`.nav-background-image[data-nav-id="${navId}"]`);
     if (hidden) hidden.value = fn;
     setUploadFieldState(field, fn, `<img src="${fullUrl}" alt="bg" onerror="this.style.display='none'">`);
-    showToast('Background image uploaded – click Save Navigation to apply');
+    showToast('Background image uploaded  click Save Navigation to apply');
   }, e => { field.classList.remove('uploading'); showToast(e.message, 'error'); });
 }
-
+ 
 function handleNewCardImageUpload(input) {
   const file = input.files[0]; if (!file) return;
   const field = document.getElementById('iuf-new-card');
@@ -893,7 +890,7 @@ function handleNewCardImageUpload(input) {
     showToast('Image uploaded');
   }, e => { field.classList.remove('uploading'); showToast(e.message, 'error'); });
 }
-
+ 
 function handleNewNavImageUpload(input) {
   const file = input.files[0]; if (!file) return;
   const field = document.getElementById('iuf-new-nav');
@@ -904,7 +901,7 @@ function handleNewNavImageUpload(input) {
     showToast('Image uploaded');
   }, e => { field.classList.remove('uploading'); showToast(e.message, 'error'); });
 }
-
+ 
 /* --------------------- ADD CARD MODAL --------------------- */
 let newCardButtons=[];
 function openAddCardModal(){
@@ -921,7 +918,7 @@ function openAddCardModal(){
 function closeAddCardModal(){document.getElementById('addCardModal').classList.remove('show');}
 function renderNewCardButtons(){
   const c=document.getElementById('newCardBtnTags');
-  if(!newCardButtons.length){c.innerHTML='<span class="btn-tags-empty">No buttons yet — add some below</span>';return;}
+  if(!newCardButtons.length){c.innerHTML='<span class="btn-tags-empty">No buttons yet  add some below</span>';return;}
   c.innerHTML=newCardButtons.map((b,i)=>`<span class="btn-tag">${b}<button class="btn-tag-remove" onclick="removeNewCardButton(${i})" type="button"><i class="fas fa-times"></i></button></span>`).join('');
 }
 function addNewCardButton(){
@@ -935,23 +932,26 @@ function submitAddCard(){
   const title=document.getElementById('newCardTitle').value.trim();
   if(!title){showToast('Card title is required','error');document.getElementById('newCardTitle').focus();return;}
   const btn=document.getElementById('addCardSubmitBtn');
-  btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Creating…';
+  btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Creating';
   const fd=new FormData();
-  fd.append('title',title);fd.append('image',document.getElementById('newCardImage').value);
+  fd.append('title',title);
+  fd.append('image',document.getElementById('newCardImage').value);
   fd.append('buttons',JSON.stringify(newCardButtons));
-  fetch('/admin/api/add-card',{method:'POST',body:fd})
+  fetch('/admin/api/add-card',{method:'POST',body:fd,credentials:'include'})
     .then(r=>r.json())
     .then(d=>{
-      if(d.success){sessionStorage.setItem('cms_new_card_title',title);showToast('Card created! Reloading…','success');closeAddCardModal();setTimeout(()=>location.reload(),900);}
+      if(d.success){sessionStorage.setItem('cms_new_card_title',title);showToast('Card created! Reloading','success');closeAddCardModal();setTimeout(()=>location.reload(),900);}
       else{showToast(d.error||'Error creating card','error');btn.disabled=false;btn.innerHTML='<i class="fas fa-plus"></i> Create Card';}
     })
     .catch(e=>{showToast(e.message,'error');btn.disabled=false;btn.innerHTML='<i class="fas fa-plus"></i> Create Card';});
 }
-
+ 
 /* --------------------- ADD NAV MODAL --------------------- */
 function openAddNavModal(){
-  document.getElementById('newNavText').value='';document.getElementById('newNavUrl').value='';
-  document.getElementById('newNavContent').value='';document.getElementById('newNavImage').value='';
+  document.getElementById('newNavText').value='';
+  document.getElementById('newNavUrl').value='';
+  document.getElementById('newNavContent').value='';
+  document.getElementById('newNavImage').value='';
   document.getElementById('label-new-nav').textContent='No image selected';
   document.getElementById('thumb-new-nav').innerHTML='<i class="fas fa-image"></i>';
   document.getElementById('addNavModal').classList.add('show');
@@ -962,35 +962,36 @@ function submitAddNav(){
   const text=document.getElementById('newNavText').value.trim();
   if(!text){showToast('Link text is required','error');document.getElementById('newNavText').focus();return;}
   const btn=document.getElementById('addNavSubmitBtn');
-  btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Creating…';
+  btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Creating';
   const fd=new FormData();
-  fd.append('text',text);fd.append('url',document.getElementById('newNavUrl').value.trim());
+  fd.append('text',text);
+  fd.append('url',document.getElementById('newNavUrl').value.trim());
   fd.append('content',document.getElementById('newNavContent').value);
   fd.append('image',document.getElementById('newNavImage').value);
-  fetch('/admin/api/add-nav-link',{method:'POST',body:fd})
+  fetch('/admin/api/add-nav-link',{method:'POST',body:fd,credentials:'include'})
     .then(r=>r.json())
     .then(d=>{
-      if(d.success){showToast('Navigation link created! Reloading…','success');closeAddNavModal();setTimeout(()=>location.reload(),900);}
+      if(d.success){showToast('Navigation link created! Reloading','success');closeAddNavModal();setTimeout(()=>location.reload(),900);}
       else{showToast(d.error||'Error creating nav link','error');btn.disabled=false;btn.innerHTML='<i class="fas fa-plus"></i> Create Nav Link';}
     })
     .catch(e=>{showToast(e.message,'error');btn.disabled=false;btn.innerHTML='<i class="fas fa-plus"></i> Create Nav Link';});
 }
-
+ 
 /* --------------------- DELETE --------------------- */
 function confirmDeleteCard(cardId,title){showConfirm('Delete Card?',`"${title}" and all its button data will be permanently deleted.`,()=>deleteCard(cardId));}
 function deleteCard(cardId){
-  fetch('/admin/api/delete-card',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:cardId})})
+  fetch('/admin/api/delete-card',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:cardId}),credentials:'include'})
     .then(r=>r.json()).then(d=>{if(d.success){document.getElementById(`card-block-${cardId}`)?.remove();showToast('Card deleted','success');}else showToast(d.error||'Error','error');})
     .catch(e=>showToast(e.message,'error'));
 }
 function confirmDeleteNav(navId,text){showConfirm('Delete Navigation Link?',`"${text}" will be permanently removed.`,()=>deleteNavLink(navId));}
 function deleteNavLink(navId){
   const fd=new FormData();fd.append('id',navId);
-  fetch('/admin/api/delete-nav-link',{method:'POST',body:fd})
+  fetch('/admin/api/delete-nav-link',{method:'POST',body:fd,credentials:'include'})
     .then(r=>r.json()).then(d=>{if(d.success){document.getElementById(`nav-block-${navId}`)?.remove();showToast('Navigation link deleted','success');}else showToast(d.error||'Error','error');})
     .catch(e=>showToast(e.message,'error'));
 }
-
+ 
 /* --------------------- SAVE CONTENT --------------------- */
 function saveContent(key){
   let el=document.querySelector(`textarea.content-textarea[data-key="${key}"]`);
@@ -998,21 +999,21 @@ function saveContent(key){
   if(!el)el=document.querySelector(`.content-image-value[data-key="${key}"]`);
   if(!el){showToast('Field not found for: '+key,'error');return;}
   const value=String(el.value||'');
-  if(['undefined','null','None'].includes(value.trim())){showToast('Invalid value — please enter real content.','error');return;}
+  if(['undefined','null','None'].includes(value.trim())){showToast('Invalid value  please enter real content.','error');return;}
   const fd=new FormData();fd.append('key',key);fd.append('value',value);
-  fetch('/admin/api/update-content',{method:'POST',body:fd})
+  fetch('/admin/api/update-content',{method:'POST',body:fd,credentials:'include'})
     .then(r=>r.json()).then(d=>showToast(d.success?'Content saved':d.error||'Error',d.success?'success':'error'))
     .catch(e=>showToast('Error: '+e.message,'error'));
 }
-
+ 
 /* --------------------- OTHER SAVES --------------------- */
 function saveCardTitle(cardId){
   const fd=new FormData();fd.append('id',cardId);fd.append('title',document.querySelector(`.card-title[data-card-id="${cardId}"]`).value);
-  fetch('/admin/api/update-card-title',{method:'POST',body:fd}).then(r=>r.json()).then(d=>showToast(d.success?'Title saved':'Error',d.success?'success':'error')).catch(e=>showToast('Error: '+e.message,'error'));
+  fetch('/admin/api/update-card-title',{method:'POST',body:fd,credentials:'include'}).then(r=>r.json()).then(d=>showToast(d.success?'Title saved':'Error',d.success?'success':'error')).catch(e=>showToast('Error: '+e.message,'error'));
 }
 function saveCardImage(cardId){
   const fd=new FormData();fd.append('id',cardId);fd.append('image',document.querySelector(`.card-image[data-card-id="${cardId}"]`).value);
-  fetch('/admin/api/update-card-image',{method:'POST',body:fd}).then(r=>r.json()).then(d=>showToast(d.success?'Image saved':'Error',d.success?'success':'error')).catch(e=>showToast('Error: '+e.message,'error'));
+  fetch('/admin/api/update-card-image',{method:'POST',body:fd,credentials:'include'}).then(r=>r.json()).then(d=>showToast(d.success?'Image saved':'Error',d.success?'success':'error')).catch(e=>showToast('Error: '+e.message,'error'));
 }
 function saveButton(cardId,buttonIndex){
   const link=document.querySelector(`.button-link[data-card-id="${cardId}"][data-button-index="${buttonIndex}"]`);
@@ -1020,7 +1021,7 @@ function saveButton(cardId,buttonIndex){
   const bgImg=document.querySelector(`.button-bg-image[data-card-id="${cardId}"][data-button-index="${buttonIndex}"]`);
   const imgs=document.querySelector(`.button-images[data-card-id="${cardId}"][data-button-index="${buttonIndex}"]`);
   let images=[];if(imgs?.value.trim()){try{images=JSON.parse(imgs.value);}catch(e){}}
-  fetch('/admin/api/update-button',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({card_id:cardId,button_index:buttonIndex,link_url:link.value.trim(),content:cont.value,background_image:bgImg.value.trim(),images})})
+  fetch('/admin/api/update-button',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({card_id:cardId,button_index:buttonIndex,link_url:link.value.trim(),content:cont.value,background_image:bgImg.value.trim(),images})})
     .then(r=>r.json()).then(d=>showToast(d.success?'Button saved':'Error',d.success?'success':'error')).catch(e=>showToast('Error: '+e.message,'error'));
 }
 function saveCard(cardId){
@@ -1034,9 +1035,9 @@ function saveCard(cardId){
   fd.append('button_contents',JSON.stringify(btnContents));fd.append('button_images',JSON.stringify(btnImages));
   document.querySelectorAll(`.button-link[data-card-id="${cardId}"]`).forEach(inp=>{
     const url=inp.value.trim();
-    if(url)fetch('/admin/api/update-button-link',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({card_id:cardId,button_index:parseInt(inp.dataset.buttonIndex),link_url:url})});
+    if(url)fetch('/admin/api/update-button-link',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({card_id:cardId,button_index:parseInt(inp.dataset.buttonIndex),link_url:url})});
   });
-  fetch('/admin/api/update-card',{method:'POST',body:fd}).then(r=>r.json()).then(d=>showToast(d.success?'Card saved':'Error',d.success?'success':'error')).catch(e=>showToast('Error: '+e.message,'error'));
+  fetch('/admin/api/update-card',{method:'POST',body:fd,credentials:'include'}).then(r=>r.json()).then(d=>showToast(d.success?'Card saved':'Error',d.success?'success':'error')).catch(e=>showToast('Error: '+e.message,'error'));
 }
 function saveNavLink(navId){
   const txt=document.querySelector(`.nav-text[data-nav-id="${navId}"]`);
@@ -1047,19 +1048,30 @@ function saveNavLink(navId){
   const imgs=document.querySelector(`.nav-images[data-nav-id="${navId}"]`);
   const linkUrl=lnk.value.trim();
   let images=[];if(imgs?.value.trim()){try{images=JSON.parse(imgs.value);}catch(e){}}
-  fetch('/admin/api/update-nav-link',{method:'POST',headers:{'Content-Type':'application/json'},
+  fetch('/admin/api/update-nav-link',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',
     body:JSON.stringify({nav_id:navId,link_text:txt.value,link_url:linkUrl,page_content:cont.value,background_image:bgI?bgI.value:'',image:img?img.value:'',images})})
     .then(r=>r.json()).then(d=>showToast(d.success?(linkUrl?'Link saved':'Content saved'):'Error',d.success?'success':'error'))
     .catch(e=>showToast('Error: '+e.message,'error'));
 }
-
-/* --------------------- GALLERY --------------------- */
+ 
+/* --------------------- GALLERY  FIX: credentials: 'include' --------------------- */
 function uploadImage(file){
   const fd=new FormData();fd.append('file',file);
-  return fetch('/admin/api/upload-image',{method:'POST',body:fd})
-    .then(r=>r.json())
-    .then(d=>{if(d.success&&d.filename)return{filename:d.filename,url:d.url||imgUrl(d.filename)};throw new Error(d.error||'Upload failed');});
+  return fetch('/admin/api/upload-image',{
+    method:'POST',
+    body:fd,
+    credentials:'include'   /* <-- CRITICAL FIX */
+  })
+    .then(r=>{
+      if(!r.ok) throw new Error('HTTP '+r.status+' - session expired, please log in again');
+      return r.json();
+    })
+    .then(d=>{
+      if(d.success&&d.filename)return{filename:d.filename,url:imgUrl(d.filename)};
+      throw new Error(d.error||'Upload failed');
+    });
 }
+ 
 document.querySelectorAll('.button-gallery-upload').forEach(inp=>{
   inp.addEventListener('change',function(e){
     const{cardId,buttonIndex}=this.dataset,files=e.target.files;if(!files.length)return;
@@ -1073,6 +1085,7 @@ document.querySelectorAll('.button-gallery-upload').forEach(inp=>{
       }).catch(e=>showToast(e.message,'error'));
   });
 });
+ 
 document.querySelectorAll('.nav-gallery-upload').forEach(inp=>{
   inp.addEventListener('change',function(e){
     const navId=this.dataset.navId,files=e.target.files;if(!files.length)return;
@@ -1085,8 +1098,7 @@ document.querySelectorAll('.nav-gallery-upload').forEach(inp=>{
       }).catch(e=>showToast(e.message,'error'));
   });
 });
-
-/* ? Gallery helpers now use img.url (full URL) for thumbnails */
+ 
 function rebuildGallery(uploaderId,images,containerId){
   const c=document.getElementById(containerId);if(!c)return;c.innerHTML='';
   images.forEach((img,idx)=>{
@@ -1114,7 +1126,7 @@ function removeGalleryImage(uploaderId,index){
     let imgs=JSON.parse(ta.value);imgs.splice(index,1);ta.value=JSON.stringify(imgs,null,2);
     if(uploaderId.includes('button-gallery')){
       const m=uploaderId.match(/button-gallery-(\d+)-(\d+)/);
-      if(m)fetch('/admin/api/delete-gallery-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({card_id:m[1],button_index:m[2],image_index:index})}).catch(()=>{});
+      if(m)fetch('/admin/api/delete-gallery-image',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({card_id:m[1],button_index:m[2],image_index:index})}).catch(()=>{});
     }
     const c=document.getElementById(previewId);if(!c)return;c.innerHTML='';
     imgs.forEach((img,idx)=>{
@@ -1154,12 +1166,12 @@ function updateNavCaptionEditor(navId,images){
     c.appendChild(el);
   });
 }
-
+ 
 /* --------------------- MODAL BACKDROP CLOSE --------------------- */
 document.getElementById('addCardModal').addEventListener('click',function(e){if(e.target===this)closeAddCardModal();});
 document.getElementById('addNavModal').addEventListener('click',function(e){if(e.target===this)closeAddNavModal();});
 document.getElementById('confirmOverlay').addEventListener('click',function(e){if(e.target===this)closeConfirm();});
-
+ 
 /* --------------------- NEW CARD ANIMATION --------------------- */
 function initNewCardAnimation(){
   const newTitle=sessionStorage.getItem('cms_new_card_title');if(!newTitle)return;
@@ -1175,11 +1187,10 @@ function initNewCardAnimation(){
     setTimeout(()=>target.classList.remove('card-new-enter'),2400);
   });
 }
-
+ 
 /* --------------------- INIT --------------------- */
 document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('dash-btn-count').textContent=document.querySelectorAll('.acc').length;
-
   document.querySelectorAll('.button-images').forEach(ta=>{
     const{cardId,buttonIndex}=ta.dataset;if(!ta.value.trim())return;
     try{const imgs=JSON.parse(ta.value);rebuildGallery(`button-gallery-${cardId}-${buttonIndex}`,imgs,`gallery-preview-${cardId}-${buttonIndex}`);updateCaptionEditor(cardId,buttonIndex,imgs);}catch(e){}
@@ -1188,11 +1199,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     const navId=ta.dataset.navId;if(!ta.value.trim())return;
     try{const imgs=JSON.parse(ta.value);rebuildNavGallery(navId,imgs);updateNavCaptionEditor(navId,imgs);}catch(e){}
   });
-
   document.querySelectorAll('.content-textarea:not(.img-upload-hidden)').forEach(ta=>updateCharCount(ta));
   document.querySelectorAll('.img-upload-field input[type="file"]').forEach(inp=>inp.addEventListener('click',e=>e.stopPropagation()));
-
-  /* Run health check after 1s so the page renders first */
   setTimeout(checkUploadServer, 1000);
   initNewCardAnimation();
 });
