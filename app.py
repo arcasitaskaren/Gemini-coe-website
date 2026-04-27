@@ -817,8 +817,9 @@ def page_builder():
 @app.route('/admin/api/upload-health')
 @login_required
 def upload_health():
-    upload_folder = app.config.get('UPLOAD_FOLDER', '')
     try:
+        upload_folder = app.config.get('UPLOAD_FOLDER', '')
+        os.makedirs(upload_folder, exist_ok=True)
         test_path = os.path.join(upload_folder, '.health_check')
         with open(test_path, 'w') as f:
             f.write('ok')
@@ -832,10 +833,8 @@ def upload_health():
         return no_cache_json({
             'ok': False,
             'error': str(e),
-            'upload_folder': upload_folder,
+            'upload_folder': app.config.get('UPLOAD_FOLDER', 'NOT SET'),
         })
-
-
 # ---------------------------------------------
 # update_content — guards against saving "undefined"/"null"/"None"
 # ---------------------------------------------
@@ -917,37 +916,29 @@ def upload_image():
         if not allowed_file(file.filename):
             return no_cache_json({'success': False, 'error': 'Invalid file type'})
 
-        filename  = f"{int(datetime.now().timestamp())}_{secure_filename(file.filename)}"
-        save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        filename = f"{int(datetime.now().timestamp())}_{secure_filename(file.filename)}"
+        
+        # Ensure upload folder exists (uses absolute path from config)
+        upload_folder = app.config['UPLOAD_FOLDER']
+        os.makedirs(upload_folder, exist_ok=True)
+        
+        save_path = os.path.join(upload_folder, filename)
         file.save(save_path)
 
-        # Build the full public URL so the admin JS can render previews immediately
+        # Verify it was actually saved
+        if not os.path.exists(save_path):
+            return no_cache_json({'success': False, 'error': f'File failed to save at {save_path}'})
+
         full_url = f"{GOV_IMAGE_BASE}/{filename}"
 
         return no_cache_json({
-            'success':  True,
+            'success': True,
             'filename': filename,
-            'url':      full_url,
+            'url': full_url,
+            'saved_to': save_path,  # helpful for debugging
         })
     except Exception as e:
         return no_cache_json({'success': False, 'error': str(e)})
-
-
-@app.route('/admin/api/update-card-title', methods=['POST'])
-@login_required
-def update_card_title():
-    try:
-        card = db.session.get(Card, int(request.form.get('id')))
-        if card:
-            card.title = request.form.get('title', '')
-            db.session.commit()
-            clear_ai_cache()
-            return no_cache_json({'success': True})
-        return no_cache_json({'success': False, 'error': 'Not found'})
-    except Exception as e:
-        db.session.rollback()
-        return no_cache_json({'success': False, 'error': str(e)})
-
 
 @app.route('/admin/api/update-card-image', methods=['POST'])
 @login_required
@@ -1561,7 +1552,22 @@ def init_db():
             if not db.session.query(NavigationLink).filter_by(link_text=link_text).first():
                 db.session.add(NavigationLink(link_text=link_text, link_url='#', link_order=i + 1))
         db.session.commit()
-
+@app.route('/debug-upload')
+def debug_upload():
+    upload_folder = app.config.get('UPLOAD_FOLDER', 'NOT SET')
+    static_images = os.path.join(app.root_path, 'static', 'images')
+    try:
+        files = os.listdir(upload_folder)[-5:] if os.path.exists(upload_folder) else []
+    except:
+        files = []
+    return {
+        'GOV_IMAGE_BASE': GOV_IMAGE_BASE,
+        'UPLOAD_FOLDER': upload_folder,
+        'static_images_path': static_images,
+        'are_same': os.path.abspath(upload_folder) == os.path.abspath(static_images),
+        'folder_exists': os.path.exists(upload_folder),
+        'recent_files': files,
+    }
 
 if __name__ == '__main__':
     init_db()
