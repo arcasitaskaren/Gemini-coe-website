@@ -345,7 +345,7 @@ textarea{resize:vertical;min-height:108px;}
         <div class="page-heading"><div class="page-icon pi-blue"><i class="fas fa-th-large"></i></div><div><div class="page-title">Dashboard</div><div class="page-subtitle">Overview of your CMS content</div></div></div>
       </div>
 
-      <!-- ✅ Upload server health banner -->
+      <!-- ? Upload server health banner -->
       <div id="uploadStatusBanner" class="upload-status-banner checking">
         <i class="fas fa-circle-notch fa-spin"></i> <span id="uploadStatusMsg">Checking upload server connection…</span>
       </div>
@@ -391,7 +391,7 @@ textarea{resize:vertical;min-height:108px;}
     <div id="tab-content" class="tab-pane">
       <div class="page-row">
         <div class="page-heading"><div class="page-icon pi-blue"><i class="fas fa-pen-nib"></i></div><div><div class="page-title">Text Sections</div><div class="page-subtitle">Edit content displayed across the site</div></div></div>
-        <div class="search-wrap"><i class="fas fa-search search-icon"></i><input class="search-box" id="contentSearch" type="text" placeholder="Search sections…" oninput="filterContent(this.value)"><button class="search-clear" id="searchClear" onclick="clearSearch()">✕</button></div>
+        <div class="search-wrap"><i class="fas fa-search search-icon"></i><input class="search-box" id="contentSearch" type="text" placeholder="Search sections…" oninput="filterContent(this.value)"><button class="search-clear" id="searchClear" onclick="clearSearch()">?</button></div>
       </div>
       {% for section in content_sections %}
       <div class="card content-card" data-key="{{ section.content_key }}">
@@ -403,8 +403,8 @@ textarea{resize:vertical;min-height:108px;}
             <div class="img-upload-field" id="iuf-content-{{ section.content_key }}" onclick="document.getElementById('file-content-{{ section.content_key }}').click()">
               <input type="file" id="file-content-{{ section.content_key }}" accept="image/*" onchange="handleContentImageUpload(this,'{{ section.content_key }}')">
               <div class="img-upload-thumb">
-                {% if section.content_value %}
-                  <img src="{{ GOV_IMAGE_BASE }}/{{ section.content_value.replace('images/','').replace('static/','') }}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-image\'></i>'" alt="Current image">
+  {% if card.image %}
+    <img src="{{ GOV_IMAGE_BASE }}/{{ card.image.replace('images/','').replace('static/','') }}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-image\'></i>'" alt="Current image">
                 {% else %}<i class="fas fa-image"></i>{% endif %}
               </div>
               <div class="img-upload-body"><span class="img-upload-label" id="label-content-{{ section.content_key }}">{{ section.content_value if section.content_value else 'No image selected' }}</span><span class="img-upload-hint">Click to upload · PNG, JPG, WEBP</span></div>
@@ -709,24 +709,27 @@ function showToast(msg,type='success'){
 /* --------------------- UPLOAD SERVER HEALTH CHECK --------------------- */
 function checkUploadServer(){
   const banner = document.getElementById('uploadStatusBanner');
-  const msg    = document.getElementById('uploadStatusMsg');
-  fetch('/admin/api/upload-health')
-    .then(r=>r.json())
-    .then(d=>{
+  fetch('/admin/api/upload-health', {
+    credentials: 'same-origin'  // ensures session cookie is sent
+  })
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(d => {
       if(d.ok){
-        banner.className='upload-status-banner ok';
-        banner.innerHTML='<i class="fas fa-check-circle"></i> <span>Upload server connected — images will be saved to <strong>'+d.url+'</strong></span>';
+        banner.className = 'upload-status-banner ok';
+        banner.innerHTML = '<i class="fas fa-check-circle"></i> <span>Upload server OK — saving to <strong>' + d.upload_folder + '</strong></span>';
       } else {
-        banner.className='upload-status-banner err';
-        banner.innerHTML='<i class="fas fa-exclamation-triangle"></i> <span><strong>Upload server unreachable:</strong> '+d.error+'. Check <code>GOV_UPLOAD_URL</code> in your Render environment variables.</span>';
+        banner.className = 'upload-status-banner err';
+        banner.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span><strong>Upload error:</strong> ' + d.error + '</span>';
       }
     })
-    .catch(()=>{
-      banner.className='upload-status-banner err';
-      banner.innerHTML='<i class="fas fa-exclamation-triangle"></i> <span>Could not check upload server status.</span>';
+    .catch(err => {
+      banner.className = 'upload-status-banner err';
+      banner.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>Health check failed: <strong>' + err.message + '</strong> — check server logs</span>';
     });
 }
-
 /* --------------------- PREVIEW --------------------- */
 let previewOn=false;
 function togglePreview(){
@@ -789,7 +792,7 @@ function closeConfirm(){document.getElementById('confirmOverlay').classList.remo
 function confirmReset(cardId){showConfirm('Discard Changes?','Unsaved changes will be lost.',()=>location.reload());}
 
 /* --------------------- IMAGE UPLOAD HELPERS --------------------- */
-/* ✅ uploadImageFile now returns the FULL URL from the server response */
+/* ? uploadImageFile now returns the FULL URL from the server response */
 function uploadImageFile(file, onSuccess, onError) {
   const fd = new FormData();
   fd.append('file', file);
@@ -1083,7 +1086,7 @@ document.querySelectorAll('.nav-gallery-upload').forEach(inp=>{
   });
 });
 
-/* ✅ Gallery helpers now use img.url (full URL) for thumbnails */
+/* ? Gallery helpers now use img.url (full URL) for thumbnails */
 function rebuildGallery(uploaderId,images,containerId){
   const c=document.getElementById(containerId);if(!c)return;c.innerHTML='';
   images.forEach((img,idx)=>{
