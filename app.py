@@ -26,13 +26,12 @@ app.config.from_object(Config)
 # FIX 1: Detect environment
 IS_PRODUCTION = os.environ.get('FLASK_ENV', 'production') == 'production'
 
-# FIX 2: Define GOV_IMAGE_BASE — the public URL where uploaded images are served.
+# FIX 2: Define GOV_IMAGE_BASE - the public URL where uploaded images are served.
 # Since uploads go to static/images/, Flask serves them at /static/images/<filename>.
 # Override with the GOV_IMAGE_BASE environment variable if needed.
-GOV_IMAGE_BASE = os.environ.get(
-    'GOV_IMAGE_BASE',
-    'http://coe-psp.dap.gov.ph/static/images'
-)
+GOV_IMAGE_BASE = os.environ.get('GOV_IMAGE_BASE') \
+              or os.environ.get('UPLOAD_URL') \
+              or 'http://coe-psp.dap.gov.ph/static/images'
 
 # Debug: Verify API key is loaded
 api_key_check = os.getenv('GROQ_API_KEY', 'NOT FOUND')
@@ -49,7 +48,7 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'admin_login'
 
-# FIX 3: Context processor — injects GOV_IMAGE_BASE into EVERY template automatically.
+# FIX 3: Context processor - injects GOV_IMAGE_BASE into EVERY template automatically.
 # This is why {{ GOV_IMAGE_BASE }} works in index.html and admin_panel.html.
 @app.context_processor
 def inject_globals():
@@ -267,7 +266,7 @@ def _image_url(filename: str) -> str:
     if not filename:
         return ''
     filename = filename.strip()
-    # Already a full URL — return as-is
+    # Already a full URL - return as-is
     if filename.startswith('http://') or filename.startswith('https://'):
         return filename
     # Strip any leading path segments so we get just the bare filename
@@ -451,23 +450,23 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
 
     system_prompt = (
         "You are Tutoy, the official AI assistant for DAP-COE "
-        "(Development Academy of the Philippines – Center of Excellence on Public Sector Productivity). "
+        "(Development Academy of the Philippines - Center of Excellence on Public Sector Productivity). "
         "RULES: "
-        "1. Respond with VALID JSON ONLY – no markdown, no backticks, no extra text. "
+        "1. Respond with VALID JSON ONLY - no markdown, no backticks, no extra text. "
         "2. Prioritise information from the 'Website Context' section when available. "
         "3. If website context is empty or off-topic, use general knowledge about public sector "
         "   productivity, Philippine governance, and DAP programs. "
         "4. gemini_says: write a clear, helpful, and detailed response between 150 and 300 words. "
-        "   Be thorough and informative – do not truncate or summarise too briefly. "
+        "   Be thorough and informative - do not truncate or summarise too briefly. "
         "5. key_points: exactly 4 strings, each a concise but meaningful bullet point. "
         "6. global_suggestions: exactly 3 strings representing useful follow-up questions. "
-        "7. Leave 'image' as empty string '' – images are handled separately."
+        "7. Leave 'image' as empty string '' - images are handled separately."
     )
 
     context_block = (
         f"\n\n=== Website Context (prefer this) ===\n{context_text}\n=== End Context ==="
         if has_db_content
-        else "\n\n(No specific website content matched – use general knowledge.)"
+        else "\n\n(No specific website content matched - use general knowledge.)"
     )
 
     user_prompt = (
@@ -707,7 +706,7 @@ def api_search():
         return jsonify({
             'gemini_says': (
                 "Hello! I'm Tutoy, the official AI assistant for DAP-COE "
-                "(Development Academy of the Philippines – Center of Excellence on Public Sector Productivity). "
+                "(Development Academy of the Philippines - Center of Excellence on Public Sector Productivity). "
                 "I'm here to help you explore our programs, training courses, and services."
             ),
             'key_points': [
@@ -747,7 +746,7 @@ def api_search():
         ai_response.setdefault('related_links',  [])
         return jsonify(ai_response)
 
-    print("[v0] Groq API returned None – DB-only fallback")
+    print("[v0] Groq API returned None - DB-only fallback")
     db_snippets = [s.get('text', '') for s in website_search.get('suggestions', [])[:4]]
     fallback_says = (
         f'Here\'s what I found on our website about "{query}".'
@@ -811,7 +810,7 @@ def page_builder():
     return render_template('page_builder.html', logo_image=get_content('logo_image', 'images/dap-logo.png'))
 
 
-# FIX 5: Upload health-check endpoint — called by admin panel JS on load.
+# FIX 5: Upload health-check endpoint - called by admin panel JS on load.
 # Returns the upload server status and the GOV_IMAGE_BASE URL so admins
 # can confirm where images will be publicly served from.
 @app.route('/admin/api/upload-health')
@@ -836,7 +835,7 @@ def upload_health():
             'upload_folder': app.config.get('UPLOAD_FOLDER', 'NOT SET'),
         })
 # ---------------------------------------------
-# update_content — guards against saving "undefined"/"null"/"None"
+# update_content - guards against saving "undefined"/"null"/"None"
 # ---------------------------------------------
 @app.route('/admin/api/update-content', methods=['POST'])
 @login_required
@@ -856,7 +855,7 @@ def update_content():
         if value_str in ('undefined', 'null', 'None'):
             return no_cache_json({
                 'success': False,
-                'error': f'Invalid value "{value_str}" was blocked — not saved. Please enter real content.'
+                'error': f'Invalid value "{value_str}" was blocked - not saved. Please enter real content.'
             })
 
         content = db.session.query(ContentSection).filter_by(content_key=key).first()
@@ -903,7 +902,7 @@ def update_card():
         return no_cache_json({'success': False, 'error': str(e)})
 
 
-# FIX 6: upload_image now returns 'url' — the full public URL built from
+# FIX 6: upload_image now returns 'url' - the full public URL built from
 # GOV_IMAGE_BASE. The admin panel JS uses this for instant previews after
 # upload without needing a page reload.
 @app.route('/admin/api/upload-image', methods=['POST'])
