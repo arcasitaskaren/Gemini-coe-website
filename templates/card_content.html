@@ -64,15 +64,21 @@
         border-bottom: none;
     }
     
-    .content-body {
-        font-size: 1.05rem;
-        line-height: 1.9;
-        color: #464e6b;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        margin-bottom: 50px;
-        font-weight: 400;
-    }
+  .content-body {
+  font-size: 1.05rem;
+  line-height: 1.9;
+  color: #464e6b;
+  word-wrap: break-word;
+  margin-bottom: 50px;
+  font-weight: 400;
+  white-space: pre-wrap;      /* ADD THIS LINE */
+  overflow-wrap: break-word;  /* ADD THIS LINE */
+}
+    .content-body strong { font-weight: 700; }
+    .content-body em { font-style: italic; }
+    .content-body u { text-decoration: underline; }
+    .content-body h3 { font-size: 1.5rem; font-weight: 700; margin: 20px 0 10px; color: #1c2790; }
+    .content-body li { margin-left: 20px; list-style: disc; }
     
     .empty-content {
         text-align: center;
@@ -145,7 +151,12 @@
         color: #7a8aa6;
         text-align: center;
         font-weight: 500;
+        white-space: normal;
+        word-wrap: break-word;
     }
+    .image-caption strong { font-weight: 700; }
+    .image-caption em { font-style: italic; }
+    .image-caption u { text-decoration: underline; }
     
     .image-single {
         margin: 50px 0;
@@ -168,9 +179,13 @@
         margin-top: 16px;
         font-size: 0.95rem;
         color: #7a8aa6;
-        font-style: italic;
         font-weight: 500;
+        white-space: normal;
+        word-wrap: break-word;
     }
+    .image-single-caption strong { font-weight: 700; }
+    .image-single-caption em { font-style: italic; }
+    .image-single-caption u { text-decoration: underline; }
     
     @media (max-width: 768px) {
         .content-container {
@@ -238,7 +253,7 @@
         <div class="card-title">From: {{ card.title }}</div>
         
         {% if button_content %}
-            <div class="content-body">{{ button_content }}</div>
+            <div class="content-body" style="overflow-wrap: break-word; word-break: break-word;">{{ button_content | safe }}</div>
         {% endif %}
         
         {% set button_background_images = card.button_background_images|default('{}', true)|fromjson %}
@@ -262,7 +277,7 @@
                 <div class="image-single">
                     <img src="{{ url_for('static', filename='images/' + images_for_button[0].src) }}" alt="{{ images_for_button[0].caption or button_text }}">
                     {% if images_for_button[0].caption %}
-                        <div class="image-single-caption">{{ images_for_button[0].caption }}</div>
+                        <div class="image-single-caption">{{ images_for_button[0].caption | safe }}</div>
                     {% endif %}
                 </div>
             {% else %}
@@ -272,7 +287,7 @@
                         <div class="image-card">
                             <img src="{{ url_for('static', filename='images/' + img.src) }}" alt="{{ img.caption or 'Image' }}">
                             {% if img.caption %}
-                                <div class="image-caption">{{ img.caption }}</div>
+                                <div class="image-caption">{{ img.caption | safe }}</div>
                             {% endif %}
                         </div>
                     {% endfor %}
