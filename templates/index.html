@@ -117,7 +117,7 @@
         backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
         transition:all .2s ease;
     }
-    .overlay-close-btn::before { content:'âœ•'; font-size:10px; margin-right:2px; }
+    .overlay-close-btn::before { content:'✕'; font-size:10px; margin-right:2px; }
     .overlay-close-btn:hover { background:#fff; border-color:#FACC15; color:#78350f; }
 
     .overlay-status-bar {
@@ -343,7 +343,7 @@
       <span class="overlay-live-dot"></span>
       <span class="overlay-status-text">AI Powered Search</span>
       <span class="overlay-status-sep"></span>
-      <span class="overlay-status-model">Powered by Groq &amp; OpenAI</span>
+      <span class="overlay-status-model">Powered by Claude Sonnet</span>
     </div>
     <div class="flex items-center justify-center gap-2" style="display:none!important;"></div>
     <form id="overlay-search-form" class="relative mb-8" style="display:none!important;">
@@ -357,7 +357,10 @@
 <header class="fixed top-0 left-0 w-full z-50 bg-[#f5f5f5] shadow-sm">
     <div class="max-w-7xl mx-auto flex items-center justify-between px-6 py-3">
         <a href="/" class="flex items-center ml-[-40px]">
-            <img src="{{ url_for('static', filename=logo_image if logo_image and logo_image != 'undefined' and logo_image != 'None' else 'images/logo.png') }}" class="h-10 w-auto object-contain mr-0" alt="Logo">
+            {% set logo_bare = logo_image.replace('static/images/', '').replace('images/', '').replace('static/', '') if logo_image and logo_image not in ['undefined', 'None', ''] else 'logo.png' %}
+            <img src="{{ GOV_IMAGE_BASE }}/{{ logo_bare }}"
+                 onerror="this.onerror=null;this.src='/static/images/{{ logo_bare }}'"
+                 class="h-10 w-auto object-contain mr-0" alt="Logo">
         </a>
         <nav class="hidden lg:flex items-center space-x-6 text-sm font-semibold text-[#0a0a0a]">
             {% for link in nav_links %}
@@ -369,7 +372,7 @@
             {% endfor %}
             {% if published_pages %}
                 <div class="relative group">
-                    <a href="#" class="hover:text-[#0096FF] whitespace-nowrap">Custom Pages ?</a>
+                    <a href="#" class="hover:text-[#0096FF] whitespace-nowrap">Custom Pages ▾</a>
                     <div class="hidden group-hover:block absolute left-0 mt-0 w-48 bg-white shadow-lg rounded-lg py-2 z-50">
                         {% for page in published_pages %}
                             <a href="/page/{{ page.slug }}" class="block px-4 py-2 text-sm text-[#0a0a0a] hover:bg-[#f5f5f5] hover:text-[#0096FF]">{{ page.title }}</a>
@@ -446,10 +449,13 @@
       <div id="resultsDisplay" class="space-y-8 hidden">
         <div class="relative bg-white/95 backdrop-blur-xl rounded-3xl p-10 shadow-[0_8px_32px_rgba(0,0,0,0.18)] border border-white/40 transition-all duration-300 hover:shadow-[0_12px_38px_rgba(0,0,0,0.22)]" style="overflow:visible;">
           <div class="absolute -top-5 left-8 bg-[#f7c948] px-5 py-2 rounded-full shadow-lg flex items-center gap-2">
-            <svg class="w-7 h-7 text-black" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C10.9 2 10 2.9 10 4C10 5.1 10.5 6 11.3 6.6C10.5 7 10 7.9 10 9C10 10.7 11.3 12 13 12C14.7 12 16 10.7 16 9C16 7.9 15.5 7 14.7 6.6C15.5 6 16 5.1 16 4C16 2.9 15.1 2 14 2H12ZM5 12C3.3 12 2 13.3 2 15V16C2 18.2 5.1 20 9 20C10.2 20 11.3 19.8 12.2 19.5C11.5 18.8 11 17.9 11 17C11 15.3 12.3 14 14 14H19C19 13.3 18.7 12.7 18.2 12.3C17 12.1 15.5 12 14 12H10C8.5 12 7 12.1 5.8 12.3C5.5 12.1 5.3 12 5 12ZM14 15C13.4 15 13 15.4 13 16V18C13 18.6 13.4 19 14 19H21C21.6 19 22 18.6 22 18V16C22 15.4 21.6 15 21 15H14Z"/>
-            </svg>
-            <span class="text-black font-semibold tracking-wide text-sm">AI says</span>
+            <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M12 2C8.5 2 6 4.5 5 7C3.5 7.5 2 9 2 11C2 13.2 3.5 15 5.5 15.5C6 18 8.5 20 12 20C15.5 20 18 18 18.5 15.5C20.5 15 22 13.2 22 11C22 9 20.5 7.5 19 7C18 4.5 15.5 2 12 2Z" fill="#CC785C"/>
+  <circle cx="9" cy="11" r="1.5" fill="white"/>
+  <circle cx="15" cy="11" r="1.5" fill="white"/>
+  <path d="M9 15C9.5 16 10.5 16.5 12 16.5C13.5 16.5 14.5 16 15 15" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+</svg>
+<span class="text-black font-semibold tracking-wide text-sm">Claude says</span>
           </div>
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-10 mt-6">
             <div class="lg:col-span-2">
@@ -465,7 +471,6 @@
             <h4 class="font-bold mb-6 text-xl" style="color:#003a7a;">Related Topics</h4>
             <div id="suggestionsList" class="grid grid-cols-1 md:grid-cols-2 gap-5" style="overflow:visible;"></div>
           </div>
-          <!-- Quick Actions section REMOVED -->
           <div id="relatedImagesSection" class="hidden mt-10 pt-8 border-t relative z-10" style="overflow:visible;border-color:rgba(0,150,255,.15);">
             <h4 class="font-bold mb-6 text-xl flex items-center gap-2" style="color:#003a7a;">
               <span class="inline-block w-2 h-2 rounded-full" style="background:#FACC15;"></span>Related Images
@@ -501,7 +506,9 @@
                     {% set safe_card_img = card.image if card.image and card.image not in ['undefined', 'None', ''] else '' %}
                     {% if safe_card_img %}
                         {% set bare_img = safe_card_img.replace('static/images/', '').replace('images/', '').replace('static/', '') %}
-                        <img src="{{ url_for('static', filename='images/' + bare_img) }}" class="card-img" alt="{{ card.title }}">
+                        <img src="{{ GOV_IMAGE_BASE }}/{{ bare_img }}"
+                             onerror="this.onerror=null;this.src='/static/images/{{ bare_img }}'"
+                             class="card-img" alt="{{ card.title }}">
                     {% else %}
                         <div class="card-img" style="background:#e2e8f0;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:14px;">No image</div>
                     {% endif %}
@@ -530,8 +537,11 @@
                                         {{ safe_btn }}
                                     </a>
                                     {% if background_image %}
+                                        {% set bare_bg = background_image.replace('static/images/', '').replace('images/', '').replace('static/', '') %}
                                         <div class="mt-3 w-full max-w-[650px]">
-                                            <img src="{{ url_for('static', filename='images/' + background_image) }}" alt="Card background"
+                                            <img src="{{ GOV_IMAGE_BASE }}/{{ bare_bg }}"
+                                                 onerror="this.onerror=null;this.src='/static/images/{{ bare_bg }}'"
+                                                 alt="Card background"
                                                  class="w-full rounded-lg shadow-md hover:shadow-lg transition-shadow" loading="lazy">
                                         </div>
                                     {% endif %}
@@ -576,20 +586,28 @@
 {% endif %}
 
 <!-- -- FOOTER -- -->
-{% set safe_logo       = logo_image      if logo_image      and logo_image      not in ['undefined','None',''] else 'images/logo.png' %}
-{% set safe_apo        = apo_logo        if apo_logo        and apo_logo        not in ['undefined','None',''] else 'images/apo_logo.png' %}
-{% set safe_co_name    = company_name    if company_name    and company_name    not in ['undefined','None',''] else '' %}
-{% set safe_co_sub     = company_subtitle if company_subtitle and company_subtitle not in ['undefined','None',''] else '' %}
-{% set safe_co_addr    = company_address if company_address  and company_address  not in ['undefined','None',''] else '' %}
-{% set safe_co_phone   = company_phone   if company_phone   and company_phone   not in ['undefined','None',''] else '' %}
-{% set safe_co_fax     = company_fax     if company_fax     and company_fax     not in ['undefined','None',''] else '' %}
-{% set safe_co_email   = company_email   if company_email   and company_email   not in ['undefined','None',''] else '' %}
-{% set safe_year       = current_year    if current_year    and current_year    not in ['undefined','None',''] else '' %}
+{# Strip path prefixes so we always get bare filenames for GOV_IMAGE_BASE #}
+{% set safe_logo      = logo_image       if logo_image       and logo_image       not in ['undefined','None',''] else 'logo.png' %}
+{% set safe_apo       = apo_logo         if apo_logo         and apo_logo         not in ['undefined','None',''] else 'apo.png' %}
+{% set logo_bare      = safe_logo.replace('static/images/', '').replace('images/', '').replace('static/', '') %}
+{% set apo_bare       = safe_apo.replace('static/images/', '').replace('images/', '').replace('static/', '') %}
+{% set safe_co_name   = company_name     if company_name     and company_name     not in ['undefined','None',''] else '' %}
+{% set safe_co_sub    = company_subtitle if company_subtitle and company_subtitle not in ['undefined','None',''] else '' %}
+{% set safe_co_addr   = company_address  if company_address  and company_address  not in ['undefined','None',''] else '' %}
+{% set safe_co_phone  = company_phone    if company_phone    and company_phone    not in ['undefined','None',''] else '' %}
+{% set safe_co_fax    = company_fax      if company_fax      and company_fax      not in ['undefined','None',''] else '' %}
+{% set safe_co_email  = company_email    if company_email    and company_email    not in ['undefined','None',''] else '' %}
+{% set safe_year      = current_year     if current_year     and current_year     not in ['undefined','None',''] else '' %}
 
 <footer class="bg-gradient-to-r from-slate-800 to-slate-900 text-white text-sm">
     <div class="py-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto px-4">
+
+        <!-- Column 1: Logo + contact -->
         <div class="footer-section">
-            <img src="{{ url_for('static', filename=safe_logo) }}" alt="Logo" class="h-10 mb-3 brightness-0 invert hover:scale-105 transition-transform duration-300">
+            <img src="{{ GOV_IMAGE_BASE }}/{{ logo_bare }}"
+                 onerror="this.onerror=null;this.src='/static/images/{{ logo_bare }}'"
+                 alt="Logo"
+                 class="h-10 mb-3 brightness-0 invert hover:scale-105 transition-transform duration-300">
             {% if safe_co_name %}<div class="font-bold text-base mb-2">{{ safe_co_name }}</div>{% endif %}
             {% if safe_co_sub %}<div class="text-xs text-slate-400 mb-3 bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent font-semibold">{{ safe_co_sub }}</div>{% endif %}
             <address class="not-italic text-xs leading-relaxed text-slate-300">
@@ -599,29 +617,58 @@
                 {% if safe_co_email %}Email: <a href="mailto:{{ safe_co_email }}" class="text-blue-400 hover:text-blue-300 transition-colors duration-300 hover:underline">{{ safe_co_email }}</a>{% endif %}
             </address>
         </div>
+
+  <!-- Column 2: About DAP -->
         <div class="footer-section">
             <h4 class="font-bold mb-4 text-slate-200 text-sm bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">About DAP</h4>
             <ul class="space-y-2">
-                {% for link_name in ['About DAP', 'News', 'Career Opportunities', 'Projects', 'Bids and Awards', 'Library', 'Contact DAP'] %}
-                    <li><a href="#" class="text-slate-300 hover:text-yellow-400 transition-all duration-300 hover:translate-x-1 inline-block py-1 hover:underline text-xs">
+                {% set dap_links = [
+                    ('About DAP',           'https://dap.edu.ph/who-we-are/about-us-roles-and-services/'),
+                    ('News',                'https://coe-psp.dap.edu.ph/nav-page/2'),
+                    ('Career Opportunities','https://dap.edu.ph/engage-us/career-opportunities/'),
+                    ('Projects',            'https://dap.edu.ph/how-we-work/current-projects/'),
+                    ('Bids and Awards',     'https://dap.edu.ph/engage-us/bids-and-awards/'),
+                    ('Library',             'https://library.dap.edu.ph/'),
+                    ('Contact DAP',         'https://dap.edu.ph/engage-us/inquire-for-partnership/'),
+                ] %}
+                {% for link_name, link_url in dap_links %}
+                    <li><a href="{{ link_url }}" target="_blank" rel="noopener noreferrer"
+                           class="text-slate-300 hover:text-yellow-400 transition-all duration-300 hover:translate-x-1 inline-block py-1 hover:underline text-xs">
                         <i class="fas fa-chevron-right text-xs mr-2 opacity-50"></i>{{ link_name }}</a></li>
                 {% endfor %}
             </ul>
         </div>
+
+        <!-- Column 3: COE-PSP -->
         <div class="footer-section">
             <h4 class="font-bold mb-4 text-slate-200 text-sm bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">COE-PSP</h4>
             <ul class="space-y-2">
-                {% for link_name in ['News & Features', 'Webisodes', 'Trainings', 'Learning Resources', 'Research Studies', 'Innovation Lab'] %}
-                    <li><a href="#" class="text-slate-300 hover:text-yellow-400 transition-all duration-300 hover:translate-x-1 inline-block py-1 hover:underline text-xs">
+                {% set coe_links = [
+                    ('News & Features',    'https://coe-psp.dap.edu.ph/nav-page/2'),
+                    ('Webisodes',          'https://coe-psp.dap.edu.ph/nav-page/3'),
+                    ('Trainings',          'https://coe-psp.dap.edu.ph/nav-page/3'),
+                    ('Learning Resources', 'https://sites.google.com/dap.edu.ph/coe-psp-knowledgeproducts/knowledge-products'),
+                    ('Research Studies',   'https://sites.google.com/dap.edu.ph/coe-psp-knowledgeproducts/research'),
+                    ('Innovation Lab',     'https://govlab.dap.edu.ph/'),
+                ] %}
+                {% for link_name, link_url in coe_links %}
+                    <li><a href="{{ link_url }}" target="_blank" rel="noopener noreferrer"
+                           class="text-slate-300 hover:text-yellow-400 transition-all duration-300 hover:translate-x-1 inline-block py-1 hover:underline text-xs">
                         <i class="fas fa-chevron-right text-xs mr-2 opacity-50"></i>{{ link_name }}</a></li>
                 {% endfor %}
             </ul>
         </div>
+
+        <!-- Column 4: APO Logo + text  *** FIXED *** -->
         <div class="footer-section">
-            <img src="{{ url_for('static', filename=safe_apo) }}" alt="APO Logo" class="h-8 mb-3 brightness-0 invert hover:scale-105 transition-transform duration-300">
+            <img src="{{ GOV_IMAGE_BASE }}/{{ apo_bare }}"
+            onerror="this.onerror=null;this.src='/static/images/{{ apo_bare }}'"
+            alt="APO Logo"
+            class="h-8 mb-3 hover:scale-105 transition-transform duration-300">
             <p class="text-xs text-slate-300 leading-relaxed mb-3">The Philippines is a member of the Asian Productivity Organization. The Development Academy of the Philippines serves as the country's National Productivity Organization (NPO).</p>
             <p class="text-xs text-slate-300 mb-3">Visit <a href="https://www.apo-tokyo.org" class="text-blue-400 hover:text-blue-300 transition-colors duration-300 hover:underline">www.apo-tokyo.org</a> to learn more.</p>
         </div>
+
     </div>
     <div class="text-center py-4 px-4 bg-slate-900 text-slate-400 text-xs border-t border-slate-700">
         <p class="flex items-center justify-center gap-2">
@@ -685,44 +732,31 @@
     }
 
 
-    /* -- BUILD RESULTS HTML --
-       NOW accepts a second argument: currentQuery (the search term)
-       - Shows searched query at the very top
-       - Quick Actions section has been removed
-    ---------------------------------------------- */
+    /* -- BUILD RESULTS HTML -- */
     function buildResultsHTML(data, currentQuery) {
         currentQuery = currentQuery || '';
 
-        const AI_ICON = '<svg style="width:15px;height:15px;flex-shrink:0;" viewBox="0 0 24 24" fill="#422006"><path d="M12 2C10.9 2 10 2.9 10 4C10 5.1 10.5 6 11.3 6.6C10.5 7 10 7.9 10 9C10 10.7 11.3 12 13 12C14.7 12 16 10.7 16 9C16 7.9 15.5 7 14.7 6.6C15.5 6 16 5.1 16 4C16 2.9 15.1 2 14 2H12ZM5 12C3.3 12 2 13.3 2 15V16C2 18.2 5.1 20 9 20C10.2 20 11.3 19.8 12.2 19.5C11.5 18.8 11 17.9 11 17C11 15.3 12.3 14 14 14H19C19 13.3 18.7 12.7 18.2 12.3C17 12.1 15.5 12 14 12H10C8.5 12 7 12.1 5.8 12.3C5.5 12.1 5.3 12 5 12ZM14 15C13.4 15 13 15.4 13 16V18C13 18.6 13.4 19 14 19H21C21.6 19 22 18.6 22 18V16C22 15.4 21.6 15 21 15H14Z"/></svg>';
+        const AI_ICON = '<svg style="width:16px;height:16px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C8.5 2 6 4.5 5 7C3.5 7.5 2 9 2 11C2 13.2 3.5 15 5.5 15.5C6 18 8.5 20 12 20C15.5 20 18 18 18.5 15.5C20.5 15 22 13.2 22 11C22 9 20.5 7.5 19 7C18 4.5 15.5 2 12 2Z" fill="#CC785C"/><circle cx="9" cy="11" r="1.5" fill="white"/><circle cx="15" cy="11" r="1.5" fill="white"/><path d="M9 15C9.5 16 10.5 16.5 12 16.5C13.5 16.5 14.5 16 15 15" stroke="white" stroke-width="1.2" stroke-linecap="round"/></svg>';
         const LINK_ICON = '<svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="#0096FF" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>';
         const ARROW_ICON = '<svg style="width:12px;height:12px;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4m-4-6l6 6m0 0l-6 6m6-6H3"/></svg>';
         const SEARCH_ICON = '<svg style="width:13px;height:13px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="#0096FF" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="M21 21l-4.35-4.35"/></svg>';
 
         let html = '<div style="overflow:visible;">';
 
-        /* -- ? SEARCHED QUERY BANNER (NEW) -- */
         if (currentQuery) {
-            html += '<div style="'
-                + 'display:flex;align-items:center;gap:8px;'
-                + 'padding:12px 26px 10px;'
-                + 'background:rgba(0,150,255,.04);'
-                + 'border-bottom:1px solid rgba(0,150,255,.10);'
-                + '">'
+            html += '<div style="display:flex;align-items:center;gap:8px;padding:12px 26px 10px;background:rgba(0,150,255,.04);border-bottom:1px solid rgba(0,150,255,.10);">'
                 + SEARCH_ICON
                 + '<span style="font-size:12px;color:#66bfff;font-weight:500;letter-spacing:.03em;">Search results for:</span>'
                 + '&nbsp;<strong style="font-size:13px;color:#003a7a;font-weight:700;">'
                 + currentQuery.replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                + '</strong>'
-                + '</div>';
+                + '</strong></div>';
         }
 
-        /* -- ? AI SAYS HEADER -- */
         html += '<div class="card-hd">'
-            + '<div class="abs-badge">' + AI_ICON + '<span>AI says</span></div>'
+            + '<div class="abs-badge">' + AI_ICON + '<span>Claude says</span></div>'
             + '<span class="card-hd-right">Based on your query</span>'
             + '</div>';
 
-        /* -- ? MAIN BODY: answer + key points -- */
         html += '<div class="card-bd">';
 
         const answerText = safeVal(data.gemini_says, 'No response available.');
@@ -745,10 +779,8 @@
             html += '<p style="font-size:12px;color:#66bfff;font-style:italic;">Retrieving key points...</p>';
         }
         html += '</div>';
+        html += '</div>';
 
-        html += '</div>'; /* end card-bd */
-
-        /* -- ? RELATED TOPICS -- */
         if (data.global_suggestions && data.global_suggestions.length) {
             html += '<div class="row-div"></div><div class="sec-block">'
                 + '<div class="sec-label" style="font-size:12px;">Related topics</div>'
@@ -760,9 +792,6 @@
             html += '</div></div>';
         }
 
-        /* -- Quick Actions section REMOVED -- */
-
-        /* -- ? RELATED IMAGES -- */
         if (data.related_images && data.related_images.length) {
             html += '<div class="row-div"></div><div class="sec-block">'
                 + '<div class="sec-label" style="font-size:12px;">Related images</div>'
@@ -775,7 +804,6 @@
             html += '</div></div>';
         }
 
-        /* -- ? RELATED LINKS -- */
         if (data.related_links && data.related_links.length) {
             html += '<div class="row-div"></div><div class="sec-block">'
                 + '<div class="sec-label" style="font-size:12px;">Related links</div>'
@@ -796,7 +824,7 @@
             html += '</div></div>';
         }
 
-        html += '</div>'; /* end outer wrapper */
+        html += '</div>';
         return html;
     }
 
@@ -829,7 +857,6 @@
             const res = await fetch('/api/search?q=' + encodeURIComponent(query));
             if (!res.ok) throw new Error('API responded with status: ' + res.status);
             const data = await res.json();
-            /* ? Pass query as second argument */
             document.getElementById('overlayResultsContainer').innerHTML = buildResultsHTML(data, query);
             attachSuggestionListeners(document.getElementById('overlayResultsContainer'));
         } catch (err) {
@@ -922,7 +949,6 @@
             const res = await fetch('/api/search?q=' + encodeURIComponent(query));
             if (!res.ok) throw new Error('API responded with status: ' + res.status);
             const data = await res.json();
-            /* ? Pass query as second argument */
             container.innerHTML = buildResultsHTML(data, query);
             attachSuggestionListeners(container);
         } catch (err) {
