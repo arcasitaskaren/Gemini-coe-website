@@ -3,272 +3,700 @@
 {% block title %}{{ nav_link.link_text }}{% endblock %}
 
 {% block extra_css %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
 <style>
-    body { background-color: #f5f5f5; }
-    .content-header {
-        background: linear-gradient(135deg, #1c2790 0%, #1d293d 50%, #0f1d3d 100%);
-        color: white;
-        padding: 100px 20px;
-        position: relative;
-        overflow: hidden;
-        min-height: 500px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    .content-header.with-bg {
-        background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
-        background-repeat: no-repeat;
-    }
-    .content-header::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(to bottom, 
-            rgba(28, 39, 144, 0.75) 0%,
-            rgba(28, 39, 144, 0.65) 50%,
-            rgba(15, 29, 61, 0.8) 100%);
-        z-index: 1;
-    }
-    .content-header::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: 
-            radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.2) 0%, transparent 40%),
-            radial-gradient(circle at 80% 50%, rgba(251, 191, 36, 0.15) 0%, transparent 40%),
-            linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.1) 100%);
-        z-index: 2;
-    }
-    .content-header > * {
-        position: relative;
-        z-index: 3;
-    }
-    .content-header-inner {
-        text-align: center;
-        max-width: 900px;
-        width: 100%;
-    }
-    .hero-content {
-        animation: fadeInUp 0.8s ease-out;
-    }
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    .back-button {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        color: white;
-        text-decoration: none;
-        padding: 8px 16px;
-        border-radius: 8px;
-        transition: all 0.3s ease;
-        margin-bottom: 20px;
-    }
-    .back-button:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-        transform: translateX(-4px);
-    }
-    .content-container {
-        max-width: 900px;
-        margin: 40px auto;
-        background: white;
-        padding: 40px;
-        border-radius: 16px;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-    }
-    .content-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #1c2790;
-        margin-bottom: 32px;
-    }
-    .content-body {
-        font-size: 1.05rem;
-        line-height: 1.8;
-        color: #333;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-    }
-    .empty-content {
-        text-align: center;
-        padding: 40px;
-        color: #999;
-        font-style: italic;
-    }
-    .nav-image {
-        max-width: 100%;
-        height: auto;
-        margin: 20px 0;
-        border-radius: 8px;
-    }
-    .image-gallery {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 20px;
-        margin-top: 30px;
-    }
-    .image-card {
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-    .image-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-    }
-    .image-card img {
-        width: 100%;
-        height: 200px;
-        object-fit: cover;
-        display: block;
-    }
-    .image-caption {
-        padding: 12px;
-        background: #f9f9f9;
-        border-top: 1px solid #e0e0e0;
-        font-size: 0.95rem;
-        color: #555;
-        text-align: center;
-    }
-    .image-single {
-        margin: 30px 0;
-        text-align: center;
-    }
-    .image-single img {
-        max-width: 100%;
-        height: auto;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    }
-    .image-single-caption {
-        margin-top: 12px;
-        font-size: 0.95rem;
-        color: #666;
-        font-style: italic;
-    }
+:root {
+  --np-ink: #111016;
+  --np-ink-2: #2D2B38;
+  --np-ink-3: #4A4759;
+  --np-muted: #8C8A99;
+  --np-ghost: #C2C0CC;
+  --np-line: #E8E6F0;
+  --np-wash: #F5F4F9;
+  --np-surface: #FFFFFF;
+  --np-blue: #2B52E8;
+  --np-blue-2: #1A3EC8;
+  --np-blue-dim: #EBF0FE;
+  --np-navy: #0a1628;
+  --np-mid: #1c2790;
+  --np-gold: #fbbf24;
+  --np-orange: #f97316;
+  --np-r: 8px;
+  --np-r-lg: 14px;
+  --np-r-xl: 20px;
+  --np-s1: 0 1px 3px rgba(17,16,22,.06),0 1px 2px rgba(17,16,22,.04);
+  --np-s2: 0 4px 16px rgba(17,16,22,.08),0 2px 6px rgba(17,16,22,.05);
+  --np-s3: 0 12px 40px rgba(17,16,22,.14),0 4px 12px rgba(17,16,22,.07);
+  --np-font: 'Plus Jakarta Sans', sans-serif;
+  --np-ease: cubic-bezier(.4,0,.2,1);
+}
+
+.np-page *, .np-page *::before, .np-page *::after { box-sizing: border-box; }
+.np-page {
+  font-family: var(--np-font);
+  background: var(--np-wash);
+  color: var(--np-ink);
+  min-height: 100vh;
+}
+
+/* ─── NAVBAR ─────────────────────────────────── */
+.np-navbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1000;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  background: rgba(255,255,255,0.97);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--np-line);
+  box-shadow: 0 1px 0 var(--np-line), 0 2px 12px rgba(17,16,22,0.06);
+}
+.np-navbar-inner {
+  max-width: 1300px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.np-navbar-logo {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.np-navbar-logo img {
+  height: 34px;
+  width: auto;
+  object-fit: contain;
+}
+.np-navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+.np-navbar-links a {
+  padding: 6px 12px;
+  border-radius: var(--np-r);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--np-ink-3);
+  text-decoration: none;
+  white-space: nowrap;
+  font-family: var(--np-font);
+  transition: background 150ms var(--np-ease), color 150ms var(--np-ease);
+  letter-spacing: -.1px;
+}
+.np-navbar-links a:hover { background: var(--np-wash); color: var(--np-blue); }
+.np-navbar-links a.np-nav-active {
+  background: var(--np-blue-dim);
+  color: var(--np-blue);
+}
+.np-nav-dd { position: relative; }
+.np-nav-dd-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  background: var(--np-surface);
+  border: 1px solid var(--np-line);
+  border-radius: var(--np-r-lg);
+  box-shadow: var(--np-s3);
+  min-width: 176px;
+  padding: 5px;
+  z-index: 500;
+}
+.np-nav-dd:hover .np-nav-dd-menu { display: block; }
+.np-nav-dd-menu a {
+  display: block;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--np-ink-2);
+  border-radius: var(--np-r);
+  text-decoration: none;
+  font-family: var(--np-font);
+}
+.np-nav-dd-menu a:hover { background: var(--np-wash); color: var(--np-blue); }
+
+/* ─── HERO ────────────────────────────────────── */
+.np-hero {
+  position: relative;
+  min-height: 480px;
+  margin-top: 60px;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+}
+.np-hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(135deg, #060e22 0%, #1a2a90 55%, #0a1628 100%);
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+}
+.np-hero-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(160deg, rgba(6,14,34,0.35) 0%, rgba(10,22,60,0.30) 35%, rgba(6,14,34,0.72) 100%);
+  z-index: 1;
+}
+.np-hero-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 100% at 5% 55%, rgba(43,82,232,0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 70% at 95% 50%, rgba(251,191,36,0.12) 0%, transparent 55%);
+  z-index: 2;
+}
+.np-hero-fade {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 120px;
+  background: linear-gradient(to bottom, transparent 0%, rgba(6,14,34,0.55) 100%);
+  z-index: 3;
+}
+.np-hero-rule {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--np-blue) 0%, var(--np-gold) 50%, transparent 100%);
+  z-index: 10;
+}
+.np-hero-inner {
+  position: relative;
+  z-index: 5;
+  width: 100%;
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 40px 32px 52px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 480px;
+}
+.np-hero-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.np-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255,255,255,0.7);
+  text-decoration: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: var(--np-font);
+  letter-spacing: .2px;
+  padding: 7px 14px 7px 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.09);
+  transition: all 200ms var(--np-ease);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.np-back-btn:hover {
+  color: #fff;
+  background: rgba(255,255,255,0.18);
+  border-color: rgba(255,255,255,0.28);
+  transform: translateX(-4px);
+}
+.np-back-btn i { font-size: 11px; }
+
+.np-hero-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.38);
+  letter-spacing: .3px;
+  font-family: var(--np-font);
+}
+.np-hero-breadcrumb span { color: rgba(255,255,255,0.55); }
+.np-hero-breadcrumb i { font-size: 8px; }
+
+.np-hero-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.np-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+  font-family: var(--np-font);
+  animation: npLeftIn 0.6s var(--np-ease) both;
+}
+.np-eyebrow::before {
+  content: '';
+  display: block;
+  width: 20px; height: 1.5px;
+  background: rgba(255,255,255,0.3);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.np-hero-title-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.np-title {
+  font-size: clamp(2.2rem, 4vw, 3.4rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -1px;
+  color: #fff;
+  text-shadow: 0 2px 20px rgba(0,0,0,0.5);
+  font-family: var(--np-font);
+  animation: npFadeUp 0.65s 0.1s var(--np-ease) both;
+  max-width: 700px;
+}
+
+/* Only DAP COE chip — no Active chip */
+.np-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  animation: npFadeUp 0.65s 0.2s var(--np-ease) both;
+}
+.np-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 13px;
+  border-radius: 99px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  background: rgba(43,82,232,0.32);
+  color: rgba(255,255,255,0.88);
+  border: 1px solid rgba(43,82,232,0.4);
+  backdrop-filter: blur(6px);
+  font-family: var(--np-font);
+}
+.np-chip i { font-size: 8px; }
+.np-chip-gold {
+  background: rgba(251,191,36,0.18);
+  border-color: rgba(251,191,36,0.35);
+  color: var(--np-gold);
+}
+
+/* ─── BODY ────────────────────────────────────── */
+.np-body {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 36px 32px 88px;
+}
+
+/* ─── CONTENT CARD ────────────────────────────── */
+.np-content-card {
+  background: var(--np-surface);
+  border: 1px solid var(--np-line);
+  border-radius: var(--np-r-xl);
+  box-shadow: var(--np-s2);
+  overflow: hidden;
+  animation: npFadeUp 0.45s 0.05s var(--np-ease) both;
+}
+.np-content-head {
+  padding: 22px 28px 20px;
+  border-bottom: 1px solid var(--np-line);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: linear-gradient(135deg, rgba(43,82,232,0.03) 0%, transparent 100%);
+}
+.np-content-icon {
+  width: 40px; height: 40px;
+  border-radius: var(--np-r);
+  background: var(--np-blue-dim);
+  color: var(--np-blue);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0;
+}
+.np-content-title {
+  font-size: 15px; font-weight: 700;
+  color: var(--np-ink); letter-spacing: -.2px;
+  font-family: var(--np-font);
+}
+.np-content-sub {
+  font-size: 12px; color: var(--np-muted); margin-top: 2px;
+  font-family: var(--np-font);
+}
+
+/* ─── TAB BAR ─────────────────────────────────── */
+.np-tab-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--np-line);
+  background: var(--np-wash);
+}
+.np-tab {
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--np-muted);
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font-family: var(--np-font);
+  transition: color 150ms, border-color 150ms;
+  display: flex; align-items: center; gap: 6px;
+}
+.np-tab.np-tab-active {
+  color: var(--np-blue);
+  border-bottom-color: var(--np-blue);
+}
+.np-tab i { font-size: 10px; }
+
+/* ─── TAB PANES ───────────────────────────────── */
+.np-tab-pane { display: none; }
+.np-tab-pane.np-tab-pane-active { display: block; }
+
+.np-content-body { padding: 28px 28px 32px; }
+.np-text {
+  font-size: 14.5px; 
+  line-height: 1.85;
+  color: var(--np-ink-2);
+  word-wrap: break-word;
+  font-family: var(--np-font);
+  white-space: pre-wrap;      /* ADD THIS LINE */
+  overflow-wrap: break-word;  /* ADD THIS LINE */
+}
+.np-text strong { font-weight: 700; }
+.np-text em { font-style: italic; }
+.np-text u { text-decoration: underline; }
+.np-text h3 { font-size: 1.3rem; font-weight: 700; margin: 16px 0 8px; color: var(--np-blue); }
+.np-text li { margin-left: 20px; list-style: disc; }
+.np-gallery-cap { white-space: normal; }
+
+/* ─── EMPTY STATE ─────────────────────────────── */
+.np-empty {
+  text-align: center; padding: 64px 24px;
+}
+.np-empty i { font-size: 36px; color: var(--np-ghost); display: block; margin-bottom: 14px; }
+.np-empty-title { font-size: 15px; font-weight: 700; color: var(--np-ink-3); margin-bottom: 6px; font-family: var(--np-font); }
+.np-empty p { font-size: 13px; color: var(--np-muted); font-family: var(--np-font); }
+
+/* ─── IMAGES (no border) ──────────────────────── */
+.np-img-single {
+  margin-bottom: 24px;
+  border-radius: var(--np-r-lg);
+  overflow: hidden;
+}
+.np-img-single img { width: 100%; height: auto; display: block; }
+.np-img-cap {
+  padding: 9px 14px; font-size: 11.5px;
+  color: var(--np-muted);
+  background: var(--np-wash);
+  border-top: 1px solid var(--np-line); text-align: center;
+  font-family: var(--np-font);
+}
+.np-img-cap strong { font-weight: 700; }
+.np-img-cap em { font-style: italic; }
+.np-img-cap u { text-decoration: underline; }
+
+.np-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+.np-gallery-item {
+  border-radius: var(--np-r-lg); overflow: hidden;
+  box-shadow: var(--np-s1);
+  transition: transform 200ms var(--np-ease), box-shadow 200ms var(--np-ease);
+}
+.np-gallery-item:hover { transform: translateY(-3px); box-shadow: var(--np-s2); }
+.np-gallery-item img { width: 100%; height: 180px; object-fit: cover; display: block; }
+.np-gallery-cap {
+  padding: 8px 12px; font-size: 11.5px;
+  color: var(--np-ink-3); font-weight: 500;
+  background: var(--np-wash); border-top: 1px solid var(--np-line);
+  font-family: var(--np-font); text-align: center;
+  white-space: normal; word-wrap: break-word;
+}
+.np-gallery-cap strong { font-weight: 700; }
+.np-gallery-cap em { font-style: italic; }
+.np-gallery-cap u { text-decoration: underline; }
+
+/* ─── FOOTER ──────────────────────────────────── */
+.np-footer {
+  background: linear-gradient(135deg, #111827 0%, #0d1520 100%);
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.np-footer-inner {
+  max-width: 1300px; margin: 0 auto;
+  padding: 32px 32px 24px;
+}
+.np-footer-row { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 18px; }
+.np-footer-logo { height: 32px; filter: brightness(0) invert(1); opacity: 0.65; }
+.np-footer-org {
+  font-size: 12.5px; font-weight: 700;
+  color: rgba(255,255,255,0.85); margin-bottom: 4px;
+  font-family: var(--np-font);
+}
+.np-footer-addr {
+  font-size: 11.5px; color: rgba(255,255,255,0.38);
+  line-height: 1.75; font-style: normal;
+  font-family: var(--np-font);
+}
+.np-footer-addr a { color: #60a5fa; text-decoration: none; }
+.np-footer-addr a:hover { text-decoration: underline; }
+.np-footer-hr { height: 1px; background: rgba(255,255,255,0.06); margin-bottom: 12px; }
+.np-footer-copy {
+  font-size: 11px; color: rgba(255,255,255,0.25);
+  font-family: var(--np-font);
+}
+
+/* ─── ANIMATIONS ──────────────────────────────── */
+@keyframes npLeftIn {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes npFadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ─── RESPONSIVE ──────────────────────────────── */
+@media (max-width: 680px) {
+  .np-navbar-links { display: none; }
+  .np-hero { min-height: 400px; }
+  .np-hero-inner { padding: 20px 20px 36px; min-height: 400px; }
+  .np-title { font-size: 2rem; }
+  .np-body { padding: 20px 18px 60px; }
+  .np-content-body { padding: 18px 18px 22px; }
+  .np-tab-bar { padding: 0 18px; overflow-x: auto; }
+  .np-navbar-inner { padding: 0 18px; }
+  .np-footer-inner { padding: 28px 18px 20px; }
+  .np-hero-title-row { flex-direction: column; align-items: flex-start; }
+  .np-gallery { grid-template-columns: 1fr 1fr; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<header class="fixed top-0 left-0 w-full z-50 bg-[#f5f5f5] shadow-sm">
-    <div class="max-w-7xl mx-auto flex items-center justify-between px-6 py-3">
-        <a href="/" class="flex items-center ml-[-20px]">
-            <img src="{{ url_for('static', filename=logo_image) }}" class="h-10 w-auto object-contain" alt="Logo">
-        </a>
-        <nav class="hidden lg:flex items-center space-x-6 text-sm font-semibold text-[#0a0a0a]">
-            {% for link in nav_links %}
-                <a href="/nav-page/{{ link.id }}" class="hover:text-[#1c2790] whitespace-nowrap">{{ link.link_text }}</a>
+<div class="np-page">
+
+<!-- ─── NAVBAR ──────────────────────────────────── -->
+<nav class="np-navbar">
+  <div class="np-navbar-inner">
+    <a href="/" class="np-navbar-logo">
+      <img src="{{ url_for('static', filename=logo_image) }}" alt="Logo">
+    </a>
+    <div class="np-navbar-links">
+      {% for link in nav_links %}
+        {% if link.link_url and link.link_url != '#' %}
+          <a href="{{ link.link_url }}" target="_blank">{{ link.link_text }}</a>
+        {% else %}
+          <a href="/nav-page/{{ link.id }}"
+             class="{{ 'np-nav-active' if link.id == nav_link.id else '' }}">{{ link.link_text }}</a>
+        {% endif %}
+      {% endfor %}
+      {% if published_pages %}
+        <div class="np-nav-dd">
+          <a href="#" onclick="return false;" style="cursor:default;">Custom Pages ▾</a>
+          <div class="np-nav-dd-menu">
+            {% for page in published_pages %}
+              <a href="/page/{{ page.slug }}">{{ page.title }}</a>
             {% endfor %}
-            {% if published_pages %}
-            <div class="relative group">
-                <a href="#" class="hover:text-[#1c2790] whitespace-nowrap">Custom Pages ▾</a>
-                <div class="hidden group-hover:block absolute left-0 mt-0 w-48 bg-white shadow-lg rounded-lg py-2 z-50">
-                    {% for page in published_pages %}
-                    <a href="/page/{{ page.slug }}" class="block px-4 py-2 text-sm text-[#0a0a0a] hover:bg-[#f5f5f5] hover:text-[#1c2790]">{{ page.title }}</a>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-        </nav>
-    </div>
-</header>
-
-<div class="pt-20">
-    <div class="content-header {% if nav_link.background_image %}with-bg{% endif %}"
-         {% if nav_link.background_image %}style="background-image: url('{{ url_for('static', filename='images/' + nav_link.background_image) }}')"{% endif %}>
-        <div class="content-header-inner w-full hero-content">
-            <a href="/" class="back-button">
-                <i class="fas fa-arrow-left"></i>
-                Back to Home
-            </a>
-            <h1 style="font-size: 3.5rem; font-weight: 800; margin: 24px 0 0 0; text-shadow: 0 2px 8px rgba(0,0,0,0.3); letter-spacing: -0.5px;">
-                {{ nav_link.link_text }}
-            </h1>
-            <div style="height: 4px; width: 80px; background: linear-gradient(90deg, #fbbf24, #f97316); margin: 16px auto 0; border-radius: 2px;"></div>
+          </div>
         </div>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+
+<!-- ─── HERO ────────────────────────────────────── -->
+<section class="np-hero">
+  <div class="np-hero-bg"
+    {% if nav_link.background_image %}
+      style="background-image: url('{{ url_for('static', filename='images/' + nav_link.background_image) }}')"
+    {% endif %}>
+  </div>
+  <div class="np-hero-fade"></div>
+  <div class="np-hero-rule"></div>
+
+  <div class="np-hero-inner">
+    <!-- Top row: back + breadcrumb -->
+    <div class="np-hero-top" style="animation: npLeftIn 0.6s var(--np-ease) both;">
+      <a href="/" class="np-back-btn">
+        <i class="fas fa-arrow-left"></i> Back to Home
+      </a>
+      <div class="np-hero-breadcrumb">
+        <span>Home</span>
+        <i class="fas fa-chevron-right"></i>
+        <span>{{ nav_link.link_text }}</span>
+      </div>
     </div>
 
-    <div class="content-container">
-        <h1 class="content-title" style="margin-top: 0; border-bottom: 3px solid #1c2790; padding-bottom: 16px;">Overview</h1>
-        
+    <!-- Bottom row: eyebrow + title + chip (DAP COE only) -->
+    <div class="np-hero-bottom">
+      <div class="np-eyebrow">
+        <span>Development Academy of the Philippines</span>
+      </div>
+      <div class="np-hero-title-row">
+        <h1 class="np-title">{{ nav_link.link_text }}</h1>
+        <div class="np-chips">
+          <span class="np-chip np-chip-gold"><i class="fas fa-star"></i> DAP COE</span>
+          {% if nav_link.page_content %}
+            <span class="np-chip"><i class="fas fa-file-alt"></i> Overview</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── BODY ─────────────────────────────────────── -->
+<div class="np-body">
+
+  {% set nav_images = nav_link.get_images() %}
+
+  <div class="np-content-card">
+    <div class="np-content-head">
+      <div class="np-content-icon"><i class="fas fa-file-alt"></i></div>
+      <div>
+        <div class="np-content-title">{{ nav_link.link_text }}</div>
+        <div class="np-content-sub">Overview &amp; Information — Development Academy of the Philippines</div>
+      </div>
+    </div>
+
+    <!-- Tab bar — only show Gallery tab if images exist -->
+    <div class="np-tab-bar">
+      <button class="np-tab np-tab-active" onclick="npSwitchTab('details', this)">
+        <i class="fas fa-align-left"></i> Details
+      </button>
+      {% if nav_images %}
+        <button class="np-tab" onclick="npSwitchTab('gallery', this)">
+          <i class="fas fa-images"></i> Gallery
+          <span style="background:var(--np-blue-dim);color:var(--np-blue);font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;margin-left:2px;">{{ nav_images|length }}</span>
+        </button>
+      {% endif %}
+    </div>
+
+    <!-- Details pane: featured image + page content -->
+    <div id="np-pane-details" class="np-tab-pane np-tab-pane-active">
+      <div class="np-content-body">
+
         {% if nav_link.image %}
-            <img src="{{ url_for('static', filename='images/' + nav_link.image) }}" alt="{{ nav_link.link_text }}" class="nav-image">
+          <div class="np-img-single" style="margin-bottom:24px;">
+            <img src="{{ url_for('static', filename='images/' + nav_link.image) }}" alt="{{ nav_link.link_text }}">
+          </div>
         {% endif %}
-        
-        {% if nav_link.page_content %}
-            <div class="content-body">{{ nav_link.page_content }}</div>
-        {% endif %}
-        
-        {% set nav_images = nav_link.get_images() %}
-        
-        {% if nav_images %}
-            {% if nav_images|length == 1 %}
-                {# Single image display #}
-                <div class="image-single">
-                    {% if nav_images[0] is string %}
-                        <img src="{{ url_for('static', filename='images/' + nav_images[0]) }}" alt="{{ nav_link.link_text }}">
-                    {% else %}
-                        <img src="{{ url_for('static', filename='images/' + nav_images[0].src) }}" alt="{{ nav_images[0].caption or nav_link.link_text }}">
-                        {% if nav_images[0].caption %}
-                            <div class="image-single-caption">{{ nav_images[0].caption }}</div>
-                        {% endif %}
-                    {% endif %}
-                </div>
-            {% else %}
-                {# Multiple images gallery #}
-                <div class="image-gallery">
-                    {% for img in nav_images %}
-                        <div class="image-card">
-                            {% if img is string %}
-                                <img src="{{ url_for('static', filename='images/' + img) }}" alt="Image">
-                            {% else %}
-                                <img src="{{ url_for('static', filename='images/' + img.src) }}" alt="{{ img.caption or 'Image' }}">
-                                {% if img.caption %}
-                                    <div class="image-caption">{{ img.caption }}</div>
-                                {% endif %}
-                            {% endif %}
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% elif not nav_link.page_content %}
-            <div class="empty-content">
-                <i class="fas fa-file-alt text-3xl mb-4"></i>
-                <p>No content available for this page yet.</p>
-            </div>
-        {% endif %}
-    </div>
-</div>
 
-<footer class="bg-gradient-to-r from-slate-800 to-slate-900 text-white text-sm mt-20">
-    <div class="py-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto px-4">
-        <div class="footer-section">
-            <img src="{{ url_for('static', filename=logo_image) }}" alt="Logo" class="h-10 mb-3 brightness-0 invert hover:scale-105 transition-transform duration-300">
-            <div class="font-bold text-base mb-2">Development Academy of The Philippines</div>
-            <address class="not-italic text-xs leading-relaxed text-slate-300">
-                DAP Building, San Miguel Avenue, Pasig City 1500<br>
-                Tel: +632 631 0921 to 30<br>
-                Email: <a href="mailto:coe_psp@dap.edu.ph" class="text-blue-400 hover:text-blue-300">coe_psp@dap.edu.ph</a>
-            </address>
-        </div>
+        {% if nav_link.page_content %}
+          <div class="np-text" style="overflow-wrap: break-word; word-break: break-word;">{{ nav_link.page_content | safe }}</div>
+        {% elif not nav_link.image %}
+          <div class="np-empty">
+            <i class="fas fa-file-alt"></i>
+            <div class="np-empty-title">No content yet</div>
+            <p>Content for this section will appear here once published.</p>
+          </div>
+        {% endif %}
+
+      </div>
     </div>
+
+    <!-- Gallery pane: nav_images from admin -->
+    {% if nav_images %}
+    <div id="np-pane-gallery" class="np-tab-pane">
+      <div class="np-content-body">
+
+        {% if nav_images|length == 1 %}
+          <div class="np-img-single">
+            {% if nav_images[0] is string %}
+              <img src="{{ url_for('static', filename='images/' + nav_images[0]) }}" alt="{{ nav_link.link_text }}">
+            {% else %}
+              <img src="{{ url_for('static', filename='images/' + nav_images[0].src) }}"
+                   alt="{{ nav_images[0].caption or nav_link.link_text }}">
+              {% if nav_images[0].caption %}
+                <div class="np-img-cap">{{ nav_images[0].caption | safe }}</div>
+              {% endif %}
+            {% endif %}
+          </div>
+        {% else %}
+          <div class="np-gallery">
+            {% for img in nav_images %}
+              <div class="np-gallery-item">
+                {% if img is string %}
+                  <img src="{{ url_for('static', filename='images/' + img) }}" alt="Image">
+                {% else %}
+                  <img src="{{ url_for('static', filename='images/' + img.src) }}"
+                       alt="{{ img.caption or 'Image' }}">
+                  {% if img.caption %}
+                    <div class="np-gallery-cap">{{ img.caption | safe }}</div>
+                  {% endif %}
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+      </div>
+    </div>
+    {% endif %}
+
+  </div><!-- /.np-content-card -->
+
+</div><!-- /.np-body -->
+
+<!-- ─── FOOTER ───────────────────────────────────── -->
+<footer class="np-footer">
+  <div class="np-footer-inner">
+    <div class="np-footer-row">
+      <img src="{{ url_for('static', filename=logo_image) }}" class="np-footer-logo" alt="Logo">
+      <div>
+        <div class="np-footer-org">Development Academy of The Philippines</div>
+        <address class="np-footer-addr">
+          DAP Building, San Miguel Avenue, Pasig City 1500<br>
+          Tel: +632 631 0921 to 30 &nbsp;·&nbsp;
+          Email: <a href="mailto:coe_psp@dap.edu.ph">coe_psp@dap.edu.ph</a>
+        </address>
+      </div>
+    </div>
+    <div class="np-footer-hr"></div>
+    <div class="np-footer-copy">© Development Academy of the Philippines. All rights reserved.</div>
+  </div>
 </footer>
+
+</div><!-- /.np-page -->
+
+<script>
+function npSwitchTab(paneId, btn) {
+  // Deactivate all tabs and panes
+  document.querySelectorAll('.np-tab').forEach(t => t.classList.remove('np-tab-active'));
+  document.querySelectorAll('.np-tab-pane').forEach(p => p.classList.remove('np-tab-pane-active'));
+  // Activate selected
+  btn.classList.add('np-tab-active');
+  const pane = document.getElementById('np-pane-' + paneId);
+  if (pane) pane.classList.add('np-tab-pane-active');
+}
+</script>
 {% endblock %}
