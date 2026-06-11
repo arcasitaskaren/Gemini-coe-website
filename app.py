@@ -2,32 +2,46 @@
 import os
 from dotenv import load_dotenv
 
-# Load .env FIRST (use absolute path for production reliability)
 basedir = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(basedir, ".env"))
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session, make_response
+import json
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from config import Config
-from models import db, ContentSection, Card, NavigationLink, FooterSection, Admin, SuggestedProfessional, Page, PageBlock
+from models import db, ContentSection, Card, NavigationLink, FooterSection, Admin, SuggestedProfessional, Page, PageBlock, CrawledPage, NewsArticle, TrainingProgram
 from werkzeug.utils import secure_filename
-import json
-from datetime import datetime
+from datetime import datetime, timezone   # ← SINGLE import with both datetime AND timezone
 import requests
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 import hashlib
 import re
 import time
 import secrets
 import string
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.parse import urljoin, urlparse as _urlparse
 
-# Initialize Flask
+# GA4 Analytics - graceful fallback
+try:
+    from google.analytics.data_v1beta import BetaAnalyticsDataClient
+    from google.analytics.data_v1beta.types import (
+        RunReportRequest, DateRange, Dimension, Metric, OrderBy
+    )
+    from google.oauth2 import service_account as ga_service_account
+    GA4_AVAILABLE = True
+except ImportError:
+    GA4_AVAILABLE = False
+    print("[GA4] google-analytics-data not installed.")
+
 app = Flask(__name__)
+app.jinja_env.filters['fromjson'] = json.loads
 app.config.from_object(Config)
 
-# Detect environment
 IS_PRODUCTION = os.environ.get('FLASK_ENV', 'production') == 'production'
 
-# Define GOV_IMAGE_BASE - the public URL where uploaded images are served.
 GOV_IMAGE_BASE = (
     os.environ.get('GOV_IMAGE_BASE')
     or os.environ.get('UPLOAD_URL')
@@ -35,74 +49,101 @@ GOV_IMAGE_BASE = (
     or 'http://coe-psp.dap.edu.ph/static/images'
 )
 
-# Debug: Verify API key is loaded
-api_key_check = os.getenv('GROQ_API_KEY', 'NOT FOUND')
-print(f"\n[DEBUG] GROQ_API_KEY from environment: {'LOADED' if api_key_check != 'NOT FOUND' else 'NOT FOUND'}")
-if api_key_check != 'NOT FOUND':
-    print(f"[DEBUG] API Key starts with: {api_key_check[:10]}...")
+GA4_PROPERTY_ID      = os.environ.get('GA4_PROPERTY_ID', '')
+GA4_CREDENTIALS_FILE = os.environ.get('GA4_CREDENTIALS_FILE', 'ga4-credentials.json')
+
+print(f"\n[DEBUG] ANTHROPIC_API_KEY: {'LOADED' if os.getenv('ANTHROPIC_API_KEY') else 'NOT FOUND'}")
 print(f"[DEBUG] IS_PRODUCTION: {IS_PRODUCTION}")
 print(f"[DEBUG] GOV_IMAGE_BASE: {GOV_IMAGE_BASE}")
+print(f"[DEBUG] GA4_AVAILABLE: {GA4_AVAILABLE}")
+print(f"[DEBUG] GA4_PROPERTY_ID: {'SET' if GA4_PROPERTY_ID else 'NOT SET'}")
 print()
 
-# Initialize extensions
 db.init_app(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'admin_login'
 
-# Context processor - injects GOV_IMAGE_BASE into EVERY template automatically.
+
 @app.context_processor
 def inject_globals():
     return dict(GOV_IMAGE_BASE=GOV_IMAGE_BASE)
+
 
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(Admin, int(user_id))
 
-# Custom Jinja2 filters
+
 @app.template_filter('fromjson')
 def fromjson_filter(value):
-    """Parse JSON string into Python object"""
     try:
-        if isinstance(value, str):
-            return json.loads(value)
-        return value
+        return json.loads(value) if isinstance(value, str) else value
     except (json.JSONDecodeError, TypeError):
         return []
 
-# Create upload folder if it doesn't exist
+
+@app.template_filter('images_json')
+def images_json_filter(value):
+    if not value:
+        return '[]'
+    raw_list = value if isinstance(value, list) else (
+        json.loads(value) if isinstance(value, str) else []
+    )
+    clean = []
+    for item in raw_list:
+        if isinstance(item, dict):
+            src     = (item.get('src') or item.get('filename') or '').strip()
+            caption = (item.get('caption') or '').strip()
+            if src:
+                clean.append({'src': src, 'caption': caption})
+        elif isinstance(item, str) and item.strip():
+            clean.append({'src': item.strip(), 'caption': ''})
+    return json.dumps(clean)
+
+
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# ---------------------------------------------
-# Helper utilities
-# ---------------------------------------------
+
+# ---------------------------------------------------------------------------
+#  Helpers
+# ---------------------------------------------------------------------------
 
 def escape_html(text):
     if not text:
         return text
-    return str(text).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#39;')
+    return (str(text)
+            .replace('&', '&amp;').replace('<', '&lt;')
+            .replace('>', '&gt;').replace('"', '&quot;')
+            .replace("'", '&#39;'))
+
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
+
 def get_content(key, default=''):
-    content = db.session.query(ContentSection).filter_by(content_key=key).first()
-    return content.content_value if content else default
+    c = db.session.query(ContentSection).filter_by(content_key=key).first()
+    return c.content_value if c else default
+
 
 def get_all_content():
     return db.session.query(ContentSection).order_by(ContentSection.section_order).all()
 
+
 def get_all_cards():
     return db.session.query(Card).order_by(Card.card_order).all()
+
 
 def get_all_nav_links():
     return db.session.query(NavigationLink).order_by(NavigationLink.link_order).all()
 
+
 def get_all_professionals():
     return db.session.query(SuggestedProfessional).order_by(SuggestedProfessional.professional_order).all()
 
+
 def clear_ai_cache():
-    """Delete all cached AI responses so the next search hits fresh DB data."""
     cache_dir = os.path.join(app.root_path, 'cache')
     if os.path.exists(cache_dir):
         for f in os.listdir(cache_dir):
@@ -112,106 +153,345 @@ def clear_ai_cache():
                 except OSError:
                     pass
 
+
 def no_cache_json(data, status=200):
-    """Return a JSON response with cache-busting headers."""
     resp = make_response(jsonify(data), status)
     resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
-    resp.headers['Pragma'] = 'no-cache'
-    resp.headers['Expires'] = '0'
+    resp.headers['Pragma']        = 'no-cache'
+    resp.headers['Expires']       = '0'
     return resp
+
 
 def is_greeting(query):
     greetings = [
         'hello', 'hi', 'hey', 'greetings', 'good morning', 'good afternoon',
         'good evening', 'howdy', 'hola', 'bonjour', 'kamusta', 'kumusta',
-        'what are you', 'who are you', 'introduce yourself'
+        'what are you', 'who are you', 'introduce yourself',
     ]
     q = query.lower().strip()
-    for greeting in greetings:
-        if q == greeting or q.startswith(greeting + ' ') or q.startswith(greeting + '!'):
-            return True
-    return False
+    return any(q == g or q.startswith(g + ' ') or q.startswith(g + '!') for g in greetings)
 
 
-# -----------------------------------------------------------------------------
-#  URL CONTENT FETCHER
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+#  URL fetcher + deep crawler
+# ---------------------------------------------------------------------------
 
-# Simple in-memory cache for fetched URLs to avoid re-fetching on every search
-_url_cache = {}
-_URL_CACHE_TTL = 3600  # 1 hour
+_url_cache     = {}
+_URL_CACHE_TTL = 21600  # 6 hours
 
-def fetch_url_content(url: str) -> str:
-    """
-    Fetch and extract plain text from a URL.
-    Used to enrich AI context with real content from nav link URLs.
-    Returns up to 3000 characters of cleaned text.
-    """
+_SKIP_EXTENSIONS = {
+    '.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp',
+    '.zip', '.doc', '.docx', '.xls', '.xlsx', '.csv',
+    '.mp4', '.mp3', '.avi', '.mov', '.svg', '.ico',
+    '.css', '.js', '.json', '.xml', '.txt', '.map',
+    '.woff', '.woff2', '.ttf', '.eot', '.otf',
+    '.rss', '.atom', '.yaml', '.yml', '.toml',
+}
+
+_SKIP_URL_SEGMENTS = {
+    '/wp-content/', '/wp-includes/', '/wp-json/',
+    '/wp-admin/', '/feed/', '/xmlrpc',
+    '/css/', '/js/', '/fonts/', '/font/',
+    '/assets/css/', '/assets/js/',
+    '/static/css/', '/static/js/',
+}
+
+_FETCH_HEADERS = {
+    'User-Agent': (
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+        'AppleWebKit/537.36 (KHTML, like Gecko) '
+        'Chrome/124.0.0.0 Safari/537.36'
+    ),
+    'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate',
+    'Connection':      'keep-alive',
+}
+
+# Deep-crawl settings
+MAX_CRAWL_DEPTH    = 3
+MAX_PAGES_PER_SEED = 25
+CRAWL_DELAY_SECS   = 0.4
+
+# Periodic re-crawl interval
+_RECRAWL_INTERVAL_HOURS = 6
+_recrawl_timer = None
+
+
+def _html_to_text(html: str) -> str:
+    clean = re.sub(r'<style[^>]*>.*?</style>',   ' ', html,  flags=re.DOTALL | re.IGNORECASE)
+    clean = re.sub(r'<script[^>]*>.*?</script>',  ' ', clean, flags=re.DOTALL | re.IGNORECASE)
+    clean = re.sub(r'<nav[^>]*>.*?</nav>',        ' ', clean, flags=re.DOTALL | re.IGNORECASE)
+    clean = re.sub(r'<footer[^>]*>.*?</footer>',  ' ', clean, flags=re.DOTALL | re.IGNORECASE)
+    clean = re.sub(r'<!--.*?-->',                 ' ', clean, flags=re.DOTALL)
+    text  = re.sub(r'<[^>]+>', ' ', clean)
+    return re.sub(r'\s+', ' ', text).strip()
+
+
+def _extract_page_title(html: str) -> str:
+    m = re.search(r'<title[^>]*>(.*?)</title>', html, re.IGNORECASE | re.DOTALL)
+    return re.sub(r'\s+', ' ', m.group(1)).strip()[:200] if m else ''
+
+
+def _extract_links_from_html(html: str, base_url: str) -> list:
+    base_parsed  = _urlparse(base_url)
+    same_origin  = []
+    cross_origin = []
+
+    for match in re.finditer(r'href=["\']([^"\'#][^"\']*)["\']', html, re.IGNORECASE):
+        href = match.group(1).strip()
+        if not href or href.startswith(('mailto:', 'javascript:', 'tel:', '#')):
+            continue
+        abs_url = urljoin(base_url, href)
+        parsed  = _urlparse(abs_url)
+        if parsed.scheme not in ('http', 'https'):
+            continue
+        path = parsed.path.lower()
+        if any(path.endswith(ext) for ext in _SKIP_EXTENSIONS):
+            continue
+        # Also skip by path segment (catches ?ver= query string variants)
+        abs_lower = abs_url.lower()
+        if any(seg in abs_lower for seg in _SKIP_URL_SEGMENTS):
+            continue
+        clean = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        if parsed.query:
+            clean += f"?{parsed.query}"
+        if parsed.netloc == base_parsed.netloc:
+            same_origin.append(clean)
+        else:
+            cross_origin.append(clean)
+
+    seen, result = set(), []
+    for u in same_origin + cross_origin:
+        if u not in seen:
+            seen.add(u)
+            result.append(u)
+    return result
+
+
+def _fetch_single_url(url: str, timeout: int = 4) -> str:
     if not url or url in ('#', ''):
         return ''
-
-    # Check in-memory cache
     cached = _url_cache.get(url)
-    if cached and (time.time() - cached['ts'] < _URL_CACHE_TTL):
-        return cached['text']
-
+    if cached and (time.time() - cached.get('ts', 0) < _URL_CACHE_TTL):
+        return cached.get('text', '')
     try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (compatible; DAP-COE-Bot/1.0)',
-            'Accept': 'text/html,application/xhtml+xml',
-        }
-        resp = requests.get(url, headers=headers, timeout=8, allow_redirects=True)
+        resp = requests.get(
+            url, headers=_FETCH_HEADERS, timeout=timeout,
+            allow_redirects=True, verify=False
+        )
         if resp.status_code != 200:
+            print(f"[fetch_url] HTTP {resp.status_code} for {url}")
             return ''
-
         html = resp.text
-
-        # Remove style and script blocks
-        html = re.sub(r'<style[^>]*>.*?</style>', ' ', html, flags=re.DOTALL | re.IGNORECASE)
-        html = re.sub(r'<script[^>]*>.*?</script>', ' ', html, flags=re.DOTALL | re.IGNORECASE)
-        # Remove HTML tags
-        text = re.sub(r'<[^>]+>', ' ', html)
-        # Collapse whitespace
-        text = re.sub(r'\s+', ' ', text).strip()
-        # Limit to 3000 chars
-        text = text[:3000]
-
-        # Store in cache
-        _url_cache[url] = {'text': text, 'ts': time.time()}
-        print(f"[fetch_url] Fetched {len(text)} chars from {url}")
+        text = _html_to_text(html)[:4000]
+        _url_cache[url] = {'text': text, 'ts': time.time(), 'raw_html': html}
         return text
-
     except Exception as e:
         print(f"[fetch_url] Error fetching {url}: {e}")
         return ''
 
 
-# -----------------------------------------------------------------------------
-#  ENHANCED SEARCH ENGINE
-# -----------------------------------------------------------------------------
+def fetch_url_content(url: str, deep: bool = True, max_subpages: int = 20) -> str:
+    if not url or url in ('#', ''):
+        return ''
+
+    cache_key = f"__deep__{url}" if deep else url
+    cached = _url_cache.get(cache_key)
+    if cached and (time.time() - cached.get('ts', 0) < _URL_CACHE_TTL):
+        return cached.get('text', '')
+
+    root_text = _fetch_single_url(url)
+    if not deep or not root_text:
+        return root_text
+
+    raw_html = _url_cache.get(url, {}).get('raw_html', '')
+    if not raw_html:
+        _url_cache[cache_key] = {'text': root_text, 'ts': time.time()}
+        return root_text
+
+    sub_links = _extract_links_from_html(raw_html, url)[:max_subpages]
+    if not sub_links:
+        _url_cache[cache_key] = {'text': root_text, 'ts': time.time()}
+        return root_text
+
+    sub_texts = []
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        future_map = {executor.submit(_fetch_single_url, u, 6): u for u in sub_links}
+        for future in as_completed(future_map, timeout=25):
+            sub_url = future_map[future]
+            try:
+                t = future.result()
+                if t:
+                    sub_texts.append(f"\n[Sub-page: {sub_url}]\n{t[:2000]}")
+            except Exception:
+                pass
+
+    combined = (root_text + ''.join(sub_texts))[:12000]
+    _url_cache[cache_key] = {'text': combined, 'ts': time.time()}
+    return combined
+
+
+# ---------------------------------------------------------------------------
+#  Persistent deep crawler (stores results in CrawledPage DB table)
+# ---------------------------------------------------------------------------
+
+def crawl_url_deep(seed_url: str, nav_link_id: int = None) -> int:
+    if not seed_url or seed_url in ('#', ''):
+        return 0
+
+    parsed_seed = _urlparse(seed_url)
+    root_domain = parsed_seed.netloc
+    if not root_domain:
+        return 0
+
+    with app.app_context():
+        existing = {
+            r.page_url for r in
+            db.session.query(CrawledPage.page_url)
+            .filter_by(source_url=seed_url).all()
+        }
+
+    queue         = [(seed_url, 0)]
+    visited       = set(existing)
+    visited.add(seed_url.rstrip('/'))
+    newly_crawled = 0
+
+    while queue and newly_crawled < MAX_PAGES_PER_SEED:
+        current_url, depth = queue.pop(0)
+        if depth > MAX_CRAWL_DEPTH:
+            continue
+        try:
+            print(f"[crawler] depth={depth} crawling: {current_url}")
+            resp = requests.get(current_url, headers=_FETCH_HEADERS, timeout=10,
+                                allow_redirects=True, verify=False)
+            if resp.status_code != 200:
+                continue
+
+            html        = resp.text
+            text        = _html_to_text(html)[:6000]
+            title       = _extract_page_title(html)
+            child_links = _extract_links_from_html(html, current_url)
+
+            with app.app_context():
+                existing_page = db.session.query(CrawledPage).filter_by(page_url=current_url).first()
+                if existing_page:
+                    existing_page.text_content = text
+                    existing_page.page_title   = title
+                    existing_page.crawled_at   = datetime.utcnow()
+                else:
+                    db.session.add(CrawledPage(
+                        source_url   = seed_url,
+                        page_url     = current_url,
+                        page_title   = title,
+                        text_content = text,
+                        nav_link_id  = nav_link_id,
+                        depth        = depth,
+                    ))
+                db.session.commit()
+                newly_crawled += 1
+
+            for link in child_links:
+                norm = link.rstrip('/')
+                if norm not in visited and newly_crawled + len(queue) < MAX_PAGES_PER_SEED * 2:
+                    visited.add(norm)
+                    queue.append((link, depth + 1))
+
+            time.sleep(CRAWL_DELAY_SECS)
+
+        except Exception as e:
+            print(f"[crawler] Error on {current_url}: {e}")
+            continue
+
+    print(f"[crawler] Finished seed={seed_url}, crawled {newly_crawled} pages")
+    return newly_crawled
+
+
+def crawl_all_nav_links() -> int:
+    """Crawl every NavigationLink URL and every Card button URL."""
+    with app.app_context():
+        nav_links = db.session.query(NavigationLink).filter(
+            NavigationLink.link_url.isnot(None),
+            NavigationLink.link_url != '#',
+            NavigationLink.link_url != '',
+        ).all()
+
+        card_urls = []
+        for card in db.session.query(Card).all():
+            for url in _safe_json_dict(card.button_links).values():
+                if url and url not in ('#', ''):
+                    card_urls.append((url, None))
+
+        total = 0
+        for nav in nav_links:
+            print(f"[crawler] Starting deep crawl for nav '{nav.link_text}' -> {nav.link_url}")
+            total += crawl_url_deep(nav.link_url, nav_link_id=nav.id)
+
+        seen = set()
+        for url, _ in card_urls:
+            if url not in seen:
+                seen.add(url)
+                print(f"[crawler] Card button url -> {url}")
+                total += crawl_url_deep(url)
+
+        print(f"[crawler] Total pages crawled: {total}")
+        return total
+
+
+def _schedule_recrawl():
+    """Schedule a periodic background re-crawl every _RECRAWL_INTERVAL_HOURS hours."""
+    global _recrawl_timer
+
+    def _run():
+        print(f"[crawler] Scheduled re-crawl starting...")
+        with app.app_context():
+            crawl_all_nav_links()
+        _schedule_recrawl()
+
+    _recrawl_timer = threading.Timer(_RECRAWL_INTERVAL_HOURS * 3600, _run)
+    _recrawl_timer.daemon = True
+    _recrawl_timer.start()
+    print(f"[crawler] Next re-crawl scheduled in {_RECRAWL_INTERVAL_HOURS}h")
+
+
+# ---------------------------------------------------------------------------
+#  Search helpers
+# ---------------------------------------------------------------------------
 
 SYNONYMS = {
-    'training':        ['capacity development', 'learning', 'course', 'seminar', 'workshop', 'program'],
-    'course':          ['training', 'program', 'seminar', 'workshop'],
-    'program':         ['training', 'course', 'initiative', 'project'],
-    'new':             ['latest', 'recent', 'update', 'news', 'announcement'],
-    'govlab':          ['governance lab', 'innovation lab', 'lab'],
-    'challenge':       ['competition', 'contest', 'submit', 'entry'],
-    'productivity':    ['efficiency', 'performance', 'output'],
-    'public sector':   ['government', 'agency', 'bureau', 'office'],
-    'join':            ['register', 'enroll', 'membership', 'participate'],
-    'about':           ['overview', 'mission', 'vision', 'background'],
-    'community':       ['network', 'group', 'members', 'professionals'],
-    'knowledge':       ['research', 'publication', 'study', 'resource', 'learning'],
-    'digital':         ['technology', 'innovation', 'paperless', 'e-government'],
-    'paperless':       ['digital', 'paper-less', 'e-document', 'technology'],
-    'nextgen':         ['next generation', 'youth', 'leaders', 'future'],
-    'enroll':          ['register', 'join', 'sign up', 'apply'],
-    'conference':      ['summit', 'forum', 'congress', 'event', 'symposium'],
-    'innovation':      ['digital', 'technology', 'improvement', 'reform'],
-    'dap':             ['development academy', 'development academy of the philippines'],
-    'coe':             ['center of excellence', 'excellence center'],
-    'seminar':         ['training', 'workshop', 'webinar', 'session'],
+    'training':      ['capacity development', 'learning', 'course', 'seminar', 'workshop', 'program'],
+    'course':        ['training', 'program', 'seminar', 'workshop'],
+    'program':       ['training', 'course', 'initiative', 'project'],
+    'new':           ['latest', 'recent', 'update', 'news', 'announcement'],
+    'govlab':        ['governance lab', 'innovation lab', 'lab'],
+    'challenge':     ['competition', 'contest', 'submit', 'entry'],
+    'productivity':  ['efficiency', 'performance', 'output'],
+    'public sector': ['government', 'agency', 'bureau', 'office'],
+    'join':          ['register', 'enroll', 'membership', 'participate'],
+    'about':         ['overview', 'mission', 'vision', 'background'],
+    'community':     ['network', 'group', 'members', 'professionals'],
+    'knowledge':     ['research', 'publication', 'study', 'resource', 'learning'],
+    'digital':       ['technology', 'innovation', 'paperless', 'e-government'],
+    'paperless':     ['digital', 'paper-less', 'e-document', 'technology'],
+    'nextgen':       ['next generation', 'youth', 'leaders', 'future'],
+    'enroll':        ['register', 'join', 'sign up', 'apply'],
+    'conference':    ['summit', 'forum', 'congress', 'event', 'symposium'],
+    'innovation':    ['digital', 'technology', 'improvement', 'reform'],
+    'dap':           ['development academy', 'development academy of the philippines'],
+    'coe':           ['center of excellence', 'excellence center'],
+    'seminar':       ['training', 'workshop', 'webinar', 'session'],
+    'toolkit':       ['tools', 'guide', 'resources', 'framework', 'manual', 'kit'],
+    'framework':     ['structure', 'model', 'approach', 'methodology', 'system'],
+    'assessment':    ['evaluation', 'review', 'audit', 'appraisal', 'analysis'],
+    'moneywise':     ['financial literacy', 'money management', 'personal finance', 'budget', 'savings'],
+    'financial':     ['money', 'finance', 'fiscal', 'budget', 'funding', 'moneywise'],
+    'money':         ['financial', 'budget', 'savings', 'funds', 'fiscal', 'moneywise'],
+    'budget':        ['financial planning', 'funds', 'allocation', 'money management'],
+    'literacy':      ['education', 'awareness', 'learning', 'knowledge', 'skills'],
+    'winner':        ['grand winner', 'champion', 'awardee', 'winner', 'first place', 'top'],
+    'fastbreak':     ['fast break', 'productivity challenge', 'challenge', 'competition'],
+    'award':         ['winner', 'awardee', 'recognition', 'prize', 'honor'],
+    'result':        ['outcome', 'winner', 'result', 'announcement', 'awardee'],
 }
 
 STOPWORDS = {
@@ -229,8 +509,14 @@ STOPWORDS = {
 
 
 def _tokenise(text: str) -> list:
-    words = re.findall(r"[a-zA-Z0-9']+", text.lower())
-    return [w for w in words if w not in STOPWORDS and len(w) > 1]
+    words  = re.findall(r"[a-zA-Z0-9']+", text.lower())
+    result = []
+    for w in words:
+        if w in STOPWORDS:
+            continue
+        if w.isdigit() or len(w) > 1:
+            result.append(w)
+    return result
 
 
 def _expand_keywords(tokens: list) -> list:
@@ -250,7 +536,7 @@ def _expand_keywords(tokens: list) -> list:
 def _score_text(tokens: list, expanded: list, haystack: str) -> float:
     if not haystack:
         return 0.0
-    hay = haystack.lower()
+    hay   = haystack.lower()
     score = 0.0
     for t in tokens:
         if re.search(rf'\b{re.escape(t)}\b', hay):
@@ -268,11 +554,11 @@ def _score_text(tokens: list, expanded: list, haystack: str) -> float:
     return min(score / max_possible, 1.5)
 
 
-def _extract_snippet(haystack: str, tokens: list, window: int = 130) -> str:
+def _extract_snippet(haystack: str, tokens: list, window: int = 200) -> str:
     if not haystack:
         return ''
     hay_lower = haystack.lower()
-    best_pos = -1
+    best_pos  = -1
     for t in tokens:
         pos = hay_lower.find(t)
         if pos != -1:
@@ -280,8 +566,8 @@ def _extract_snippet(haystack: str, tokens: list, window: int = 130) -> str:
             break
     if best_pos == -1:
         return haystack[:window] + ('...' if len(haystack) > window else '')
-    start = max(0, best_pos - 40)
-    end = min(len(haystack), best_pos + window)
+    start   = max(0, best_pos - 60)
+    end     = min(len(haystack), best_pos + window)
     snippet = haystack[start:end].strip()
     return ('...' if start > 0 else '') + snippet + ('...' if end < len(haystack) else '')
 
@@ -320,9 +606,36 @@ def _image_url(filename: str) -> str:
     return f'{GOV_IMAGE_BASE}/{bare}'
 
 
-# ---------------------------------------------
-# Main DB search
-# ---------------------------------------------
+def _strip_html(html_text: str) -> str:
+    if not html_text:
+        return ''
+    text = re.sub(r'<[^>]+>', ' ', html_text)
+    return re.sub(r'\s+', ' ', text).strip()
+
+
+def _title_contains_any_token(tokens: list, title: str) -> bool:
+    if not title or not tokens:
+        return False
+    title_lower = title.lower()
+    return any(t in title_lower for t in tokens if len(t) >= 4)
+
+
+def _check_exact_match(query: str, text: str) -> bool:
+    if not query or not text:
+        return False
+    q   = query.strip().lower()
+    hay = text.lower()
+    if re.search(rf'\b{re.escape(q)}\b', hay):
+        return True
+    for tok in _tokenise(q):
+        if len(tok) >= 4 and re.search(rf'\b{re.escape(tok)}\b', hay):
+            return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+#  FULL DATABASE SEARCH
+# ---------------------------------------------------------------------------
 
 def search_website_content(query: str) -> dict:
     results = {
@@ -330,94 +643,194 @@ def search_website_content(query: str) -> dict:
         'images':        [],
         'related_links': [],
         'context_text':  '',
+        'exact_match':   False,
+        'exact_term':    '',
+        'exact_context': '',
     }
 
     if not query or not query.strip():
         return results
 
-    tokens = _tokenise(query)
+    tokens   = _tokenise(query)
     if not tokens:
         return results
     expanded = _expand_keywords(tokens)
-    matches = []
+    matches  = []
 
     try:
-        # --- Search Cards ---
-        for card in db.session.query(Card).all():
-            title_score = _score_text(tokens, expanded, card.title or '')
+        all_cards   = db.session.query(Card).all()
+        all_navs    = db.session.query(NavigationLink).all()
+        all_cs      = db.session.query(ContentSection).all()
+        all_pages   = db.session.query(Page).filter_by(is_published=True).all()
+        all_crawled = db.session.query(CrawledPage).all()
+
+        # ── Index crawled pages by source URL for fast lookup ────────────
+        crawled_by_source = {}
+        for cp in all_crawled:
+            crawled_by_source.setdefault(cp.source_url, []).append(cp)
+
+        # Track all crawled page URLs to avoid redundant live fetches
+        crawled_urls = {cp.page_url for cp in all_crawled}
+
+        # ── Collect URLs not yet in DB (still worth live-fetching) ───────
+        nav_urls = list({
+            nav.link_url for nav in all_navs
+            if nav.link_url and nav.link_url not in ('#', '', None)
+            and nav.link_url not in crawled_urls
+        })
+        card_button_urls = list({
+            url
+            for card in all_cards
+            for url in _safe_json_dict(card.button_links).values()
+            if url and url not in ('#', '', None)
+            and url not in crawled_urls
+        })
+        all_urls_to_fetch = list(set(nav_urls + card_button_urls))
+
+        url_results = {}
+        if all_urls_to_fetch:
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                future_map = {
+                    executor.submit(fetch_url_content, u, True, 20): u
+                    for u in all_urls_to_fetch
+                }
+                for future in as_completed(future_map, timeout=4):
+                    url = future_map[future]
+                    try:
+                        url_results[url] = future.result()
+                    except Exception:
+                        url_results[url] = ''
+            fetched_ok = sum(1 for v in url_results.values() if v)
+            print(f"[search] Live-fetched {fetched_ok}/{len(all_urls_to_fetch)} uncrawled URLs")
+
+        # ── Helper: get merged crawled subpage text for a seed URL ───────
+        def _crawled_text_for(seed_url: str) -> str:
+            pages = crawled_by_source.get(seed_url, [])
+            if not pages:
+                return ''
+            pages = sorted(pages, key=lambda p: (p.depth, -p.crawled_at.timestamp()))
+            parts = []
+            for p in pages[:15]:
+                if p.text_content:
+                    parts.append(f"[{p.page_title or p.page_url}]\n{p.text_content[:1500]}")
+            return '\n\n'.join(parts)[:8000]
+
+        # ── Score Cards ──────────────────────────────────────────────────
+        for card in all_cards:
             btn_contents = _safe_json_dict(card.button_contents)
-            btn_images = _safe_json_dict(card.button_images)
-            btn_links = _safe_json_dict(card.button_links)
+            btn_images   = _safe_json_dict(card.button_images)
+            btn_links    = _safe_json_dict(card.button_links)
             buttons_list = _safe_json_list(card.buttons)
             content_blob = ' '.join(str(v) for v in btn_contents.values())
+
+            title_score   = _score_text(tokens, expanded, card.title or '')
             content_score = _score_text(tokens, expanded, content_blob)
-            overall = max(title_score, content_score * 0.85)
-            if overall < 0.1:
+            overall       = max(title_score, content_score * 0.85)
+            if _title_contains_any_token(tokens, card.title or ''):
+                overall = max(overall, 0.8)
+
+            card_subpage_texts = []
+            card_links         = []
+
+            for btn_idx, link_url in btn_links.items():
+                if not link_url:
+                    continue
+                try:
+                    label = buttons_list[int(btn_idx)]
+                except (ValueError, IndexError):
+                    label = 'View'
+                card_links.append({'title': label, 'url': link_url, 'context': card.title})
+
+                # Prefer DB-crawled data; fall back to live fetch
+                crawled_sub = _crawled_text_for(link_url)
+                if crawled_sub:
+                    card_subpage_texts.append(f"[Button: {label} | {link_url}]\n{crawled_sub[:2500]}")
+                else:
+                    live_text = url_results.get(link_url, '')
+                    if live_text:
+                        card_subpage_texts.append(f"[Button: {label}]\n{live_text[:2000]}")
+
+            subpage_blob = '\n'.join(card_subpage_texts)
+            if subpage_blob:
+                subpage_score = _score_text(tokens, expanded, subpage_blob)
+                overall       = max(overall, subpage_score)
+
+            if overall < 0.08:
                 continue
-            snippet = _extract_snippet(content_blob or card.title or '', tokens)
+
+            is_exact = _check_exact_match(
+                query,
+                (card.title or '') + ' ' + content_blob + ' ' + subpage_blob
+            )
+            snippet = _extract_snippet(
+                subpage_blob if (subpage_blob and _score_text(tokens, expanded, subpage_blob) > content_score)
+                else (content_blob or card.title or ''),
+                tokens
+            )
+
             card_images = []
             if card.image:
                 card_images.append({'url': _image_url(card.image), 'alt_text': card.title, 'source': card.title})
             for btn_idx, btn_img_raw in btn_images.items():
                 if isinstance(btn_img_raw, list):
                     for img_entry in btn_img_raw:
-                        fname = img_entry.get('filename', '') if isinstance(img_entry, dict) else str(img_entry)
+                        fname   = (img_entry.get('src', '') or img_entry.get('filename', '')) if isinstance(img_entry, dict) else str(img_entry)
                         caption = (img_entry.get('caption', '') if isinstance(img_entry, dict) else '') or card.title
                         if fname:
                             card_images.append({'url': _image_url(fname), 'alt_text': caption, 'source': card.title})
                 elif isinstance(btn_img_raw, str) and btn_img_raw:
                     card_images.append({'url': _image_url(btn_img_raw), 'alt_text': card.title, 'source': card.title})
-            card_links = []
-            for btn_idx, link_url in btn_links.items():
-                if link_url:
-                    try:
-                        label = buttons_list[int(btn_idx)]
-                    except (ValueError, IndexError):
-                        label = 'View'
-                    card_links.append({'title': label, 'url': link_url, 'context': card.title})
+
+            full_text = f"{card.title}\n{content_blob}\n{subpage_blob}"
             matches.append({
-                'score': overall, 'record_type': 'Card', 'record_id': card.id,
-                'record_title': card.title, 'snippet': snippet,
-                'images': card_images, 'links': card_links,
+                'score':        overall,
+                'record_type':  'Card',
+                'record_id':    card.id,
+                'record_title': card.title,
+                'snippet':      snippet,
+                'full_text':    full_text[:6000],
+                'images':       card_images,
+                'links':        card_links,
+                'is_exact':     is_exact,
             })
 
-        # --- Search Navigation Links (with live URL fetching) ---
-        for nav in db.session.query(NavigationLink).all():
-            title_score = _score_text(tokens, expanded, nav.link_text or '')
+        # ── Score Navigation Links ───────────────────────────────────────
+        for nav in all_navs:
+            title_score   = _score_text(tokens, expanded, nav.link_text or '')
             content_score = _score_text(tokens, expanded, nav.page_content or '')
 
-            # Fetch live content from the nav URL if it has one
-            url_text = ''
-            url_score = 0.0
-            if nav.link_url and nav.link_url not in ('#', '', None):
-                url_text = fetch_url_content(nav.link_url)
-                if url_text:
-                    url_score = _score_text(tokens, expanded, url_text) * 0.8
+            # Combine DB-crawled text + live fetch text
+            live_text   = url_results.get(nav.link_url or '', '')
+            crawled_sub = _crawled_text_for(nav.link_url or '') if nav.link_url else ''
+            combined_ext = '\n\n'.join(filter(None, [live_text, crawled_sub]))[:8000]
 
-            overall = max(title_score, content_score * 0.85, url_score)
-            if overall < 0.1:
+            url_score = _score_text(tokens, expanded, combined_ext) if combined_ext else 0.0
+            overall   = max(title_score, content_score * 0.85, url_score)
+
+            if _title_contains_any_token(tokens, nav.link_text or ''):
+                overall = max(overall, 0.8)
+            if overall < 0.05:
                 continue
 
-            # Use URL content for snippet if it's more relevant
-            best_text = nav.page_content or ''
-            if url_text and url_score > content_score * 0.85:
-                best_text = url_text
+            combined_text = (nav.page_content or '') + ('\n' + combined_ext if combined_ext else '')
+            is_exact      = _check_exact_match(query, combined_text + ' ' + (nav.link_text or ''))
 
-            snippet = _extract_snippet(best_text or nav.link_text or '', tokens)
+            best_ext  = crawled_sub or live_text
+            best_text = best_ext if (best_ext and url_score >= content_score * 0.85) else (nav.page_content or best_ext or '')
+            snippet   = _extract_snippet(best_text or nav.link_text or '', tokens)
 
-            # Combine page_content with url_text for richer AI context
-            combined_context = nav.page_content or ''
-            if url_text:
-                combined_context = (combined_context + '\n' + url_text).strip()[:2000]
+            combined_context = (
+                (nav.page_content or '')
+                + ('\n\n[From linked pages & subpages]\n' + combined_ext if combined_ext else '')
+            )[:8000]
 
             nav_images = []
             for img_entry in _safe_json_list(nav.images):
                 if isinstance(img_entry, dict):
-                    fname = img_entry.get('filename', '')
+                    fname   = img_entry.get('src', '') or img_entry.get('filename', '')
                     caption = img_entry.get('caption', nav.link_text)
                 elif isinstance(img_entry, str):
-                    fname = img_entry
-                    caption = nav.link_text
+                    fname, caption = img_entry, nav.link_text
                 else:
                     continue
                 if fname:
@@ -426,38 +839,181 @@ def search_website_content(query: str) -> dict:
             nav_links_out = []
             if nav.link_url and nav.link_url not in ('#', ''):
                 nav_links_out.append({'title': nav.link_text, 'url': nav.link_url, 'context': nav.link_text})
+                # Surface crawled subpages as individual links
+                for cp in crawled_by_source.get(nav.link_url, [])[:5]:
+                    if cp.page_url != nav.link_url:
+                        nav_links_out.append({
+                            'title':   cp.page_title or cp.page_url,
+                            'url':     cp.page_url,
+                            'context': f"Subpage of {nav.link_text}",
+                        })
             else:
                 nav_links_out.append({'title': nav.link_text, 'url': f'/nav-page/{nav.id}', 'context': nav.link_text})
+
             for url in re.findall(r'https?://[^\s<>"{}|\\^`\[\]]+', nav.page_content or ''):
                 nav_links_out.append({
-                    'title': url.replace('https://', '').replace('http://', '').split('/')[0],
-                    'url': url, 'context': nav.link_text,
+                    'title':   url.replace('https://', '').replace('http://', '').split('/')[0],
+                    'url':     url,
+                    'context': nav.link_text,
                 })
 
             matches.append({
-                'score': overall, 'record_type': 'NavigationLink', 'record_id': nav.id,
-                'record_title': nav.link_text, 'snippet': snippet,
-                'images': nav_images, 'links': nav_links_out,
-                'context_text': combined_context,  # enriched context for AI
+                'score':        overall,
+                'record_type':  'NavigationLink',
+                'record_id':    nav.id,
+                'record_title': nav.link_text,
+                'snippet':      snippet,
+                'full_text':    combined_context[:8000],
+                'images':       nav_images,
+                'links':        nav_links_out,
+                'context_text': combined_context[:5000],
+                'is_exact':     is_exact,
             })
 
-        # --- Search Content Sections ---
-        for cs in db.session.query(ContentSection).all():
-            score = _score_text(tokens, expanded, cs.content_value or '')
+        # ── Score Content Sections ───────────────────────────────────────
+        for cs in all_cs:
+            plain = _strip_html(cs.content_value or '')
+            score = _score_text(tokens, expanded, plain)
             if score < 0.2:
                 continue
+            is_exact = _check_exact_match(query, plain + ' ' + (cs.content_key or ''))
             matches.append({
-                'score': score, 'record_type': 'ContentSection', 'record_id': cs.id,
+                'score':        score,
+                'record_type':  'ContentSection',
+                'record_id':    cs.id,
                 'record_title': cs.content_key.replace('_', ' ').title(),
-                'snippet': _extract_snippet(cs.content_value or '', tokens),
-                'images': [], 'links': [],
+                'snippet':      _extract_snippet(plain, tokens),
+                'full_text':    plain[:2000],
+                'images':       [],
+                'links':        [],
+                'is_exact':     is_exact,
             })
 
-        matches.sort(key=lambda x: x['score'], reverse=True)
-        seen_images, seen_links = set(), set()
-        context_parts = []
+        # ── Score Published Pages ────────────────────────────────────────
+        for page in all_pages:
+            blocks      = page.get_blocks_ordered()
+            page_texts  = [page.title or '', page.description or '']
+            page_links  = []
+            page_images = []
 
-        for m in matches[:8]:
+            for block in blocks:
+                block_text = ' '.join(filter(None, [
+                    _strip_html(block.content or ''),
+                    block.heading or '',
+                    block.subheading or '',
+                    block.card_title or '',
+                    _strip_html(block.card_description or ''),
+                    block.image_caption or '',
+                ]))
+                if block_text.strip():
+                    page_texts.append(block_text)
+                if block.image_url:
+                    page_images.append({'url': _image_url(block.image_url), 'alt_text': block.image_alt_text or page.title, 'source': page.title})
+                if block.card_image:
+                    page_images.append({'url': _image_url(block.card_image), 'alt_text': block.card_title or page.title, 'source': page.title})
+                for btn in _safe_json_list(block.card_buttons):
+                    if isinstance(btn, dict) and btn.get('url'):
+                        page_links.append({'title': btn.get('text', 'View'), 'url': btn['url'], 'context': page.title})
+
+            full_page_text = '\n'.join(page_texts)
+            overall = max(
+                _score_text(tokens, expanded, page.title or ''),
+                _score_text(tokens, expanded, page.description or '') * 0.9,
+                _score_text(tokens, expanded, full_page_text) * 0.95,
+            )
+            if overall < 0.1:
+                continue
+
+            is_exact = _check_exact_match(query, full_page_text)
+            page_links.insert(0, {'title': page.title, 'url': f'/page/{page.slug}', 'context': page.title})
+
+            matches.append({
+                'score':        overall,
+                'record_type':  'Page',
+                'record_id':    page.id,
+                'record_title': page.title,
+                'snippet':      _extract_snippet(full_page_text, tokens),
+                'full_text':    full_page_text[:3000],
+                'images':       page_images,
+                'links':        page_links,
+                'is_exact':     is_exact,
+            })
+
+        # ── Score CrawledPage records (first-class, no de-boost) ─────────
+        for cp in all_crawled:
+            text_score  = _score_text(tokens, expanded, cp.text_content or '')
+            title_score = _score_text(tokens, expanded, cp.page_title or '')
+            overall     = max(text_score, title_score * 1.2)
+            if overall < 0.12:
+                continue
+            is_exact = _check_exact_match(query, (cp.text_content or '') + ' ' + (cp.page_title or ''))
+            # Strong boost for exact match in a deep subpage
+            if is_exact:
+                overall = max(overall, 0.9)
+            matches.append({
+                'score':        overall,
+                'record_type':  'CrawledPage',
+                'record_id':    cp.id,
+                'record_title': cp.page_title or cp.page_url,
+                'snippet':      _extract_snippet(cp.text_content or cp.page_title or '', tokens),
+                'full_text':    (cp.text_content or '')[:4000],
+                'images':       [],
+                'links':        [{
+                    'title':   cp.page_title or cp.page_url,
+                    'url':     cp.page_url,
+                    'context': f"Subpage (depth {cp.depth}) of {cp.source_url}",
+                }],
+                'context_text': (cp.text_content or '')[:800],
+                'is_exact':     is_exact,
+            })
+
+        # ── Sort and build final result ──────────────────────────────────
+        matches.sort(key=lambda x: (x.get('is_exact', False), x['score']), reverse=True)
+
+        seen_images, seen_links = set(), set()
+        context_parts           = []
+
+        exact_matches = [m for m in matches if m.get('is_exact')]
+        if exact_matches:
+            results['exact_match']   = True
+            results['exact_term']    = query.strip()
+            results['exact_context'] = exact_matches[0].get('full_text', '')[:6000]
+
+       # Extensions that should never appear as related links
+        _BAD_LINK_EXTS = {
+            '.css', '.js', '.json', '.xml', '.txt', '.map',
+            '.woff', '.woff2', '.ttf', '.eot', '.otf',
+            '.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp',
+            '.zip', '.doc', '.docx', '.xls', '.xlsx', '.csv',
+            '.mp4', '.mp3', '.avi', '.mov', '.svg', '.ico',
+            '.rss', '.atom', '.yaml', '.yml',
+        }
+
+        def _is_good_link(url: str) -> bool:
+            if not url or url in ('#', ''):
+                return False
+            parsed = _urlparse(url)
+            if parsed.scheme and parsed.scheme not in ('http', 'https', ''):
+                return False
+            # Use path only (strips ?ver=6.6.2 and similar query strings)
+            path = (parsed.path or '').lower().rstrip('/')
+            # Reject non-HTML extensions even when followed by query strings
+            if any(path.endswith(ext) for ext in _BAD_LINK_EXTS):
+                return False
+            # Reject WordPress junk and asset path patterns
+            bad_segments = {
+                '/css/', '/js/', '/fonts/', '/font/',
+                '/assets/css/', '/assets/js/',
+                '/static/css/', '/static/js/',
+                '/wp-content/', '/wp-includes/', '/wp-json/',
+                '/wp-admin/', '/feed/', '/xmlrpc',
+            }
+            url_lower = url.lower()
+            if any(seg in url_lower for seg in bad_segments):
+                return False
+            return True
+
+        for m in matches[:12]:
             results['suggestions'].append({
                 'text':         f"{m['record_title']}: {m['snippet']}",
                 'source':       'website_content',
@@ -465,46 +1021,49 @@ def search_website_content(query: str) -> dict:
                 'record_type':  m['record_type'],
                 'record_id':    m['record_id'],
                 'record_title': m['record_title'],
+                'is_exact':     m.get('is_exact', False),
             })
             for img in m['images']:
-                if img['url'] and img['url'] not in seen_images and len(results['images']) < 6:
+                if img['url'] and img['url'] not in seen_images and len(results['images']) < 8:
                     seen_images.add(img['url'])
                     results['images'].append(img)
             for lnk in m['links']:
-                if lnk['url'] and lnk['url'] not in seen_links and len(results['related_links']) < 8:
+                if _is_good_link(lnk['url']) and lnk['url'] not in seen_links and len(results['related_links']) < 10:
                     seen_links.add(lnk['url'])
                     results['related_links'].append(lnk)
-
-            # Use enriched context_text if available (nav links with URL content)
-            ctx = m.get('context_text') or m.get('snippet', '')
+            ctx = m.get('context_text') or m.get('full_text') or m.get('snippet', '')
             context_parts.append(
-                f"[{m['record_type']}] {m['record_title']} (score {m['score']:.2f}): {ctx[:500]}"
+                f"[{m['record_type']}] {m['record_title']} (score {m['score']:.2f}):\n{ctx[:1000]}"
             )
 
-        results['context_text'] = '\n'.join(context_parts)
+        results['context_text'] = '\n\n'.join(context_parts)
         app.logger.info(
-            f"DB search '{query}': {len(matches)} candidates -> "
-            f"{len(results['suggestions'])} suggestions, {len(results['images'])} images"
+            f"Search '{query}': {len(matches)} candidates -> "
+            f"{len(results['suggestions'])} shown, exact={results['exact_match']}, "
+            f"crawled_pages_searched={len(all_crawled)}"
         )
+
     except Exception as e:
         app.logger.error(f"search_website_content error: {e}")
 
     return results
 
 
-# ---------------------------------------------
-# Groq API
-# ---------------------------------------------
+# ---------------------------------------------------------------------------
+#  Anthropic Claude API
+# ---------------------------------------------------------------------------
 
-def call_groq_api(query: str, website_search: dict = None) -> dict:
-    api_key = app.config.get('GROQ_API_KEY', '') or os.environ.get('GROQ_API_KEY', '')
+def call_claude_api(query: str, website_search: dict = None) -> dict:
+    import anthropic
+
+    api_key = app.config.get('ANTHROPIC_API_KEY', '') or os.environ.get('ANTHROPIC_API_KEY', '')
     if not api_key:
-        print("[v0] ERROR: GROQ_API_KEY not configured")
+        print("[claude] ERROR: ANTHROPIC_API_KEY not configured")
         return None
 
-    print(f"[v0] Calling Groq API for query: {query}")
+    print(f"[claude] Calling Claude API for query: {query}")
 
-    USE_CACHE = not IS_PRODUCTION
+    USE_CACHE  = not IS_PRODUCTION
     cache_file = None
 
     if USE_CACHE:
@@ -515,7 +1074,7 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
             try:
                 with open(cache_file, 'r') as f:
                     cached = json.load(f)
-                print(f"[v0] Cache hit")
+                print("[claude] Cache hit")
                 return cached
             except Exception:
                 pass
@@ -523,39 +1082,32 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
     if website_search is None:
         website_search = search_website_content(query)
 
-    context_text = website_search.get('context_text', '')
+    context_text   = website_search.get('context_text', '')
     has_db_content = bool(context_text.strip())
 
     system_prompt = (
         "You are Tutoy, the official AI assistant for DAP-COE "
         "(Development Academy of the Philippines - Center of Excellence on Public Sector Productivity). "
         "STRICT RULES - follow every rule exactly: "
-
         "1. Respond with VALID JSON ONLY - no markdown, no backticks, no extra text outside the JSON. "
-
         "2. CONTENT SOURCE PRIORITY: "
         "   - If 'Website Context' is provided and relevant, base your answer on it. "
-        "   - The context may include live content fetched directly from the linked websites. "
-        "   - If 'Website Context' is empty, irrelevant, or does not answer the query, "
-        "     use your general knowledge about public sector productivity, Philippine governance, "
-        "     DAP programs, productivity frameworks, innovation, digital transformation, and "
-        "     related topics. NEVER say you cannot answer - always provide a helpful response. "
-
-        "3. gemini_says RULES: "
+        "   - The context includes content from the main site, nav pages, card buttons, AND their "
+        "     subpages (crawled up to 3 levels deep). Prioritize the most specific match. "
+        "   - If 'Website Context' is empty or irrelevant, use your general knowledge about public sector "
+        "     productivity, Philippine governance, DAP programs, and digital transformation. "
+        "     NEVER say you cannot answer. "
+        "3. claude_says RULES: "
         "   - Write 120 to 200 words maximum. Be concise, direct, and informative. "
         "   - DO NOT end with generic community/networking sentences. "
         "   - DO NOT repeat the same idea twice in different words. "
         "   - End with a specific, actionable insight or fact relevant to the query. "
         "   - Use plain prose - no bullet points, no headers inside this field. "
-
         "4. key_points: exactly 4 short strings, each under 15 words, each a distinct insight. "
         "   No duplicates. No generic filler. Each point must add new information. "
-
         "5. global_suggestions: exactly 3 strings - specific follow-up questions the user "
         "   would actually want to ask next, directly related to the query topic. "
-
         "6. Leave 'image' as empty string '' always - images are handled separately. "
-
         "7. If the query is completely unrelated to DAP-COE or public sector (e.g. cooking, sports), "
         "   answer briefly with general knowledge and suggest a related DAP-COE topic."
     )
@@ -563,16 +1115,16 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
     context_block = (
         f"\n\n=== Website Context (use this if relevant) ===\n{context_text}\n=== End Context ==="
         if has_db_content
-        else "\n\n=== Website Context ===\n(No matching content found - answer from general knowledge about public sector productivity, Philippine governance, and DAP-COE programs.)\n=== End Context ==="
+        else "\n\n=== Website Context ===\n(No matching content found - use general knowledge.)\n=== End Context ==="
     )
 
     user_prompt = (
         f"User query: {query}"
         f"{context_block}\n\n"
-        "IMPORTANT REMINDERS before you respond:\n"
-        "- gemini_says must be 120-200 words, no generic ending sentences\n"
+        "IMPORTANT REMINDERS:\n"
+        "- claude_says must be 120-200 words, no generic ending sentences\n"
         "- If no website context matched, use general knowledge - never refuse to answer\n"
-        "- key_points must be 4 distinct, specific bullet points\n\n"
+        "- key_points must be 4 distinct, specific points\n\n"
         "Respond with ONLY this valid JSON structure:\n"
         '{\n'
         '  "gemini_says": "your 120-200 word response here",\n'
@@ -584,41 +1136,23 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
         '}'
     )
 
-    payload = {
-        "model": "llama-3.3-70b-versatile",
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user",   "content": user_prompt},
-        ],
-        "temperature": 0.3,
-        "max_tokens": 1024,
-        "top_p": 0.95,
-        "response_format": {"type": "json_object"},
-    }
-
     try:
-        url = "https://api.groq.com/openai/v1/chat/completions"
-        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-        print("[v0] Making request to Groq API...")
-        resp = requests.post(url, headers=headers, json=payload, timeout=30)
-        print(f"[v0] Response status: {resp.status_code}")
+        client  = anthropic.Anthropic(api_key=api_key)
+        print("[claude] Making request to Claude API...")
 
-        if resp.status_code != 200:
-            print(f"[v0] Groq error {resp.status_code}: {resp.text[:400]}")
-            return None
+        message = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=512,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}]
+        )
 
-        data = resp.json()
-        choices = data.get('choices', [])
-        if not choices:
-            print("[v0] No choices in Groq response")
-            return None
+        text = message.content[0].text.strip() if message.content else ''
+        print(f"[claude] Response (first 200): {text[:200]}")
 
-        text = choices[0].get('message', {}).get('content', '').strip()
         if not text:
-            print("[v0] Empty content from Groq")
+            print("[claude] Empty content from Claude")
             return None
-
-        print(f"[v0] Groq response (first 200): {text[:200]}")
 
         parsed = None
         try:
@@ -649,7 +1183,7 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
                                     pass
 
         if not parsed:
-            print(f"[v0] Could not parse Groq JSON. Raw: {text[:500]}")
+            print(f"[claude] Could not parse JSON. Raw: {text[:500]}")
             return None
 
         result = {
@@ -667,44 +1201,216 @@ def call_groq_api(query: str, website_search: dict = None) -> dict:
             try:
                 with open(cache_file, 'w') as f:
                     json.dump(result, f)
-                print("[v0] Response cached (local dev only)")
+                print("[claude] Response cached (local dev only)")
             except Exception as e:
-                print(f"[v0] Cache write error: {e}")
+                print(f"[claude] Cache write error: {e}")
         else:
-            print("[v0] Cache skipped (production mode)")
+            print("[claude] Cache skipped (production mode)")
 
         return result
 
-    except requests.RequestException as e:
-        print(f"[v0] Request failed: {e}")
     except Exception as e:
-        print(f"[v0] Unexpected error: {e}")
+        print(f"[claude] Unexpected error: {e}")
         import traceback
         traceback.print_exc()
-
     return None
 
 
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 #  MAIN SITE ROUTES
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+def _build_training_items(nav_link):
+    """
+    Returns a list of dicts: {title, description, image}
+    Sources (in priority order):
+      1. Button contents of any Card whose title contains 'training'
+         (each button becomes one training card, using its content as description
+          and button_images[0] as the image)
+      2. Fallback: nav_link.page_content parsed as line-separated titles
+    """
+    items = []
+ 
+    # ── Try to get items from Cards whose title mentions 'training' ──────────
+    training_cards = db.session.query(Card).filter(
+        Card.title.ilike('%training%')
+    ).order_by(Card.card_order).all()
+ 
+    for card in training_cards:
+        buttons      = card.get_buttons()
+        btn_contents = card.get_button_contents()
+        btn_images   = card.get_button_images()
+        btn_links    = card.get_button_links()
+ 
+        for idx, btn_label in enumerate(buttons):
+            idx_str  = str(idx)
+            content  = btn_contents.get(idx_str, '')
+            raw_imgs = btn_images.get(idx_str, [])
+            link_url = btn_links.get(idx_str, '')
+ 
+            # Pick first image from the button's gallery (if any)
+            img_file = ''
+            if isinstance(raw_imgs, list) and raw_imgs:
+                first = raw_imgs[0]
+                if isinstance(first, dict):
+                    img_file = (first.get('src') or first.get('filename') or '').strip()
+                elif isinstance(first, str):
+                    img_file = first.strip()
+            # Fall back to the card's own image
+            if not img_file and card.image:
+                img_file = card.image.strip()
+ 
+            # Strip path prefixes → bare filename
+            img_file = re.sub(r'^(static/images/|images/|static/)', '', img_file)
+ 
+            items.append({
+                'title':       btn_label.strip(),
+                'description': _strip_html(content)[:300] if content else '',
+                'image':       img_file,
+                'link_url':    link_url,
+            })
+ 
+    # ── Fallback: parse nav_link.page_content as newline-separated titles ────
+    if not items and nav_link.page_content:
+        plain = _strip_html(nav_link.page_content)
+        for line in plain.splitlines():
+            line = line.strip(' -–•·*')
+            if len(line) > 3:
+                items.append({'title': line, 'description': '', 'image': '', 'link_url': ''})
+ 
+    return items
 
 @app.route('/nav-page/<int:nav_id>')
 def nav_page(nav_id):
     nav_link = db.session.get(NavigationLink, nav_id)
     if not nav_link:
         return redirect(url_for('index'))
-    nav_links = get_all_nav_links()
-    logo_image = get_content('logo_image', 'images/dap-logo.png')
-    published_pages = db.session.query(Page).filter_by(is_published=True).order_by(Page.page_order).all()
-    return render_template('nav_page.html', nav_link=nav_link, nav_links=nav_links,
-                           published_pages=published_pages, logo_image=logo_image)
-
+ 
+    nav_links       = get_all_nav_links()
+    logo_image      = get_content('logo_image', 'images/dap-logo.png')
+    published_pages = (
+        db.session.query(Page)
+        .filter_by(is_published=True)
+        .order_by(Page.page_order)
+        .all()
+    )
+ 
+    link_text_lower = (nav_link.link_text or '').lower()
+ 
+    # ── Shared hero bg resolver (mirrors whats_new logic exactly) ────────────
+    def _resolve_hero_bg(first_image_filename=None):
+        if first_image_filename:
+            clean  = first_image_filename.split('/')[-1]
+            host   = request.host
+            is_dev = (
+                'localhost' in host
+                or '127.0.0.1' in host
+                or host.startswith('0.0.0.0')
+            )
+            return f"/static/images/{clean}" if is_dev else f"{GOV_IMAGE_BASE.rstrip('/')}/{clean}"
+        if nav_link.background_image:
+            return f"/static/images/{nav_link.background_image}"
+        return ''
+ 
+    # ── Common footer kwargs ──────────────────────────────────────────────────
+    footer_kwargs = dict(
+        company_name     = get_content('company_name',     'Development Academy of The Philippines'),
+        company_subtitle = get_content('company_subtitle', 'Center of Excellence on Public Sector Productivity'),
+        company_address  = get_content('company_address',  'DAP Building, San Miguel Avenue, Pasig City 1500'),
+        company_phone    = get_content('company_phone',    '+632 631 0921 to 30'),
+        company_fax      = get_content('company_fax',      '+632 631 2123'),
+        company_email    = get_content('company_email',    'coe_psp@dap.edu.ph'),
+        apo_logo         = get_content('apo_logo',         'images/apo.png'),
+    )
+ 
+    # ── What's New ───────────────────────────────────────────────────────────
+    if 'new' in link_text_lower:
+        articles = (
+            NewsArticle.query
+            .filter_by(is_published=True)
+            .order_by(
+                NewsArticle.article_order.asc(),
+                NewsArticle.published_at.desc()
+            )
+            .all()
+        )
+        hero_bg_url = ''
+        for a in [x for x in articles if not x.is_archived]:
+            if a.article_image:
+                hero_bg_url = _resolve_hero_bg(a.article_image)
+                break
+        if not hero_bg_url:
+            hero_bg_url = _resolve_hero_bg()
+ 
+        return render_template(
+            'whats_new_page.html',
+            nav_link           = nav_link,
+            nav_links          = nav_links,
+            published_pages    = published_pages,
+            logo_image         = logo_image,
+            articles           = articles,
+            news_section_title = nav_link.link_text,
+            GOV_IMAGE_BASE     = GOV_IMAGE_BASE,
+            hero_bg_url        = hero_bg_url,
+            **footer_kwargs,
+        )
+ 
+    # ── Trainings ─────────────────────────────────────────────────────────────
+    is_trainings = any(kw in link_text_lower for kw in (
+        'training', 'capacity', 'course', 'seminar', 'workshop'
+    ))
+ 
+    if is_trainings:
+        programs = (
+            TrainingProgram.query
+            .filter_by(is_published=True)
+            .order_by(
+                TrainingProgram.program_order.asc(),
+                TrainingProgram.published_at.desc()
+            )
+            .all()
+        )
+ 
+        hero_bg_url = ''
+        for p in [x for x in programs if not x.is_archived]:
+            if p.background_image:
+                hero_bg_url = _resolve_hero_bg(p.background_image)
+                break
+        if not hero_bg_url:
+            for p in [x for x in programs if not x.is_archived]:
+                if p.cover_image:
+                    hero_bg_url = _resolve_hero_bg(p.cover_image)
+                    break
+        if not hero_bg_url:
+            hero_bg_url = _resolve_hero_bg()
+ 
+        return render_template(
+            'trainings_page.html',
+            nav_link        = nav_link,
+            nav_links       = nav_links,
+            published_pages = published_pages,
+            logo_image      = logo_image,
+            section_title   = nav_link.link_text,
+            programs        = programs,
+            GOV_IMAGE_BASE  = GOV_IMAGE_BASE,
+            hero_bg_url     = hero_bg_url,
+            **footer_kwargs,
+        )
+ 
+    # ── Default nav page ──────────────────────────────────────────────────────
+    return render_template(
+        'nav_page.html',
+        nav_link        = nav_link,
+        nav_links       = nav_links,
+        published_pages = published_pages,
+        logo_image      = logo_image,
+    )
 
 @app.route('/<path:path>')
 def catch_all(path):
+    if any(path.startswith(p) for p in ('nav-page/', 'admin', 'card-content/', 'page/', 'api/')):
+        return redirect(url_for('index'))
     path_text = path.replace('-', ' ').replace('_', ' ').title()
-    nav_link = db.session.query(NavigationLink).filter(
+    nav_link  = db.session.query(NavigationLink).filter(
         NavigationLink.link_text.ilike(f'%{path_text}%')
     ).first()
     if nav_link:
@@ -717,12 +1423,12 @@ def card_content(card_id, button_index):
     card = db.session.get(Card, card_id)
     if not card:
         return redirect(url_for('index'))
-    buttons = card.get_buttons()
+    buttons         = card.get_buttons()
     button_contents = card.get_button_contents()
     if button_index < 0 or button_index >= len(buttons):
         return redirect(url_for('index'))
-    nav_links = get_all_nav_links()
-    logo_image = get_content('logo_image', 'images/dap-logo.png')
+    nav_links       = get_all_nav_links()
+    logo_image      = get_content('logo_image', 'images/logo.png')
     published_pages = db.session.query(Page).filter_by(is_published=True).order_by(Page.page_order).all()
     return render_template('card_content.html',
                            card=card,
@@ -739,9 +1445,9 @@ def view_page(slug):
     page = db.session.query(Page).filter_by(slug=slug, is_published=True).first()
     if not page:
         return redirect(url_for('index'))
-    nav_links = get_all_nav_links()
+    nav_links       = get_all_nav_links()
     published_pages = db.session.query(Page).filter_by(is_published=True).order_by(Page.page_order).all()
-    logo_image = get_content('logo_image', 'images/dap-logo.png')
+    logo_image      = get_content('logo_image', 'images/dap-logo.png')
     return render_template('custom_page.html',
                            page=page,
                            blocks=page.get_blocks_ordered(),
@@ -750,30 +1456,61 @@ def view_page(slug):
                            logo_image=logo_image)
 
 
+@app.route('/news/<slug>')
+def news_article_page(slug):
+    article         = NewsArticle.query.filter_by(slug=slug, is_published=True).first_or_404()
+    nav_links       = get_all_nav_links()
+    published_pages = db.session.query(Page).filter_by(is_published=True).order_by(Page.page_order).all()
+    logo_image      = get_content('logo_image', 'images/logo.png')
+
+    # Fetch other published, non-archived articles for the sidebar,
+    # excluding the one currently being viewed
+    recent_articles = (
+        NewsArticle.query
+        .filter(
+            NewsArticle.is_published == True,
+            NewsArticle.is_archived == False,
+            NewsArticle.slug != slug,
+        )
+        .order_by(NewsArticle.published_at.desc())
+        .limit(5)
+        .all()
+    )
+
+    return render_template(
+        'news_article.html',
+        article=article,
+        nav_links=nav_links,
+        published_pages=published_pages,
+        logo_image=logo_image,
+        recent_articles=recent_articles,
+        GOV_IMAGE_BASE=GOV_IMAGE_BASE,
+    )
+
+
 @app.route('/')
 def index():
-    now = datetime.now()
-    current_year = now.year
-    hero_title = get_content('hero_title', 'LEADING THE MOVEMENT IN <br>ADVANCING INNOVATION AND <br>PRODUCTIVITY IN THE <span class="text-[#cdae2c]">PUBLIC SECTOR</span>')
-    hero_image = get_content('hero_image', 'images/Hero-Banner.png')
-    hero_opacity = get_content('hero_opacity', '90')
+    now               = datetime.now()
+    current_year      = now.year
+    hero_title        = get_content('hero_title', 'LEADING THE MOVEMENT IN <br>ADVANCING INNOVATION AND <br>PRODUCTIVITY IN THE <span class="text-[#cdae2c]">PUBLIC SECTOR</span>')
+    hero_image        = get_content('hero_image', 'images/Hero-Banner.png')
+    hero_opacity      = get_content('hero_opacity', '90')
     search_placeholder = get_content('search_placeholder', 'Ask Tutoy anything about Public Sector Productivity...?')
-    cards = get_all_cards()
-    nav_links = get_all_nav_links()
-    published_pages = db.session.query(Page).filter_by(is_published=True).order_by(Page.page_order).all()
-    company_name = get_content('company_name', 'Development Academy of The Philippines')
-    company_subtitle = get_content('company_subtitle', 'Center of Excellence on Public Sector Productivity')
-    company_address = get_content('company_address', 'DAP Building, San Miguel Avenue, Pasig City 1500')
-    company_phone = get_content('company_phone', '+632 631 0921 to 30')
-    company_fax = get_content('company_fax', '+632 631 2123')
-    company_email = get_content('company_email', 'coe_psp@dap.edu.ph')
-    logo_image = get_content('logo_image', 'images/dap-logo.png')
-    gemini_image = get_content('gemini_image', 'images/gemini.png')
-    apo_logo = get_content('apo_logo', 'images/apo.png')
+    cards             = get_all_cards()
+    nav_links         = get_all_nav_links()
+    published_pages   = db.session.query(Page).filter_by(is_published=True).order_by(Page.page_order).all()
+    company_name      = get_content('company_name',     'Development Academy of The Philippines')
+    company_subtitle  = get_content('company_subtitle', 'Center of Excellence on Public Sector Productivity')
+    company_address   = get_content('company_address',  'DAP Building, San Miguel Avenue, Pasig City 1500')
+    company_phone     = get_content('company_phone',    '+632 631 0921 to 30')
+    company_fax       = get_content('company_fax',      '+632 631 2123')
+    company_email     = get_content('company_email',    'coe_psp@dap.edu.ph')
+    logo_image        = get_content('logo_image',       'images/dap-logo.png')
+    gemini_image      = get_content('gemini_image',     'images/gemini.png')
+    apo_logo          = get_content('apo_logo',         'images/apo.png')
 
     context = dict(
-        now=now,
-        hero_title=hero_title, hero_image=hero_image, hero_opacity=hero_opacity,
+        now=now, hero_title=hero_title, hero_image=hero_image, hero_opacity=hero_opacity,
         search_placeholder=search_placeholder, cards=cards, nav_links=nav_links,
         published_pages=published_pages, company_name=company_name,
         company_subtitle=company_subtitle, company_address=company_address,
@@ -783,14 +1520,14 @@ def index():
     )
     resp = make_response(render_template('index.html', **context))
     resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Pragma']  = 'no-cache'
     resp.headers['Expires'] = '0'
     return resp
 
 
-# ---------------------------------------------
-# AI SEARCH ENDPOINT
-# ---------------------------------------------
+# ---------------------------------------------------------------------------
+#  AI SEARCH ENDPOINT
+# ---------------------------------------------------------------------------
 
 @app.route('/api/search', methods=['GET'])
 def api_search():
@@ -823,9 +1560,66 @@ def api_search():
                 'Tell me about GovLab',
                 'How do I enroll in a course?',
             ],
-            'quick_navigation': ['Home', 'Programs', 'Services', 'Contact'],
+            'quick_navigation':            ['Home', 'Programs', 'Services', 'Contact'],
             'website_content_suggestions': [], 'related_images': [], 'related_links': [],
         })
+
+    # ── Run DB search first (Claude needs its context output) ────────────────
+    # But cap the live-fetch phase so Claude never waits more than 4 s for it.
+    website_search = search_website_content(query)
+
+    # ── Matched image (fast — pure in-memory loop) ───────────────────────────
+    matched_image = ''
+    for card in get_all_cards():
+        if query.lower() in (card.title or '').lower():
+            matched_image = _image_url(card.image)
+            break
+    if not matched_image and website_search.get('images'):
+        matched_image = website_search['images'][0]['url']
+
+    # ── Call Claude in a thread so we can apply a hard timeout ───────────────
+    # This prevents a slow Anthropic response from blocking the whole worker.
+    ai_result_box = [None]
+
+    def _call_claude():
+        try:
+            ai_result_box[0] = call_claude_api(query, website_search=website_search)
+        except Exception as e:
+            print(f"[claude] Thread error: {e}")
+
+    claude_thread = threading.Thread(target=_call_claude, daemon=True)
+    claude_thread.start()
+    claude_thread.join(timeout=28)   # hard ceiling — never block the request longer than 28 s
+
+    ai_response = ai_result_box[0]
+
+    if ai_response:
+        print("[claude] Got valid response from Claude API")
+        if not ai_response.get('image') and matched_image:
+            ai_response['image'] = matched_image
+        ai_response['website_content_suggestions'] = []
+        ai_response['related_images'] = website_search.get('images', [])[:6]
+        ai_response['related_links']  = website_search.get('related_links', [])[:8]
+        return jsonify(ai_response)
+
+    print("[claude] Claude API returned None - DB-only fallback")
+    db_snippets   = [s.get('text', '') for s in website_search.get('suggestions', [])[:4]]
+    fallback_says = (
+        f'Here\'s what I found on our website about "{query}".'
+        if website_search.get('suggestions')
+        else 'I couldn\'t connect to the AI service right now. Try searching "trainings", "GovLab", or "community".'
+    )
+
+    return jsonify({
+        'gemini_says':                 fallback_says,
+        'key_points':                  db_snippets or [f'Search query: "{query}"', 'Browse our website for more information'],
+        'image':                       matched_image,
+        'global_suggestions':          ['Tell me about our programs', 'What services do we offer?', 'How can I enroll?'],
+        'quick_navigation':            ['Home', 'Programs', 'Services', 'Contact'],
+        'website_content_suggestions': [],
+        'related_images':              website_search.get('images', [])[:6],
+        'related_links':               website_search.get('related_links', [])[:8],
+    })
 
     website_search = search_website_content(query)
 
@@ -837,23 +1631,23 @@ def api_search():
     if not matched_image and website_search.get('images'):
         matched_image = website_search['images'][0]['url']
 
-    ai_response = call_groq_api(query, website_search=website_search)
+    ai_response = call_claude_api(query, website_search=website_search)
 
     if ai_response:
-        print("[v0] Got valid response from Groq API")
+        print("[claude] Got valid response from Claude API")
         if not ai_response.get('image') and matched_image:
             ai_response['image'] = matched_image
         ai_response['website_content_suggestions'] = []
         ai_response['related_images'] = website_search.get('images', [])[:6]
-        ai_response['related_links'] = website_search.get('related_links', [])[:8]
+        ai_response['related_links']  = website_search.get('related_links', [])[:8]
         return jsonify(ai_response)
 
-    print("[v0] Groq API returned None - DB-only fallback")
-    db_snippets = [s.get('text', '') for s in website_search.get('suggestions', [])[:4]]
+    print("[claude] Claude API returned None - DB-only fallback")
+    db_snippets   = [s.get('text', '') for s in website_search.get('suggestions', [])[:4]]
     fallback_says = (
         f'Here\'s what I found on our website about "{query}".'
         if website_search.get('suggestions')
-        else f'I couldn\'t connect to the AI service right now. Try searching "trainings", "GovLab", or "community".'
+        else 'I couldn\'t connect to the AI service right now. Try searching "trainings", "GovLab", or "community".'
     )
 
     return jsonify({
@@ -868,9 +1662,323 @@ def api_search():
     })
 
 
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+#  NEWS ARTICLE ROUTES (Admin API)
+# ---------------------------------------------------------------------------
+
+def _parse_news_dt(value):
+    """Parse ISO / datetime-local string → aware datetime."""
+    if not value:
+        return datetime.now(timezone.utc)
+    try:
+        dt = datetime.fromisoformat(str(value))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except Exception:
+        return datetime.now(timezone.utc)
+
+
+# AFTER — safe, handles None datetimes and missing columns
+
+@app.route('/admin/api/news-articles')
+@login_required
+def api_list_news():
+    try:
+        articles = NewsArticle.query.order_by(
+            NewsArticle.published_at.desc()
+        ).all()
+
+        def _dt(val):
+            if val is None:
+                return None
+            try:
+                return val.isoformat()
+            except Exception:
+                return str(val)
+
+        return jsonify({
+            'success': True,
+            'articles': [{
+                'id':            a.id,
+                'title':         a.title or '',
+                'slug':          a.slug or '',
+                'excerpt':       a.excerpt or '',
+                'body':          a.body or '',
+                'cover_image':   a.cover_image or '',
+                'article_image': getattr(a, 'article_image', None) or '',
+                'published_at':  _dt(a.published_at),
+                'is_published':  bool(a.is_published),
+                'is_archived':   bool(a.is_archived),
+                'nav_link_id':   a.nav_link_id,
+                'card_id':       a.card_id,
+            } for a in articles]
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        app.logger.error(f"api_list_news error: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+ 
+ 
+@app.route('/admin/api/add-news-article', methods=['POST'])
+@login_required
+def api_add_news_article():
+    data  = request.get_json(silent=True) or {}
+    title = (data.get('title') or '').strip()
+    if not title:
+        return jsonify({'success': False, 'error': 'Title is required'}), 400
+ 
+    article = NewsArticle(
+        title         = title,
+        slug          = NewsArticle.unique_slug(title),
+        excerpt       = (data.get('excerpt') or '').strip() or None,
+        body          = data.get('body') or None,
+        cover_image   = (data.get('cover_image') or '').strip() or None,
+        article_image = (data.get('article_image') or '').strip() or None,  # ← NEW
+        published_at  = _parse_news_dt(data.get('published_at')),
+        is_published  = bool(data.get('is_published', False)),
+        is_archived   = bool(data.get('is_archived', False)),
+        nav_link_id   = data.get('nav_link_id') or None,
+        card_id       = data.get('card_id') or None,
+    )
+    db.session.add(article)
+    try:
+        db.session.commit()
+        return jsonify({'success': True, 'id': article.id, 'slug': article.slug})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+ 
+ 
+@app.route('/admin/api/update-news-article', methods=['POST'])
+@login_required
+def api_update_news_article():
+    data       = request.get_json(silent=True) or {}
+    article_id = data.get('id')
+    if not article_id:
+        return jsonify({'success': False, 'error': 'id is required'}), 400
+ 
+    article = NewsArticle.query.get(article_id)
+    if not article:
+        return jsonify({'success': False, 'error': 'Article not found'}), 404
+ 
+    if 'title' in data and data['title'].strip():
+        article.title = data['title'].strip()
+    if 'excerpt' in data:
+        article.excerpt = (data['excerpt'] or '').strip() or None
+    if 'body' in data:
+        article.body = data['body'] or None
+    if 'cover_image' in data:
+        article.cover_image = (data['cover_image'] or '').strip() or None
+    if 'article_image' in data:                                            # ← NEW
+        article.article_image = (data['article_image'] or '').strip() or None
+    if 'published_at' in data:
+        article.published_at = _parse_news_dt(data['published_at'])
+    if 'is_published' in data:
+        article.is_published = bool(data['is_published'])
+    if 'is_archived' in data:
+        article.is_archived = bool(data['is_archived'])
+    if 'nav_link_id' in data:
+        article.nav_link_id = data['nav_link_id'] or None
+    if 'card_id' in data:
+        article.card_id = data['card_id'] or None
+ 
+    article.updated_at = datetime.now(timezone.utc)
+ 
+    try:
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/admin/api/delete-news-article', methods=['POST'])
+@login_required
+def api_delete_news_article():
+    data    = request.get_json(silent=True) or {}
+    article = NewsArticle.query.get(data.get('id'))
+    if not article:
+        return jsonify({'success': False, 'error': 'Article not found'}), 404
+    db.session.delete(article)
+    try:
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+def _parse_program_dt(value):
+    """Parse ISO / datetime-local string → aware datetime."""
+    if not value:
+        return datetime.now(timezone.utc)
+    try:
+        dt = datetime.fromisoformat(str(value))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except Exception:
+        return datetime.now(timezone.utc)
+ 
+ 
+@app.route('/admin/api/training-programs')
+@login_required
+def api_list_training_programs():
+    try:
+        programs = TrainingProgram.query.order_by(
+            TrainingProgram.program_order.asc(),
+            TrainingProgram.published_at.desc()
+        ).all()
+ 
+        def _dt(val):
+            if val is None:
+                return None
+            try:
+                return val.isoformat()
+            except Exception:
+                return str(val)
+ 
+        return jsonify({
+            'success': True,
+            'programs': [{
+                'id':           p.id,
+                'title':        p.title or '',
+                'slug':         p.slug or '',
+                'excerpt':      p.excerpt or '',
+                'body':         p.body or '',
+                'cover_image':  p.cover_image or '',
+                'program_order':p.program_order,
+                'published_at': _dt(p.published_at),
+                'is_published': bool(p.is_published),
+                'is_archived':  bool(p.is_archived),
+                'nav_link_id':  p.nav_link_id,
+         'background_image': p.background_image or '',
+            } for p in programs]
+        })
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+ 
+ 
+@app.route('/admin/api/add-training-program', methods=['POST'])
+@login_required
+def api_add_training_program():
+    data  = request.get_json(silent=True) or {}
+    title = (data.get('title') or '').strip()
+    if not title:
+        return jsonify({'success': False, 'error': 'Title is required'}), 400
+ 
+    program = TrainingProgram(
+        title         = title,
+        slug          = TrainingProgram.unique_slug(title),
+        excerpt       = (data.get('excerpt') or '').strip() or None,
+        body          = data.get('body') or None,
+        cover_image       = (data.get('cover_image') or '').strip() or None,
+        background_image  = (data.get('background_image') or '').strip() or None,
+        program_order     = int(data.get('program_order', 0)),
+        published_at  = _parse_program_dt(data.get('published_at')),
+        is_published  = bool(data.get('is_published', False)),
+        is_archived   = bool(data.get('is_archived', False)),
+        nav_link_id   = data.get('nav_link_id') or None,
+    )
+    db.session.add(program)
+    try:
+        db.session.commit()
+        return jsonify({'success': True, 'id': program.id, 'slug': program.slug})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+ 
+ 
+@app.route('/admin/api/update-training-program', methods=['POST'])
+@login_required
+def api_update_training_program():
+    data = request.get_json(silent=True) or {}
+    pid  = data.get('id')
+    if not pid:
+        return jsonify({'success': False, 'error': 'id is required'}), 400
+ 
+    program = TrainingProgram.query.get(pid)
+    if not program:
+        return jsonify({'success': False, 'error': 'Program not found'}), 404
+ 
+    if 'title' in data and (data['title'] or '').strip():
+        program.title = data['title'].strip()
+    if 'excerpt' in data:
+        program.excerpt = (data['excerpt'] or '').strip() or None
+    if 'body' in data:
+        program.body = data['body'] or None
+    if 'cover_image' in data:
+        program.cover_image = (data['cover_image'] or '').strip() or None
+    if 'background_image' in data:
+        program.background_image = (data['background_image'] or '').strip() or None
+    if 'program_order' in data:
+        program.program_order = int(data['program_order'] or 0)
+    if 'published_at' in data:
+        program.published_at = _parse_program_dt(data['published_at'])
+    if 'is_published' in data:
+        program.is_published = bool(data['is_published'])
+    if 'is_archived' in data:
+        program.is_archived = bool(data['is_archived'])
+    if 'nav_link_id' in data:
+        program.nav_link_id = data['nav_link_id'] or None
+ 
+    program.updated_at = datetime.now(timezone.utc)
+ 
+    try:
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+ 
+ 
+@app.route('/admin/api/delete-training-program', methods=['POST'])
+@login_required
+def api_delete_training_program():
+    data    = request.get_json(silent=True) or {}
+    program = TrainingProgram.query.get(data.get('id'))
+    if not program:
+        return jsonify({'success': False, 'error': 'Program not found'}), 404
+    db.session.delete(program)
+    try:
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+ 
+ 
+@app.route('/admin/api/upload-training-image', methods=['POST'])
+@login_required
+def upload_training_image():
+    """Dedicated upload endpoint for training program cover images."""
+    try:
+        file = request.files.get('file') or request.files.get('image')
+        if not file or file.filename == '':
+            return no_cache_json({'success': False, 'error': 'No file uploaded'})
+        if not allowed_file(file.filename):
+            return no_cache_json({'success': False, 'error': 'Invalid file type'})
+        filename      = f"{int(datetime.now().timestamp())}_{secure_filename(file.filename)}"
+        upload_folder = app.config['UPLOAD_FOLDER']
+        os.makedirs(upload_folder, exist_ok=True)
+        save_path = os.path.join(upload_folder, filename)
+        file.save(save_path)
+        if not os.path.exists(save_path):
+            return no_cache_json({'success': False, 'error': f'File failed to save at {save_path}'})
+        return no_cache_json({
+            'success':  True,
+            'filename': filename,
+            'url':      f"{GOV_IMAGE_BASE}/{filename}",
+            'saved_to': save_path,
+        })
+    except Exception as e:
+        return no_cache_json({'success': False, 'error': str(e)})
+
+# ---------------------------------------------------------------------------
 #  ADMIN ROUTES
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin_login():
@@ -912,9 +2020,9 @@ def page_builder():
     return render_template('page_builder.html', logo_image=get_content('logo_image', 'images/dap-logo.png'))
 
 
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 #  ADMIN API ROUTES
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 
 @app.route('/admin/api/upload-health')
 @login_required
@@ -926,17 +2034,9 @@ def upload_health():
         with open(test_path, 'w') as f:
             f.write('ok')
         os.remove(test_path)
-        return no_cache_json({
-            'ok': True,
-            'url': GOV_IMAGE_BASE,
-            'upload_folder': upload_folder,
-        })
+        return no_cache_json({'ok': True, 'url': GOV_IMAGE_BASE, 'upload_folder': upload_folder})
     except Exception as e:
-        return no_cache_json({
-            'ok': False,
-            'error': str(e),
-            'upload_folder': app.config.get('UPLOAD_FOLDER', 'NOT SET'),
-        })
+        return no_cache_json({'ok': False, 'error': str(e), 'upload_folder': app.config.get('UPLOAD_FOLDER', 'NOT SET')})
 
 
 @app.route('/admin/api/upload-image', methods=['POST'])
@@ -948,22 +2048,16 @@ def upload_image():
             return no_cache_json({'success': False, 'error': 'No file uploaded'})
         if not allowed_file(file.filename):
             return no_cache_json({'success': False, 'error': 'Invalid file type. Allowed: png, jpg, jpeg, gif, webp'})
-
-        filename = f"{int(datetime.now().timestamp())}_{secure_filename(file.filename)}"
+        filename      = f"{int(datetime.now().timestamp())}_{secure_filename(file.filename)}"
         upload_folder = app.config['UPLOAD_FOLDER']
         os.makedirs(upload_folder, exist_ok=True)
         save_path = os.path.join(upload_folder, filename)
         file.save(save_path)
-
         if not os.path.exists(save_path):
             return no_cache_json({'success': False, 'error': f'File failed to save at {save_path}'})
-
-        full_url = f"{GOV_IMAGE_BASE}/{filename}"
         return no_cache_json({
-            'success':  True,
-            'filename': filename,
-            'url':      full_url,
-            'saved_to': save_path,
+            'success': True, 'filename': filename,
+            'url': f"{GOV_IMAGE_BASE}/{filename}", 'saved_to': save_path,
         })
     except Exception as e:
         return no_cache_json({'success': False, 'error': str(e)})
@@ -974,22 +2068,14 @@ def upload_image():
 def update_content():
     try:
         if request.is_json:
-            key = request.json.get('key')
-            value = request.json.get('value', '')
+            key, value = request.json.get('key'), request.json.get('value', '')
         else:
-            key = request.form.get('key')
-            value = request.form.get('value', '')
-
+            key, value = request.form.get('key'), request.form.get('value', '')
         if not key:
             return no_cache_json({'success': False, 'error': 'Key is required'})
-
         value_str = str(value).strip() if value is not None else ''
         if value_str in ('undefined', 'null', 'None'):
-            return no_cache_json({
-                'success': False,
-                'error': f'Invalid value "{value_str}" was blocked - please enter real content.'
-            })
-
+            return no_cache_json({'success': False, 'error': f'Invalid value "{value_str}" blocked.'})
         content = db.session.query(ContentSection).filter_by(content_key=key).first()
         if content:
             content.content_value = value_str
@@ -1002,16 +2088,14 @@ def update_content():
         return no_cache_json({'success': False, 'error': str(e)})
 
 
-# ------------------------------------------------------------------ #
-#  CARD ROUTES                                                         #
-# ------------------------------------------------------------------ #
+# ── Card routes ──────────────────────────────────────────────────────────────
 
 @app.route('/admin/api/update-card-title', methods=['POST'])
 @login_required
 def update_card_title():
     try:
         card_id = request.form.get('id')
-        title = request.form.get('title', '').strip()
+        title   = request.form.get('title', '').strip()
         if not card_id:
             return no_cache_json({'success': False, 'error': 'Card ID required'})
         if not title:
@@ -1033,7 +2117,7 @@ def update_card_title():
 def update_card_image():
     try:
         card_id = request.form.get('id')
-        image = request.form.get('image', '').strip()
+        image   = request.form.get('image', '').strip()
         if not card_id:
             return no_cache_json({'success': False, 'error': 'Card ID required'})
         card = db.session.get(Card, int(card_id))
@@ -1058,8 +2142,8 @@ def update_card():
         card = db.session.get(Card, int(card_id))
         if not card:
             return no_cache_json({'success': False, 'error': 'Card not found'})
-        card.title = request.form.get('title') or card.title
-        card.image = request.form.get('image') or card.image
+        card.title            = request.form.get('title') or card.title
+        card.image            = request.form.get('image') or card.image
         card.background_image = request.form.get('background_image', '') or card.background_image
         buttons = request.form.getlist('buttons')
         if buttons:
@@ -1084,8 +2168,8 @@ def update_card():
 @login_required
 def add_card_api():
     try:
-        title = request.form.get('title', '').strip()
-        image = request.form.get('image', '').strip()
+        title       = request.form.get('title', '').strip()
+        image       = request.form.get('image', '').strip()
         buttons_raw = request.form.get('buttons', '[]')
         if not title:
             return no_cache_json({'success': False, 'error': 'Card title is required'}, 400)
@@ -1096,7 +2180,7 @@ def add_card_api():
         except (json.JSONDecodeError, TypeError):
             buttons_list = []
         max_order = db.session.query(db.func.max(Card.card_order)).scalar() or 0
-        new_card = Card(
+        new_card  = Card(
             title=title, image=image or None,
             buttons=json.dumps(buttons_list),
             button_contents=json.dumps({}),
@@ -1108,14 +2192,10 @@ def add_card_api():
         db.session.add(new_card)
         db.session.commit()
         clear_ai_cache()
-        return no_cache_json({
-            'success': True, 'message': 'Card created',
-            'card': {
-                'id': new_card.id, 'title': new_card.title,
-                'image': new_card.image, 'buttons': buttons_list,
-                'card_order': new_card.card_order,
-            }
-        })
+        return no_cache_json({'success': True, 'message': 'Card created',
+                              'card': {'id': new_card.id, 'title': new_card.title,
+                                       'image': new_card.image, 'buttons': buttons_list,
+                                       'card_order': new_card.card_order}})
     except Exception as e:
         db.session.rollback()
         return no_cache_json({'success': False, 'error': str(e)}, 500)
@@ -1125,7 +2205,7 @@ def add_card_api():
 @login_required
 def delete_card_api():
     try:
-        data = request.get_json(silent=True) or {}
+        data    = request.get_json(silent=True) or {}
         card_id = data.get('id')
         if not card_id:
             return no_cache_json({'success': False, 'error': 'Card ID required'}, 400)
@@ -1141,56 +2221,38 @@ def delete_card_api():
         return no_cache_json({'success': False, 'error': str(e)}, 500)
 
 
-# ------------------------------------------------------------------ #
-#  BUTTON ROUTES                                                       #
-# ------------------------------------------------------------------ #
+# ── Button routes ────────────────────────────────────────────────────────────
 
 @app.route('/admin/api/update-button-name', methods=['POST'])
 @login_required
 def update_button_name():
     try:
-        card_id = request.form.get('card_id', '').strip()
+        card_id      = request.form.get('card_id', '').strip()
         button_index = request.form.get('button_index', '').strip()
-        new_name = request.form.get('name', '').strip()
+        new_name     = request.form.get('name', '').strip()
         if not card_id:
             return no_cache_json({'success': False, 'error': 'card_id is required'}, 400)
         if button_index == '':
             return no_cache_json({'success': False, 'error': 'button_index is required'}, 400)
         if not new_name:
             return no_cache_json({'success': False, 'error': 'Button name cannot be empty'}, 400)
-        if len(new_name) > 100:
-            return no_cache_json({'success': False, 'error': 'Button name must be 100 characters or fewer'}, 400)
-        try:
-            card_id_int = int(card_id)
-            btn_idx = int(button_index)
-        except ValueError:
-            return no_cache_json({'success': False, 'error': 'card_id and button_index must be integers'}, 400)
+        card_id_int = int(card_id)
+        btn_idx     = int(button_index)
         card = db.session.get(Card, card_id_int)
         if not card:
             return no_cache_json({'success': False, 'error': f'Card {card_id_int} not found'}, 404)
-        try:
-            buttons = json.loads(card.buttons) if card.buttons else []
-        except (json.JSONDecodeError, TypeError):
-            buttons = []
+        buttons = json.loads(card.buttons) if card.buttons else []
         if btn_idx < 0 or btn_idx >= len(buttons):
-            return no_cache_json({
-                'success': False,
-                'error': f'button_index {btn_idx} is out of range (card has {len(buttons)} button(s))'
-            }, 400)
-        old_name = buttons[btn_idx]
-        buttons[btn_idx] = new_name
-        card.buttons = json.dumps(buttons)
+            return no_cache_json({'success': False, 'error': f'button_index {btn_idx} out of range'}, 400)
+        old_name          = buttons[btn_idx]
+        buttons[btn_idx]  = new_name
+        card.buttons      = json.dumps(buttons)
         db.session.commit()
         clear_ai_cache()
-        return no_cache_json({
-            'success': True,
-            'message': f'Button renamed from "{old_name}" to "{new_name}"',
-            'old_name': old_name, 'new_name': new_name,
-            'card_id': card_id_int, 'button_index': btn_idx,
-        })
+        return no_cache_json({'success': True, 'message': f'Renamed "{old_name}" to "{new_name}"',
+                              'old_name': old_name, 'new_name': new_name})
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f'update_button_name error: {e}')
         return no_cache_json({'success': False, 'error': str(e)}, 500)
 
 
@@ -1212,37 +2274,35 @@ def update_button():
 
         btn_links = _load(card.button_links)
         btn_conts = _load(card.button_contents)
-        btn_bgs = _load(card.button_background_images)
-        btn_imgs = _load(card.button_images)
+        btn_bgs   = _load(card.button_background_images)
+        btn_imgs  = _load(card.button_images)
 
-        link_url = data.get('link_url', '')
-        if link_url:
-            btn_links[idx] = link_url
-        elif idx in btn_links:
-            del btn_links[idx]
+        for field, store in [('link_url', btn_links), ('content', btn_conts), ('background_image', btn_bgs)]:
+            val = data.get(field, '')
+            if val:
+                store[idx] = val
+            elif idx in store:
+                del store[idx]
 
-        content = data.get('content', '')
-        if content:
-            btn_conts[idx] = content
-        elif idx in btn_conts:
-            del btn_conts[idx]
-
-        bg = data.get('background_image', '')
-        if bg:
-            btn_bgs[idx] = bg
-        elif idx in btn_bgs:
-            del btn_bgs[idx]
-
-        imgs = data.get('images', [])
-        if imgs:
-            btn_imgs[idx] = imgs
+        raw_imgs = data.get('images', [])
+        if raw_imgs:
+            clean_imgs = []
+            for img in raw_imgs:
+                if isinstance(img, dict):
+                    src     = (img.get('src') or img.get('filename') or '').strip()
+                    caption = (img.get('caption') or '').strip()
+                    if src:
+                        clean_imgs.append({'src': src, 'caption': caption})
+                elif isinstance(img, str) and img.strip():
+                    clean_imgs.append({'src': img.strip(), 'caption': ''})
+            btn_imgs[idx] = clean_imgs
         elif idx in btn_imgs:
             del btn_imgs[idx]
 
-        card.button_links = json.dumps(btn_links)
-        card.button_contents = json.dumps(btn_conts)
+        card.button_links             = json.dumps(btn_links)
+        card.button_contents          = json.dumps(btn_conts)
         card.button_background_images = json.dumps(btn_bgs)
-        card.button_images = json.dumps(btn_imgs)
+        card.button_images            = json.dumps(btn_imgs)
         db.session.commit()
         clear_ai_cache()
         return no_cache_json({'success': True, 'message': 'Button saved'})
@@ -1255,20 +2315,40 @@ def update_button():
 @login_required
 def update_button_link():
     try:
-        data = request.json
-        card = db.session.get(Card, data.get('card_id'))
+        data      = request.json
+        card      = db.session.get(Card, data.get('card_id'))
         if not card:
             return no_cache_json({'success': False, 'message': 'Card not found'})
         btn_links = card.get_button_links()
-        link_url = data.get('link_url', '')
-        idx = str(data.get('button_index'))
+        link_url  = data.get('link_url', '')
+        idx       = str(data.get('button_index'))
+        old_url   = btn_links.get(idx, '')
+
         if link_url.strip():
             btn_links[idx] = link_url.strip()
         else:
             btn_links.pop(idx, None)
+
         card.button_links = json.dumps(btn_links)
         db.session.commit()
         clear_ai_cache()
+
+        # Bust cache for old URL
+        for key in [old_url, f"__deep__{old_url}"]:
+            if key and key in _url_cache:
+                del _url_cache[key]
+
+        # Auto-crawl new button URL in background
+        new_url = link_url.strip()
+        if new_url and new_url not in ('#', ''):
+            def _bg_crawl(u=new_url):
+                with app.app_context():
+                    db.session.query(CrawledPage).filter_by(source_url=u).delete()
+                    db.session.commit()
+                    crawl_url_deep(u)
+            threading.Thread(target=_bg_crawl, daemon=True).start()
+            print(f"[crawler] Auto-crawl triggered for button link: {new_url}")
+
         return no_cache_json({'success': True})
     except Exception as e:
         db.session.rollback()
@@ -1279,12 +2359,21 @@ def update_button_link():
 @login_required
 def update_button_images():
     try:
-        data = request.json
-        card = db.session.get(Card, data.get('card_id'))
+        data     = request.json
+        card     = db.session.get(Card, data.get('card_id'))
         if not card:
             return no_cache_json({'success': False, 'message': 'Card not found'})
-        btn_imgs = card.get_button_images()
-        btn_imgs[str(data.get('button_index'))] = data.get('images', [])
+        btn_imgs   = card.get_button_images()
+        clean_imgs = []
+        for img in data.get('images', []):
+            if isinstance(img, dict):
+                src     = (img.get('src') or img.get('filename') or '').strip()
+                caption = (img.get('caption') or '').strip()
+                if src:
+                    clean_imgs.append({'src': src, 'caption': caption})
+            elif isinstance(img, str) and img.strip():
+                clean_imgs.append({'src': img.strip(), 'caption': ''})
+        btn_imgs[str(data.get('button_index'))] = clean_imgs
         card.button_images = json.dumps(btn_imgs)
         db.session.commit()
         clear_ai_cache()
@@ -1297,12 +2386,12 @@ def update_button_images():
 @login_required
 def delete_gallery_image():
     try:
-        data = request.json
-        card = db.session.get(Card, int(data.get('card_id')))
+        data      = request.json
+        card      = db.session.get(Card, int(data.get('card_id')))
         if not card:
             return no_cache_json({'success': False, 'message': 'Card not found'})
-        btn_imgs = card.get_button_images()
-        idx = str(data.get('button_index'))
+        btn_imgs  = card.get_button_images()
+        idx       = str(data.get('button_index'))
         img_index = data.get('image_index')
         if idx in btn_imgs and 0 <= img_index < len(btn_imgs[idx]):
             btn_imgs[idx].pop(img_index)
@@ -1318,48 +2407,91 @@ def delete_gallery_image():
         return no_cache_json({'success': False, 'message': str(e)})
 
 
-# ------------------------------------------------------------------ #
-#  NAVIGATION ROUTES                                                   #
-# ------------------------------------------------------------------ #
+# ── Navigation routes ────────────────────────────────────────────────────────
+
+def _normalise_images_list(raw_images) -> list:
+    if not raw_images:
+        return []
+    if isinstance(raw_images, str):
+        try:
+            raw_images = json.loads(raw_images)
+        except (json.JSONDecodeError, TypeError):
+            return []
+    if not isinstance(raw_images, list):
+        return []
+    clean = []
+    base  = GOV_IMAGE_BASE.rstrip('/')
+    for item in raw_images:
+        if isinstance(item, dict):
+            src     = (item.get('src') or item.get('filename') or item.get('url') or '').strip()
+            caption = (item.get('caption') or '').strip()
+        elif isinstance(item, str):
+            src, caption = item.strip(), ''
+        else:
+            continue
+        if not src:
+            continue
+        if src.startswith(base + '/'):
+            src = src[len(base) + 1:]
+        src = re.sub(r'^(static/images/|images/|static/)', '', src)
+        if src:
+            clean.append({'src': src, 'caption': caption})
+    return clean
+
 
 @app.route('/admin/api/update-nav-link', methods=['POST'])
 @login_required
 def update_nav_link_api():
     try:
         if request.is_json:
-            d = request.json
-            link_id = d.get('nav_id')
-            text = d.get('link_text')
-            url = d.get('link_url')
-            content = d.get('page_content', '')
-            image = d.get('image', '')
+            d                = request.json
+            link_id          = d.get('nav_id')
+            text             = d.get('link_text')
+            url              = d.get('link_url')
+            content          = d.get('page_content', '')
+            image            = d.get('image', '')
             background_image = d.get('background_image', '')
-            images = d.get('images', [])
+            images_raw       = d.get('images', [])
         else:
-            link_id = request.form.get('id')
-            text = request.form.get('text')
-            url = request.form.get('url')
-            content = request.form.get('content', '')
-            image = request.form.get('image', '')
+            link_id          = request.form.get('id')
+            text             = request.form.get('text')
+            url              = request.form.get('url')
+            content          = request.form.get('content', '')
+            image            = request.form.get('image', '')
             background_image = request.form.get('background_image', '')
-            images = json.loads(request.form.get('images', '[]'))
+            images_raw       = json.loads(request.form.get('images', '[]'))
 
         link = db.session.get(NavigationLink, link_id)
         if link:
+            old_url        = link.link_url
             link.link_text = text or link.link_text
-            link.link_url = url or None
+            link.link_url  = url or None
             link.page_content = content
             if image:
                 link.image = image
             if background_image:
                 link.background_image = background_image
-            if images:
-                link.images = json.dumps(images)
+            link.images = json.dumps(_normalise_images_list(images_raw))
             db.session.commit()
             clear_ai_cache()
-            # Clear URL cache for this nav link so fresh content is fetched
-            if url and url in _url_cache:
-                del _url_cache[url]
+
+            # Bust URL cache for old and new URLs
+            for key in [old_url, f"__deep__{old_url}", url, f"__deep__{url}"]:
+                if key and key in _url_cache:
+                    del _url_cache[key]
+
+            # Auto-crawl new/changed URL in background
+            new_url = link.link_url
+            if new_url and new_url not in ('#', ''):
+                nav_id = link.id
+                def _bg_crawl(u=new_url, nid=nav_id):
+                    with app.app_context():
+                        db.session.query(CrawledPage).filter_by(source_url=u).delete()
+                        db.session.commit()
+                        crawl_url_deep(u, nav_link_id=nid)
+                threading.Thread(target=_bg_crawl, daemon=True).start()
+                print(f"[crawler] Auto-crawl triggered for nav link: {new_url}")
+
             return no_cache_json({'success': True})
         return no_cache_json({'success': False, 'error': 'Not found'})
     except Exception as e:
@@ -1371,11 +2503,11 @@ def update_nav_link_api():
 @login_required
 def update_nav_images():
     try:
-        data = request.json
+        data     = request.json
         nav_link = db.session.get(NavigationLink, data.get('nav_id'))
         if not nav_link:
             return no_cache_json({'success': False, 'message': 'Not found'})
-        nav_link.images = json.dumps(data.get('images', []))
+        nav_link.images = json.dumps(_normalise_images_list(data.get('images', [])))
         db.session.commit()
         clear_ai_cache()
         return no_cache_json({'success': True})
@@ -1387,14 +2519,14 @@ def update_nav_images():
 @login_required
 def add_nav_link_api():
     try:
-        link_text = request.form.get('text', '').strip()
-        link_url = request.form.get('url', '').strip() or None
+        link_text    = request.form.get('text', '').strip()
+        link_url     = request.form.get('url', '').strip() or None
         page_content = request.form.get('content', '')
-        image = request.form.get('image', '').strip() or None
+        image        = request.form.get('image', '').strip() or None
         if not link_text:
             return no_cache_json({'success': False, 'error': 'Link text is required'}, 400)
         max_order = db.session.query(db.func.max(NavigationLink.link_order)).scalar() or 0
-        new_nav = NavigationLink(
+        new_nav   = NavigationLink(
             link_text=link_text, link_url=link_url,
             page_content=page_content, image=image,
             images=json.dumps([]), link_order=max_order + 1,
@@ -1402,13 +2534,19 @@ def add_nav_link_api():
         db.session.add(new_nav)
         db.session.commit()
         clear_ai_cache()
-        return no_cache_json({
-            'success': True, 'message': 'Navigation link created',
-            'nav': {
-                'id': new_nav.id, 'link_text': new_nav.link_text,
-                'link_url': new_nav.link_url, 'link_order': new_nav.link_order,
-            }
-        })
+
+        # Auto-crawl if a URL was provided
+        if link_url and link_url not in ('#', ''):
+            nav_id = new_nav.id
+            def _bg_crawl(u=link_url, nid=nav_id):
+                with app.app_context():
+                    crawl_url_deep(u, nav_link_id=nid)
+            threading.Thread(target=_bg_crawl, daemon=True).start()
+            print(f"[crawler] Auto-crawl triggered for new nav link: {link_url}")
+
+        return no_cache_json({'success': True, 'message': 'Navigation link created',
+                              'nav': {'id': new_nav.id, 'link_text': new_nav.link_text,
+                                      'link_url': new_nav.link_url, 'link_order': new_nav.link_order}})
     except Exception as e:
         db.session.rollback()
         return no_cache_json({'success': False, 'error': str(e)}, 500)
@@ -1420,6 +2558,9 @@ def delete_nav_link_api():
     try:
         link = db.session.get(NavigationLink, request.form.get('id'))
         if link:
+            # Clean up crawled pages for this nav link's URL
+            if link.link_url and link.link_url not in ('#', ''):
+                db.session.query(CrawledPage).filter_by(source_url=link.link_url).delete()
             db.session.delete(link)
             db.session.commit()
             clear_ai_cache()
@@ -1429,9 +2570,7 @@ def delete_nav_link_api():
         return no_cache_json({'success': False, 'error': str(e)})
 
 
-# ------------------------------------------------------------------ #
-#  PROFESSIONAL ROUTES                                                 #
-# ------------------------------------------------------------------ #
+# ── Professional routes ──────────────────────────────────────────────────────
 
 @app.route('/admin/api/update-professional', methods=['POST'])
 @login_required
@@ -1439,8 +2578,8 @@ def update_professional():
     try:
         prof = db.session.get(SuggestedProfessional, int(request.form.get('id')))
         if prof:
-            prof.name = request.form.get('name') or prof.name
-            prof.title = request.form.get('title', '')
+            prof.name        = request.form.get('name') or prof.name
+            prof.title       = request.form.get('title', '')
             prof.description = request.form.get('description', '')
             db.session.commit()
             clear_ai_cache()
@@ -1451,9 +2590,186 @@ def update_professional():
         return no_cache_json({'success': False, 'error': str(e)})
 
 
-# -----------------------------------------------------------------------------
+# ── Deep Crawl admin routes ──────────────────────────────────────────────────
+
+@app.route('/admin/api/crawl-nav-links', methods=['POST'])
+@login_required
+def trigger_crawl():
+    """Start a full deep crawl of all nav link URLs and card button URLs in the background."""
+    def run():
+        with app.app_context():
+            crawl_all_nav_links()
+    threading.Thread(target=run, daemon=True).start()
+    return no_cache_json({
+        'success': True,
+        'message': 'Deep crawl started in background. Indexes all nav links and card button URLs. Check status after 1-2 minutes.'
+    })
+
+
+@app.route('/admin/api/crawl-single', methods=['POST'])
+@login_required
+def crawl_single_url():
+    """Crawl a single URL on demand."""
+    data = request.get_json(silent=True) or {}
+    url  = (data.get('url') or '').strip()
+    if not url or url in ('#', ''):
+        return no_cache_json({'success': False, 'error': 'URL is required'}, 400)
+
+    def _run(u=url):
+        with app.app_context():
+            db.session.query(CrawledPage).filter_by(source_url=u).delete()
+            db.session.commit()
+            crawl_url_deep(u)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return no_cache_json({'success': True, 'message': f'Crawl started for {url}'})
+
+
+@app.route('/admin/api/crawl-status')
+@login_required
+def crawl_status():
+    """Return crawl statistics."""
+    total    = db.session.query(CrawledPage).count()
+    by_depth = db.session.query(CrawledPage.depth, db.func.count(CrawledPage.id))\
+                         .group_by(CrawledPage.depth).all()
+    latest   = db.session.query(CrawledPage)\
+                         .order_by(CrawledPage.crawled_at.desc()).limit(5).all()
+    return no_cache_json({
+        'total_pages_indexed': total,
+        'by_depth': {str(d): c for d, c in by_depth},
+        'latest': [{'url': p.page_url, 'title': p.page_title,
+                    'depth': p.depth, 'crawled_at': p.crawled_at.isoformat()} for p in latest],
+    })
+
+
+@app.route('/admin/api/clear-crawl-data', methods=['POST'])
+@login_required
+def clear_crawl_data():
+    """Wipe all crawled pages."""
+    deleted = db.session.query(CrawledPage).delete()
+    db.session.commit()
+    return no_cache_json({'success': True, 'deleted': deleted})
+
+
+# ── Analytics routes ─────────────────────────────────────────────────────────
+
+def _get_ga4_client():
+    from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request
+    import json as _json
+
+    token_path = os.path.join(basedir, 'ga4_token.json')
+    with open(token_path) as f:
+        token_data = _json.load(f)
+    creds = Credentials(
+        token=token_data['token'], refresh_token=token_data['refresh_token'],
+        token_uri=token_data['token_uri'], client_id=token_data['client_id'],
+        client_secret=token_data['client_secret'], scopes=token_data['scopes'],
+    )
+    if creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        token_data['token'] = creds.token
+        with open(token_path, 'w') as f:
+            _json.dump(token_data, f, indent=2)
+    return BetaAnalyticsDataClient(credentials=creds)
+
+
+def _ga4_mv(row, index):
+    try:
+        return row.metric_values[index].value
+    except (IndexError, AttributeError):
+        return "0"
+
+
+def _ga4_pct_change(current, previous):
+    try:
+        c, p = float(current or 0), float(previous or 0)
+        return 0 if p == 0 else round((c - p) / p * 100, 1)
+    except (ValueError, TypeError):
+        return 0
+
+
+@app.route('/admin/api/analytics')
+@login_required
+def admin_analytics():
+    if not GA4_AVAILABLE:
+        return no_cache_json({'ok': False, 'error': 'google-analytics-data not installed.'}, 500)
+    if not GA4_PROPERTY_ID:
+        return no_cache_json({'ok': False, 'error': 'GA4_PROPERTY_ID not set.'}, 500)
+    if not os.path.exists(os.path.join(basedir, GA4_CREDENTIALS_FILE)):
+        return no_cache_json({'ok': False, 'error': 'GA4 credentials file not found.'}, 500)
+    try:
+        client = _get_ga4_client()
+        prop   = f"properties/{GA4_PROPERTY_ID}"
+
+        summary_resp = client.run_report(RunReportRequest(
+            property=prop,
+            date_ranges=[DateRange(start_date="28daysAgo", end_date="today")],
+            metrics=[Metric(name="activeUsers"), Metric(name="screenPageViews"),
+                     Metric(name="sessions"), Metric(name="bounceRate"),
+                     Metric(name="averageSessionDuration")]))
+        s_row = summary_resp.rows[0] if summary_resp.rows else None
+
+        compare_resp = client.run_report(RunReportRequest(
+            property=prop,
+            date_ranges=[DateRange(start_date="28daysAgo", end_date="today"),
+                         DateRange(start_date="56daysAgo", end_date="29daysAgo")],
+            metrics=[Metric(name="activeUsers"), Metric(name="screenPageViews")]))
+        curr_users = compare_resp.rows[0].metric_values[0].value if compare_resp.rows else "0"
+        prev_users = compare_resp.rows[1].metric_values[0].value if len(compare_resp.rows) > 1 else "0"
+        curr_views = compare_resp.rows[0].metric_values[1].value if compare_resp.rows else "0"
+        prev_views = compare_resp.rows[1].metric_values[1].value if len(compare_resp.rows) > 1 else "0"
+
+        daily_resp = client.run_report(RunReportRequest(
+            property=prop,
+            date_ranges=[DateRange(start_date="6daysAgo", end_date="today")],
+            dimensions=[Dimension(name="date")], metrics=[Metric(name="screenPageViews")],
+            order_bys=[OrderBy(dimension=OrderBy.DimensionOrderBy(dimension_name="date"))]))
+        daily_data = [{"date": r.dimension_values[0].value, "views": r.metric_values[0].value}
+                      for r in daily_resp.rows]
+
+        sources_resp = client.run_report(RunReportRequest(
+            property=prop,
+            date_ranges=[DateRange(start_date="28daysAgo", end_date="today")],
+            dimensions=[Dimension(name="sessionDefaultChannelGroup")],
+            metrics=[Metric(name="sessions")],
+            order_bys=[OrderBy(metric=OrderBy.MetricOrderBy(metric_name="sessions"), desc=True)]))
+        sources_data = [{"source": r.dimension_values[0].value, "sessions": r.metric_values[0].value}
+                        for r in sources_resp.rows[:6]]
+
+        pages_resp = client.run_report(RunReportRequest(
+            property=prop,
+            date_ranges=[DateRange(start_date="28daysAgo", end_date="today")],
+            dimensions=[Dimension(name="pagePath")],
+            metrics=[Metric(name="screenPageViews"), Metric(name="averageSessionDuration")],
+            order_bys=[OrderBy(metric=OrderBy.MetricOrderBy(metric_name="screenPageViews"), desc=True)]))
+        pages_data = [{"path": r.dimension_values[0].value, "views": r.metric_values[0].value,
+                       "avg_time": r.metric_values[1].value} for r in pages_resp.rows[:8]]
+
+        raw_bounce = float(_ga4_mv(s_row, 3)) if s_row else 0.0
+        bounce_pct = round(raw_bounce * 100, 1) if raw_bounce <= 1 else round(raw_bounce, 1)
+
+        return no_cache_json({
+            "ok": True,
+            "summary": {
+                "users":       _ga4_mv(s_row, 0) if s_row else "0",
+                "page_views":  _ga4_mv(s_row, 1) if s_row else "0",
+                "sessions":    _ga4_mv(s_row, 2) if s_row else "0",
+                "bounce_rate": str(bounce_pct),
+                "avg_session": _ga4_mv(s_row, 4) if s_row else "0",
+                "users_delta": _ga4_pct_change(curr_users, prev_users),
+                "views_delta": _ga4_pct_change(curr_views, prev_views),
+            },
+            "daily": daily_data, "sources": sources_data, "pages": pages_data,
+        })
+    except Exception as e:
+        app.logger.error(f"GA4 analytics error: {e}")
+        return no_cache_json({'ok': False, 'error': str(e)}, 500)
+
+
+# ---------------------------------------------------------------------------
 #  PAGE BUILDER ROUTES
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 
 @app.route('/admin/api/pages', methods=['GET'])
 @login_required
@@ -1473,18 +2789,18 @@ def get_pages():
 @login_required
 def save_page_builder():
     try:
-        data = request.get_json()
-        title = data.get('title', '')
-        slug = data.get('slug', '')
+        data         = request.get_json()
+        title        = data.get('title', '')
+        slug         = data.get('slug', '')
         is_published = data.get('is_published', False)
-        blocks = data.get('blocks', [])
+        blocks       = data.get('blocks', [])
         if not title or not slug:
             return no_cache_json({'success': False, 'error': 'Title and slug required'})
         slug = ''.join(c for c in slug.lower().replace(' ', '-') if c.isalnum() or c == '-')
         page = db.session.query(Page).filter_by(slug=slug).first()
         if page:
-            page.title = title
-            page.description = data.get('description', '')
+            page.title        = title
+            page.description  = data.get('description', '')
             page.is_published = is_published
             PageBlock.query.filter_by(page_id=page.id).delete()
         else:
@@ -1495,8 +2811,8 @@ def save_page_builder():
             db.session.add(page)
             db.session.flush()
         for idx, block_data in enumerate(blocks):
-            block_info = block_data.get('data', {})
-            block_type = block_data.get('type', 'text')
+            block_info  = block_data.get('data', {})
+            block_type  = block_data.get('type', 'text')
             content_obj = block_info.get('content', {})
             if block_type == 'text':
                 content, heading = content_obj.get('text', ''), content_obj.get('title', '')
@@ -1524,7 +2840,7 @@ def save_page_builder():
 @login_required
 def create_page():
     try:
-        data = request.get_json()
+        data  = request.get_json()
         title = data.get('title', '')
         if not title:
             return no_cache_json({'success': False, 'error': 'Title required'})
@@ -1559,9 +2875,9 @@ def get_page(page_id):
                 'image_url': b.image_url, 'image_alt_text': b.image_alt_text,
                 'image_caption': b.image_caption, 'card_title': b.card_title,
                 'card_description': b.card_description, 'card_image': b.card_image,
-                'card_buttons': b.get_card_buttons(),
-                'background_color': b.background_color, 'text_alignment': b.text_alignment,
-                'layout_columns': b.layout_columns, 'is_visible': b.is_visible,
+                'card_buttons': b.get_card_buttons(), 'background_color': b.background_color,
+                'text_alignment': b.text_alignment, 'layout_columns': b.layout_columns,
+                'is_visible': b.is_visible,
             } for b in page.get_blocks_ordered()],
         }})
     except Exception as e:
@@ -1607,8 +2923,8 @@ def delete_page(page_id):
 @login_required
 def create_block():
     try:
-        data = request.get_json()
-        page = db.session.get(Page, data.get('page_id'))
+        data  = request.get_json()
+        page  = db.session.get(Page, data.get('page_id'))
         if not page:
             return no_cache_json({'success': False, 'error': 'Page not found'})
         block = PageBlock(page_id=page.id, block_type=data.get('block_type', 'text'),
@@ -1628,7 +2944,7 @@ def update_block(block_id):
         block = db.session.get(PageBlock, block_id)
         if not block:
             return no_cache_json({'success': False, 'error': 'Not found'})
-        data = request.get_json()
+        data  = request.get_json()
         for f in ('content', 'heading', 'subheading', 'image_url', 'image_alt_text',
                   'image_caption', 'card_title', 'card_description', 'card_image',
                   'background_color', 'text_alignment', 'layout_columns', 'is_visible'):
@@ -1675,9 +2991,9 @@ def reorder_blocks():
         return no_cache_json({'success': False, 'error': str(e)})
 
 
-# -----------------------------------------------------------------------------
-#  DEBUG ROUTE
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+#  DEBUG
+# ---------------------------------------------------------------------------
 
 @app.route('/debug-upload')
 def debug_upload():
@@ -1687,20 +3003,23 @@ def debug_upload():
         files = os.listdir(upload_folder)[-5:] if os.path.exists(upload_folder) else []
     except Exception:
         files = []
+    crawled_count = db.session.query(CrawledPage).count()
     return jsonify({
-        'GOV_IMAGE_BASE':     GOV_IMAGE_BASE,
-        'UPLOAD_FOLDER':      upload_folder,
-        'static_images_path': static_images,
-        'are_same':           os.path.abspath(upload_folder) == os.path.abspath(static_images),
-        'folder_exists':      os.path.exists(upload_folder),
-        'recent_files':       files,
-        'url_cache_size':     len(_url_cache),
+        'GOV_IMAGE_BASE':      GOV_IMAGE_BASE,
+        'UPLOAD_FOLDER':       upload_folder,
+        'folder_exists':       os.path.exists(upload_folder),
+        'are_same':            os.path.abspath(upload_folder) == os.path.abspath(static_images),
+        'recent_files':        files,
+        'url_cache_size':      len(_url_cache),
+        'crawled_pages_in_db': crawled_count,
+        'ga4_available':       GA4_AVAILABLE,
+        'ga4_property_set':    bool(GA4_PROPERTY_ID),
     })
 
 
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 #  DB INIT
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 
 def init_db():
     with app.app_context():
@@ -1711,24 +3030,24 @@ def init_db():
             db.session.add(admin)
 
         default_content = [
-            ('hero_title', 'LEADING THE MOVEMENT IN <br>ADVANCING INNOVATION AND <br>PRODUCTIVITY IN THE <span class="text-[#cdae2c]">PUBLIC SECTOR</span>', 1),
-            ('hero_image', 'images/Hero-Banner.png', 2),
-            ('search_placeholder', 'Ask Tutoy anything about Public Sector Productivity?', 3),
-            ('loading_text', 'Generating...', 4),
-            ('ai_label', 'AI says', 5),
-            ('key_points_title', 'Key Points', 6),
+            ('hero_title',           'LEADING THE MOVEMENT IN <br>ADVANCING INNOVATION AND <br>PRODUCTIVITY IN THE <span class="text-[#cdae2c]">PUBLIC SECTOR</span>', 1),
+            ('hero_image',           'images/Hero-Banner.png', 2),
+            ('search_placeholder',   'Ask Tutoy anything about Public Sector Productivity?', 3),
+            ('loading_text',         'Generating...', 4),
+            ('ai_label',             'Claude says', 5),
+            ('key_points_title',     'Key Points', 6),
             ('related_topics_title', 'Related Topics', 7),
-            ('quick_actions_title', 'Quick Actions', 8),
-            ('logo_image', 'images/dap-logo.png', 9),
-            ('gemini_image', 'images/gemini.png', 10),
-            ('apo_logo', 'images/apo.png', 11),
-            ('company_name', 'Development Academy of The Philippines', 12),
-            ('company_subtitle', 'Center of Excellence on Public Sector Productivity', 13),
-            ('company_address', 'DAP Building, San Miguel Avenue, Pasig City 1500', 14),
-            ('company_phone', '+632 631 0921 to 30', 15),
-            ('company_fax', '+632 631 2123', 16),
-            ('company_email', 'coe_psp@dap.edu.ph', 17),
-            ('site_title', 'COE Public-Sector Productivity', 18),
+            ('quick_actions_title',  'Quick Actions', 8),
+            ('logo_image',           'images/dap-logo.png', 9),
+            ('gemini_image',         'images/gemini.png', 10),
+            ('apo_logo',             'images/apo.png', 11),
+            ('company_name',         'Development Academy of The Philippines', 12),
+            ('company_subtitle',     'Center of Excellence on Public Sector Productivity', 13),
+            ('company_address',      'DAP Building, San Miguel Avenue, Pasig City 1500', 14),
+            ('company_phone',        '+632 631 0921 to 30', 15),
+            ('company_fax',          '+632 631 2123', 16),
+            ('company_email',        'coe_psp@dap.edu.ph', 17),
+            ('site_title',           'COE Public-Sector Productivity', 18),
         ]
         for key, value, order in default_content:
             if not db.session.query(ContentSection).filter_by(content_key=key).first():
@@ -1749,10 +3068,80 @@ def init_db():
         for i, link_text in enumerate(nav_links_data):
             if not db.session.query(NavigationLink).filter_by(link_text=link_text).first():
                 db.session.add(NavigationLink(link_text=link_text, link_url='#', link_order=i + 1))
+        seed_programs = [
+            (
+                'Development of Public-Sector Productivity Specialists (Foundation Course)',
+                'dpsps-foundation-course',
+                'Equip technical staff and officers with knowledge and skills in measurement, '
+                'analysis, planning, and troubleshooting to increase organizational productivity.',
+                'The DPSPS-FC is a training program designed to equip technical staff and officers '
+                'of Management Division and related offices of public-sector organizations (PSO) '
+                'with the knowledge and skills in measurement, analysis, planning, and '
+                'troubleshooting to increase their respective organizations\' productivity.',
+                1,
+            ),
+            (
+                'Designing Citizen-Centered Public Services',
+                'designing-citizen-centered-public-services',
+                'Assist government agencies in developing solutions so that their services address '
+                'their clients\' needs and expectations.',
+                'The program aims to assist government agencies in developing solutions so that '
+                'their services address their clients\' needs and expectations. The discussions and '
+                'activities in this program offer participating agencies a different approach to '
+                'streamlining and process improvement by viewing services from the point of view '
+                'or perspective of your clients or constituents.',
+                2,
+            ),
+            (
+                'Public Service Value Chain',
+                'public-service-value-chain',
+                'Enable government agencies to analyze, map, and improve end-to-end organizational '
+                'processes to enhance efficiency, effectiveness, and public value delivery.',
+                'The PSVC is a capability-building intervention that enables government agencies to '
+                'analyze, map, and improve their end-to-end organizational processes, including '
+                'management, core, and support functions, to enhance efficiency, effectiveness, and '
+                'the delivery of public value to citizens and stakeholders.',
+                3,
+            ),
+        ]
+        for title, slug, excerpt, body, order in seed_programs:
+            if not TrainingProgram.query.filter_by(slug=slug).first():
+                db.session.add(TrainingProgram(
+                    title         = title,
+                    slug          = slug,
+                    excerpt       = excerpt,
+                    body          = body,
+                    program_order = order,
+                    is_published  = True,
+                    is_archived   = False,
+                ))
 
         db.session.commit()
+
+        # Start periodic background re-crawl
+        _schedule_recrawl()
+
+@app.route('/admin/api/delete-single-image', methods=['POST'])
+@login_required
+def delete_single_image():
+    """Delete a single uploaded image file from disk."""
+    try:
+        data     = request.get_json(silent=True) or {}
+        filename = (data.get('filename') or '').strip()
+        if not filename or '/' in filename or '\\' in filename or '..' in filename:
+            return no_cache_json({'success': False, 'error': 'Invalid filename'}), 400
+ 
+        upload_folder = app.config.get('UPLOAD_FOLDER', '')
+        file_path     = os.path.join(upload_folder, filename)
+ 
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return no_cache_json({'success': True, 'message': f'{filename} deleted'})
+        return no_cache_json({'success': True, 'message': 'File not found (already deleted)'})
+    except Exception as e:
+        return no_cache_json({'success': False, 'error': str(e)}), 500
 
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=8000, debug=False)
