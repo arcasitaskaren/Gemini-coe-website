@@ -11,7 +11,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from config import Config
 from models import db, ContentSection, Card, NavigationLink, FooterSection, Admin, SuggestedProfessional, Page, PageBlock, CrawledPage, NewsArticle, TrainingProgram
 from werkzeug.utils import secure_filename
-from datetime import datetime, timezone   # ← SINGLE import with both datetime AND timezone
+from datetime import datetime, timezone   # ? SINGLE import with both datetime AND timezone
 import requests
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -664,7 +664,7 @@ def search_website_content(query: str) -> dict:
         all_pages   = db.session.query(Page).filter_by(is_published=True).all()
         all_crawled = db.session.query(CrawledPage).all()
 
-        # ── Index crawled pages by source URL for fast lookup ────────────
+        # -- Index crawled pages by source URL for fast lookup ------------
         crawled_by_source = {}
         for cp in all_crawled:
             crawled_by_source.setdefault(cp.source_url, []).append(cp)
@@ -672,7 +672,7 @@ def search_website_content(query: str) -> dict:
         # Track all crawled page URLs to avoid redundant live fetches
         crawled_urls = {cp.page_url for cp in all_crawled}
 
-        # ── Collect URLs not yet in DB (still worth live-fetching) ───────
+        # -- Collect URLs not yet in DB (still worth live-fetching) -------
         nav_urls = list({
             nav.link_url for nav in all_navs
             if nav.link_url and nav.link_url not in ('#', '', None)
@@ -703,7 +703,7 @@ def search_website_content(query: str) -> dict:
             fetched_ok = sum(1 for v in url_results.values() if v)
             print(f"[search] Live-fetched {fetched_ok}/{len(all_urls_to_fetch)} uncrawled URLs")
 
-        # ── Helper: get merged crawled subpage text for a seed URL ───────
+        # -- Helper: get merged crawled subpage text for a seed URL -------
         def _crawled_text_for(seed_url: str) -> str:
             pages = crawled_by_source.get(seed_url, [])
             if not pages:
@@ -715,7 +715,7 @@ def search_website_content(query: str) -> dict:
                     parts.append(f"[{p.page_title or p.page_url}]\n{p.text_content[:1500]}")
             return '\n\n'.join(parts)[:8000]
 
-        # ── Score Cards ──────────────────────────────────────────────────
+        # -- Score Cards --------------------------------------------------
         for card in all_cards:
             btn_contents = _safe_json_dict(card.button_contents)
             btn_images   = _safe_json_dict(card.button_images)
@@ -794,7 +794,7 @@ def search_website_content(query: str) -> dict:
                 'is_exact':     is_exact,
             })
 
-        # ── Score Navigation Links ───────────────────────────────────────
+        # -- Score Navigation Links ---------------------------------------
         for nav in all_navs:
             title_score   = _score_text(tokens, expanded, nav.link_text or '')
             content_score = _score_text(tokens, expanded, nav.page_content or '')
@@ -870,7 +870,7 @@ def search_website_content(query: str) -> dict:
                 'is_exact':     is_exact,
             })
 
-        # ── Score Content Sections ───────────────────────────────────────
+        # -- Score Content Sections ---------------------------------------
         for cs in all_cs:
             plain = _strip_html(cs.content_value or '')
             score = _score_text(tokens, expanded, plain)
@@ -889,7 +889,7 @@ def search_website_content(query: str) -> dict:
                 'is_exact':     is_exact,
             })
 
-        # ── Score Published Pages ────────────────────────────────────────
+        # -- Score Published Pages ----------------------------------------
         for page in all_pages:
             blocks      = page.get_blocks_ordered()
             page_texts  = [page.title or '', page.description or '']
@@ -939,7 +939,7 @@ def search_website_content(query: str) -> dict:
                 'is_exact':     is_exact,
             })
 
-        # ── Score CrawledPage records (first-class, no de-boost) ─────────
+        # -- Score CrawledPage records (first-class, no de-boost) ---------
         for cp in all_crawled:
             text_score  = _score_text(tokens, expanded, cp.text_content or '')
             title_score = _score_text(tokens, expanded, cp.page_title or '')
@@ -967,7 +967,7 @@ def search_website_content(query: str) -> dict:
                 'is_exact':     is_exact,
             })
 
-        # ── Sort and build final result ──────────────────────────────────
+        # -- Sort and build final result ----------------------------------
         matches.sort(key=lambda x: (x.get('is_exact', False), x['score']), reverse=True)
 
         seen_images, seen_links = set(), set()
@@ -1230,7 +1230,7 @@ def _build_training_items(nav_link):
     """
     items = []
  
-    # ── Try to get items from Cards whose title mentions 'training' ──────────
+    # -- Try to get items from Cards whose title mentions 'training' ----------
     training_cards = db.session.query(Card).filter(
         Card.title.ilike('%training%')
     ).order_by(Card.card_order).all()
@@ -1259,7 +1259,7 @@ def _build_training_items(nav_link):
             if not img_file and card.image:
                 img_file = card.image.strip()
  
-            # Strip path prefixes → bare filename
+            # Strip path prefixes ? bare filename
             img_file = re.sub(r'^(static/images/|images/|static/)', '', img_file)
  
             items.append({
@@ -1269,11 +1269,11 @@ def _build_training_items(nav_link):
                 'link_url':    link_url,
             })
  
-    # ── Fallback: parse nav_link.page_content as newline-separated titles ────
+    # -- Fallback: parse nav_link.page_content as newline-separated titles ----
     if not items and nav_link.page_content:
         plain = _strip_html(nav_link.page_content)
         for line in plain.splitlines():
-            line = line.strip(' -–•·*')
+            line = line.strip(' -*')
             if len(line) > 3:
                 items.append({'title': line, 'description': '', 'image': '', 'link_url': ''})
  
@@ -1296,22 +1296,18 @@ def nav_page(nav_id):
  
     link_text_lower = (nav_link.link_text or '').lower()
  
-    # ── Shared hero bg resolver (mirrors whats_new logic exactly) ────────────
+    # -- Shared hero bg resolver (mirrors whats_new logic exactly) ------------
+ # -- Shared hero bg resolver (mirrors whats_new logic exactly) ------------
     def _resolve_hero_bg(first_image_filename=None):
         if first_image_filename:
-            clean  = first_image_filename.split('/')[-1]
-            host   = request.host
-            is_dev = (
-                'localhost' in host
-                or '127.0.0.1' in host
-                or host.startswith('0.0.0.0')
-            )
-            return f"/static/images/{clean}" if is_dev else f"{GOV_IMAGE_BASE.rstrip('/')}/{clean}"
+            clean = first_image_filename.split('/')[-1]
+            return f"/static/images/{clean}"
         if nav_link.background_image:
-            return f"/static/images/{nav_link.background_image}"
+            clean = nav_link.background_image.split('/')[-1]
+            return f"/static/images/{clean}"
         return ''
  
-    # ── Common footer kwargs ──────────────────────────────────────────────────
+    # -- Common footer kwargs --------------------------------------------------
     footer_kwargs = dict(
         company_name     = get_content('company_name',     'Development Academy of The Philippines'),
         company_subtitle = get_content('company_subtitle', 'Center of Excellence on Public Sector Productivity'),
@@ -1322,7 +1318,7 @@ def nav_page(nav_id):
         apo_logo         = get_content('apo_logo',         'images/apo.png'),
     )
  
-    # ── What's New ───────────────────────────────────────────────────────────
+    # -- What's New -----------------------------------------------------------
     if 'new' in link_text_lower:
         articles = (
             NewsArticle.query
@@ -1354,7 +1350,7 @@ def nav_page(nav_id):
             **footer_kwargs,
         )
  
-    # ── Trainings ─────────────────────────────────────────────────────────────
+    # -- Trainings -------------------------------------------------------------
     is_trainings = any(kw in link_text_lower for kw in (
         'training', 'capacity', 'course', 'seminar', 'workshop'
     ))
@@ -1396,7 +1392,7 @@ def nav_page(nav_id):
             **footer_kwargs,
         )
  
-    # ── Default nav page ──────────────────────────────────────────────────────
+    # -- Default nav page ------------------------------------------------------
     return render_template(
         'nav_page.html',
         nav_link        = nav_link,
@@ -1564,11 +1560,11 @@ def api_search():
             'website_content_suggestions': [], 'related_images': [], 'related_links': [],
         })
 
-    # ── Run DB search first (Claude needs its context output) ────────────────
+    # -- Run DB search first (Claude needs its context output) ----------------
     # But cap the live-fetch phase so Claude never waits more than 4 s for it.
     website_search = search_website_content(query)
 
-    # ── Matched image (fast — pure in-memory loop) ───────────────────────────
+    # -- Matched image (fast - pure in-memory loop) ---------------------------
     matched_image = ''
     for card in get_all_cards():
         if query.lower() in (card.title or '').lower():
@@ -1577,7 +1573,7 @@ def api_search():
     if not matched_image and website_search.get('images'):
         matched_image = website_search['images'][0]['url']
 
-    # ── Call Claude in a thread so we can apply a hard timeout ───────────────
+    # -- Call Claude in a thread so we can apply a hard timeout ---------------
     # This prevents a slow Anthropic response from blocking the whole worker.
     ai_result_box = [None]
 
@@ -1589,7 +1585,7 @@ def api_search():
 
     claude_thread = threading.Thread(target=_call_claude, daemon=True)
     claude_thread.start()
-    claude_thread.join(timeout=28)   # hard ceiling — never block the request longer than 28 s
+    claude_thread.join(timeout=28)   # hard ceiling - never block the request longer than 28 s
 
     ai_response = ai_result_box[0]
 
@@ -1667,7 +1663,7 @@ def api_search():
 # ---------------------------------------------------------------------------
 
 def _parse_news_dt(value):
-    """Parse ISO / datetime-local string → aware datetime."""
+    """Parse ISO / datetime-local string ? aware datetime."""
     if not value:
         return datetime.now(timezone.utc)
     try:
@@ -1679,7 +1675,7 @@ def _parse_news_dt(value):
         return datetime.now(timezone.utc)
 
 
-# AFTER — safe, handles None datetimes and missing columns
+# AFTER - safe, handles None datetimes and missing columns
 
 @app.route('/admin/api/news-articles')
 @login_required
@@ -1735,7 +1731,7 @@ def api_add_news_article():
         excerpt       = (data.get('excerpt') or '').strip() or None,
         body          = data.get('body') or None,
         cover_image   = (data.get('cover_image') or '').strip() or None,
-        article_image = (data.get('article_image') or '').strip() or None,  # ← NEW
+        article_image = (data.get('article_image') or '').strip() or None,  # ? NEW
         published_at  = _parse_news_dt(data.get('published_at')),
         is_published  = bool(data.get('is_published', False)),
         is_archived   = bool(data.get('is_archived', False)),
@@ -1771,7 +1767,7 @@ def api_update_news_article():
         article.body = data['body'] or None
     if 'cover_image' in data:
         article.cover_image = (data['cover_image'] or '').strip() or None
-    if 'article_image' in data:                                            # ← NEW
+    if 'article_image' in data:                                            # ? NEW
         article.article_image = (data['article_image'] or '').strip() or None
     if 'published_at' in data:
         article.published_at = _parse_news_dt(data['published_at'])
@@ -1810,7 +1806,7 @@ def api_delete_news_article():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 def _parse_program_dt(value):
-    """Parse ISO / datetime-local string → aware datetime."""
+    """Parse ISO / datetime-local string ? aware datetime."""
     if not value:
         return datetime.now(timezone.utc)
     try:
@@ -2088,7 +2084,7 @@ def update_content():
         return no_cache_json({'success': False, 'error': str(e)})
 
 
-# ── Card routes ──────────────────────────────────────────────────────────────
+# -- Card routes --------------------------------------------------------------
 
 @app.route('/admin/api/update-card-title', methods=['POST'])
 @login_required
@@ -2221,7 +2217,7 @@ def delete_card_api():
         return no_cache_json({'success': False, 'error': str(e)}, 500)
 
 
-# ── Button routes ────────────────────────────────────────────────────────────
+# -- Button routes ------------------------------------------------------------
 
 @app.route('/admin/api/update-button-name', methods=['POST'])
 @login_required
@@ -2407,7 +2403,7 @@ def delete_gallery_image():
         return no_cache_json({'success': False, 'message': str(e)})
 
 
-# ── Navigation routes ────────────────────────────────────────────────────────
+# -- Navigation routes --------------------------------------------------------
 
 def _normalise_images_list(raw_images) -> list:
     if not raw_images:
@@ -2570,7 +2566,7 @@ def delete_nav_link_api():
         return no_cache_json({'success': False, 'error': str(e)})
 
 
-# ── Professional routes ──────────────────────────────────────────────────────
+# -- Professional routes ------------------------------------------------------
 
 @app.route('/admin/api/update-professional', methods=['POST'])
 @login_required
@@ -2590,7 +2586,7 @@ def update_professional():
         return no_cache_json({'success': False, 'error': str(e)})
 
 
-# ── Deep Crawl admin routes ──────────────────────────────────────────────────
+# -- Deep Crawl admin routes --------------------------------------------------
 
 @app.route('/admin/api/crawl-nav-links', methods=['POST'])
 @login_required
@@ -2651,7 +2647,7 @@ def clear_crawl_data():
     return no_cache_json({'success': True, 'deleted': deleted})
 
 
-# ── Analytics routes ─────────────────────────────────────────────────────────
+# -- Analytics routes ---------------------------------------------------------
 
 def _get_ga4_client():
     from google.oauth2.credentials import Credentials
@@ -3140,6 +3136,31 @@ def delete_single_image():
         return no_cache_json({'success': True, 'message': 'File not found (already deleted)'})
     except Exception as e:
         return no_cache_json({'success': False, 'error': str(e)}), 500
+
+# Add this route to your Render-deployed app
+@app.route('/proxy/claude', methods=['POST'])
+def proxy_claude():
+    import anthropic
+    
+    data = request.get_json()
+    api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+    
+    if not api_key:
+        return jsonify({'error': 'No API key'}), 500
+    
+    # Simple secret to prevent abuse
+    secret = request.headers.get('X-Proxy-Secret', '')
+    if secret != os.environ.get('PROXY_SECRET', ''):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    client = anthropic.Anthropic(api_key=api_key)
+    message = client.messages.create(
+        model=data.get('model', 'claude-sonnet-4-6'),
+        max_tokens=data.get('max_tokens', 512),
+        system=data.get('system', ''),
+        messages=data.get('messages', [])
+    )
+    return jsonify({'content': [{'text': message.content[0].text}]})
 
 
 if __name__ == '__main__':
