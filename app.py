@@ -3120,16 +3120,13 @@ def init_db():
 @app.route('/admin/api/delete-single-image', methods=['POST'])
 @login_required
 def delete_single_image():
-    """Delete a single uploaded image file from disk."""
     try:
         data     = request.get_json(silent=True) or {}
         filename = (data.get('filename') or '').strip()
         if not filename or '/' in filename or '\\' in filename or '..' in filename:
             return no_cache_json({'success': False, 'error': 'Invalid filename'}), 400
- 
         upload_folder = app.config.get('UPLOAD_FOLDER', '')
         file_path     = os.path.join(upload_folder, filename)
- 
         if os.path.exists(file_path):
             os.remove(file_path)
             return no_cache_json({'success': True, 'message': f'{filename} deleted'})
@@ -3137,7 +3134,7 @@ def delete_single_image():
     except Exception as e:
         return no_cache_json({'success': False, 'error': str(e)}), 500
 
-# Add this route to your Render-deployed app
+
 @app.route('/proxy/claude', methods=['POST', 'OPTIONS'])
 def proxy_claude():
     if request.method == 'OPTIONS':
@@ -3158,6 +3155,14 @@ def proxy_claude():
         messages   = data.get('messages', [])
     )
     return jsonify({'content': [{'text': msg.content[0].text}]})
+
+
+@app.after_request
+def add_cors(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, X-Proxy-Secret'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    return response
 
 
 if __name__ == '__main__':
