@@ -3138,36 +3138,27 @@ def delete_single_image():
         return no_cache_json({'success': False, 'error': str(e)}), 500
 
 # Add this route to your Render-deployed app
-@app.route('/proxy/claude', methods=['POST'])
+@app.route('/proxy/claude', methods=['POST', 'OPTIONS'])
 def proxy_claude():
-    import anthropic
-    
-    data = request.get_json()
-    api_key = os.environ.get('ANTHROPIC_API_KEY', '')
-    
-    if not api_key:
-        return jsonify({'error': 'No API key'}), 500
-    
-    # Simple secret to prevent abuse
+    if request.method == 'OPTIONS':
+        return jsonify({}), 200
     secret = request.headers.get('X-Proxy-Secret', '')
     if secret != os.environ.get('PROXY_SECRET', ''):
         return jsonify({'error': 'Unauthorized'}), 401
-
-    client = anthropic.Anthropic(api_key=api_key)
-    message = client.messages.create(
-        model=data.get('model', 'claude-sonnet-4-6'),
-        max_tokens=data.get('max_tokens', 512),
-        system=data.get('system', ''),
-        messages=data.get('messages', [])
+    data    = request.get_json()
+    api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+    if not api_key:
+        return jsonify({'error': 'No API key configured'}), 500
+    import anthropic
+    client  = anthropic.Anthropic(api_key=api_key)
+    msg     = client.messages.create(
+        model      = data.get('model', 'claude-sonnet-4-6'),
+        max_tokens = data.get('max_tokens', 512),
+        system     = data.get('system', ''),
+        messages   = data.get('messages', [])
     )
-   return jsonify({'content': [{'text': message.content[0].text}]})
+    return jsonify({'content': [{'text': msg.content[0].text}]})
 
-@app.after_request
-def add_cors(response):
-    response.headers['Access-Control-Allow-Origin'] = 'https://coe-psp.dap.edu.ph'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, X-Proxy-Secret'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    return response
 
 if __name__ == '__main__':
     init_db()
