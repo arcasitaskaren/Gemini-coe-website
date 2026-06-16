@@ -3160,8 +3160,14 @@ def proxy_claude():
         system=data.get('system', ''),
         messages=data.get('messages', [])
     )
-    return jsonify({'content': [{'text': message.content[0].text}]})
+   return jsonify({'content': [{'text': message.content[0].text}]})
 
+@app.after_request
+def add_cors(response):
+    response.headers['Access-Control-Allow-Origin'] = 'https://coe-psp.dap.edu.ph'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, X-Proxy-Secret'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    return response
 
 if __name__ == '__main__':
     init_db()
