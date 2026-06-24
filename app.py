@@ -5,13 +5,13 @@ from dotenv import load_dotenv
 basedir = os.path.abspath(os.path.dirname(__file__))
 load_dotenv(os.path.join(basedir, ".env"))
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session, make_response
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, make_response, Response, stream_with_context
 import json
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from config import Config
 from models import db, ContentSection, Card, NavigationLink, FooterSection, Admin, SuggestedProfessional, Page, PageBlock, CrawledPage, NewsArticle, TrainingProgram
 from werkzeug.utils import secure_filename
-from datetime import datetime, timezone   # ? SINGLE import with both datetime AND timezone
+from datetime import datetime, timezone   # SINGLE import with both datetime AND timezone
 import requests
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -637,7 +637,17 @@ def _check_exact_match(query: str, text: str) -> bool:
 #  FULL DATABASE SEARCH
 # ---------------------------------------------------------------------------
 
-def search_website_content(query: str) -> dict:
+def search_website_content(query: str, live_fetch: bool = True) -> dict:
+    """
+    live_fetch=True  (default): also live-fetches any nav/card URLs that
+        haven't been crawled into CrawledPage yet. This is the original,
+        thorough-but-slower behaviour used by /api/search.
+    live_fetch=False: skips the live HTTP fetch step entirely and relies
+        purely on already-crawled DB content. This is what the fast
+        streaming endpoint (/api/search-stream) uses, since the background
+        crawler (crawl_all_nav_links / auto-crawl-on-save) keeps
+        CrawledPage populated anyway.
+    """
     results = {
         'suggestions':   [],
         'images':        [],
@@ -685,7 +695,7 @@ def search_website_content(query: str) -> dict:
             if url and url not in ('#', '', None)
             and url not in crawled_urls
         })
-        all_urls_to_fetch = list(set(nav_urls + card_button_urls))
+        all_urls_to_fetch = list(set(nav_urls + card_button_urls)) if live_fetch else []
 
         url_results = {}
         if all_urls_to_fetch:
@@ -1216,6 +1226,125 @@ def call_claude_api(query: str, website_search: dict = None) -> dict:
     return None
 
 
+def call_claude_api_stream(query: str, website_search: dict = None):
+    """
+    Generator yielding ('delta', text) chunks while streaming the prose
+    answer, then a final ('meta', {...}) with key_points/global_suggestions/
+    quick_navigation. Streams directly from the Anthropic SDK - no proxy hop.
+
+    The model is instructed to write the prose answer first, then a fixed
+    delimiter, then a single line of compact JSON metadata. We stream
+    everything before the delimiter to the caller as it arrives, and parse
+    everything after the delimiter as metadata once the stream finishes.
+    """
+    import anthropic
+
+    DELIM = '###META###'
+
+    api_key = app.config.get('ANTHROPIC_API_KEY', '') or os.environ.get('ANTHROPIC_API_KEY', '')
+    if not api_key:
+        yield ('error', 'ANTHROPIC_API_KEY not configured')
+        return
+
+    if website_search is None:
+        website_search = search_website_content(query, live_fetch=False)
+
+    context_text   = website_search.get('context_text', '')
+    has_db_content = bool(context_text.strip())
+
+    system_prompt = (
+        "You are Tutoy, the official AI assistant for DAP-COE "
+        "(Development Academy of the Philippines - Center of Excellence on Public Sector Productivity). "
+        "STRICT OUTPUT FORMAT - follow exactly: "
+        "1. First write a plain-prose answer, 120-200 words, no markdown, no headers, no bullet points. "
+        "   This is the ONLY thing you write before the delimiter. "
+        "2. Then write the exact delimiter line: " + DELIM + " "
+        "3. Then write ONE line of valid compact JSON (no markdown fences): "
+        '{"key_points": ["...","...","...","..."], "global_suggestions": ["...","...","..."], '
+        '"quick_navigation": ["Home","Programs","Services","Contact"]} '
+        "key_points: exactly 4 short distinct strings, each under 15 words. "
+        "global_suggestions: exactly 3 specific follow-up questions related to the query. "
+        "CONTENT SOURCE PRIORITY: if Website Context is relevant, base your answer on it; "
+        "otherwise use general knowledge about public sector productivity, Philippine governance, "
+        "DAP programs, and digital transformation. NEVER refuse to answer. "
+        "Do not repeat ideas. Do not end with generic networking/community filler sentences. "
+        "End the prose with a specific, actionable insight."
+    )
+
+    context_block = (
+        f"\n\n=== Website Context ===\n{context_text}\n=== End Context ==="
+        if has_db_content
+        else "\n\n=== Website Context ===\n(No matching content found - use general knowledge.)\n=== End Context ==="
+    )
+    user_prompt = f"User query: {query}{context_block}"
+
+    client = anthropic.Anthropic(api_key=api_key)
+
+    sent_so_far = ''
+    emitted_len = 0
+    in_meta     = False
+    meta_raw    = ''
+
+    try:
+        with client.messages.stream(
+            model="claude-sonnet-4-6",
+            max_tokens=600,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+        ) as stream:
+            for chunk in stream.text_stream:
+                if not chunk:
+                    continue
+                if in_meta:
+                    meta_raw += chunk
+                    continue
+
+                sent_so_far += chunk
+                idx = sent_so_far.find(DELIM)
+                if idx != -1:
+                    to_emit = sent_so_far[emitted_len:idx]
+                    if to_emit:
+                        yield ('delta', to_emit)
+                    emitted_len = idx + len(DELIM)
+                    in_meta  = True
+                    meta_raw = sent_so_far[emitted_len:]
+                else:
+                    # withhold a tail in case the delimiter is split across chunks
+                    safe_upto = max(emitted_len, len(sent_so_far) - len(DELIM))
+                    to_emit = sent_so_far[emitted_len:safe_upto]
+                    if to_emit:
+                        yield ('delta', to_emit)
+                        emitted_len = safe_upto
+    except Exception as e:
+        print(f"[claude-stream] error: {e}")
+        yield ('error', str(e))
+        return
+
+    if not in_meta:
+        remainder = sent_so_far[emitted_len:]
+        if remainder:
+            yield ('delta', remainder)
+        meta = {}
+    else:
+        meta_raw = meta_raw.strip()
+        try:
+            meta = json.loads(meta_raw)
+        except json.JSONDecodeError:
+            meta = {}
+            start, end = meta_raw.find('{'), meta_raw.rfind('}')
+            if start != -1 and end != -1:
+                try:
+                    meta = json.loads(meta_raw[start:end + 1])
+                except Exception:
+                    pass
+
+    yield ('meta', {
+        'key_points':         meta.get('key_points', []) or [],
+        'global_suggestions': meta.get('global_suggestions', []) or [],
+        'quick_navigation':   meta.get('quick_navigation', []) or ['Home', 'Programs', 'Services', 'Contact'],
+    })
+
+
 # ---------------------------------------------------------------------------
 #  MAIN SITE ROUTES
 # ---------------------------------------------------------------------------
@@ -1259,7 +1388,7 @@ def _build_training_items(nav_link):
             if not img_file and card.image:
                 img_file = card.image.strip()
  
-            # Strip path prefixes ? bare filename
+            # Strip path prefixes -> bare filename
             img_file = re.sub(r'^(static/images/|images/|static/)', '', img_file)
  
             items.append({
@@ -1297,7 +1426,6 @@ def nav_page(nav_id):
     link_text_lower = (nav_link.link_text or '').lower()
  
     # -- Shared hero bg resolver (mirrors whats_new logic exactly) ------------
- # -- Shared hero bg resolver (mirrors whats_new logic exactly) ------------
     def _resolve_hero_bg(first_image_filename=None):
         if first_image_filename:
             clean = first_image_filename.split('/')[-1]
@@ -1522,7 +1650,7 @@ def index():
 
 
 # ---------------------------------------------------------------------------
-#  AI SEARCH ENDPOINT
+#  AI SEARCH ENDPOINT (legacy, non-streaming - waits for full response)
 # ---------------------------------------------------------------------------
 
 @app.route('/api/search', methods=['GET'])
@@ -1561,7 +1689,7 @@ def api_search():
         })
 
     # -- Run DB search first (Claude needs its context output) ----------------
-    # But cap the live-fetch phase so Claude never waits more than 4 s for it.
+    # But cap the live-fetch phase so Claude never waits too long for it.
     website_search = search_website_content(query)
 
     # -- Matched image (fast - pure in-memory loop) ---------------------------
@@ -1617,45 +1745,105 @@ def api_search():
         'related_links':               website_search.get('related_links', [])[:8],
     })
 
-    website_search = search_website_content(query)
 
-    matched_image = ''
-    for card in get_all_cards():
-        if query.lower() in (card.title or '').lower():
-            matched_image = _image_url(card.image)
-            break
-    if not matched_image and website_search.get('images'):
-        matched_image = website_search['images'][0]['url']
+# ---------------------------------------------------------------------------
+#  AI SEARCH ENDPOINT (streaming - text appears as it's generated)
+# ---------------------------------------------------------------------------
 
-    ai_response = call_claude_api(query, website_search=website_search)
+@app.route('/api/search-stream')
+def api_search_stream():
+    query = request.args.get('q', '').strip()
 
-    if ai_response:
-        print("[claude] Got valid response from Claude API")
-        if not ai_response.get('image') and matched_image:
-            ai_response['image'] = matched_image
-        ai_response['website_content_suggestions'] = []
-        ai_response['related_images'] = website_search.get('images', [])[:6]
-        ai_response['related_links']  = website_search.get('related_links', [])[:8]
-        return jsonify(ai_response)
+    def sse(event, data):
+        return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
-    print("[claude] Claude API returned None - DB-only fallback")
-    db_snippets   = [s.get('text', '') for s in website_search.get('suggestions', [])[:4]]
-    fallback_says = (
-        f'Here\'s what I found on our website about "{query}".'
-        if website_search.get('suggestions')
-        else 'I couldn\'t connect to the AI service right now. Try searching "trainings", "GovLab", or "community".'
+    def generate():
+        if not query:
+            yield sse('error', {'message': 'Please enter a search query.'})
+            yield sse('done', {})
+            return
+
+        if is_greeting(query):
+            yield sse('delta', {'text': (
+                "Hello! I'm Tutoy, the official AI assistant for DAP-COE "
+                "(Development Academy of the Philippines - Center of Excellence on Public Sector Productivity). "
+                "I'm here to help you explore our programs, training courses, and services."
+            )})
+            yield sse('meta', {
+                'key_points': [
+                    'Explore DAP-COE programs and services',
+                    'Search for training courses and schedules',
+                    'Learn about GovLab and other initiatives',
+                    'Get guided through enrollment and registration',
+                ],
+                'global_suggestions': [
+                    'What training programs are available?',
+                    'Tell me about GovLab',
+                    'How do I enroll in a course?',
+                ],
+                'quick_navigation': ['Home', 'Programs', 'Services', 'Contact'],
+            })
+            yield sse('done', {})
+            return
+
+        # Fast DB-only search - skips the blocking live-URL-fetch step and
+        # relies purely on already-crawled CrawledPage content.
+        try:
+            website_search = search_website_content(query, live_fetch=False)
+        except Exception as e:
+            print(f"[search] Error: {e}")
+            website_search = {'suggestions': [], 'images': [], 'related_links': [], 'context_text': '', 'exact_match': False}
+
+        matched_image = ''
+        for card in get_all_cards():
+            if query.lower() in (card.title or '').lower():
+                matched_image = _image_url(card.image)
+                break
+        if not matched_image and website_search.get('images'):
+            matched_image = website_search['images'][0]['url']
+
+        # Send context immediately - frontend can render related links/images
+        # right away, well before the AI text starts streaming in.
+        yield sse('context', {
+            'related_images': website_search.get('images', [])[:6],
+            'related_links':  website_search.get('related_links', [])[:8],
+            'image':          matched_image,
+        })
+
+        got_any_text = False
+        try:
+            for kind, payload in call_claude_api_stream(query, website_search):
+                if kind == 'delta':
+                    got_any_text = True
+                    yield sse('delta', {'text': payload})
+                elif kind == 'meta':
+                    yield sse('meta', payload)
+                elif kind == 'error':
+                    print(f"[claude-stream] error: {payload}")
+        except Exception as e:
+            print(f"[claude-stream] fatal error: {e}")
+
+        if not got_any_text:
+            db_snippets = [s.get('text', '') for s in website_search.get('suggestions', [])[:4]]
+            fallback_text = (
+                f'Here\'s what I found on our website about "{query}".'
+                if website_search.get('suggestions')
+                else 'I couldn\'t connect to the AI service right now. Try searching "trainings", "GovLab", or "community".'
+            )
+            yield sse('delta', {'text': fallback_text})
+            yield sse('meta', {
+                'key_points': db_snippets or [f'Search query: "{query}"', 'Browse our website for more information'],
+                'global_suggestions': ['Tell me about our programs', 'What services do we offer?', 'How can I enroll?'],
+                'quick_navigation': ['Home', 'Programs', 'Services', 'Contact'],
+            })
+
+        yield sse('done', {})
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
     )
-
-    return jsonify({
-        'gemini_says':                 fallback_says,
-        'key_points':                  db_snippets or [f'Search query: "{query}"', 'Browse our website for more information'],
-        'image':                       matched_image,
-        'global_suggestions':          ['Tell me about our programs', 'What services do we offer?', 'How can I enroll?'],
-        'quick_navigation':            ['Home', 'Programs', 'Services', 'Contact'],
-        'website_content_suggestions': [],
-        'related_images':              website_search.get('images', [])[:6],
-        'related_links':               website_search.get('related_links', [])[:8],
-    })
 
 
 # ---------------------------------------------------------------------------
@@ -1663,7 +1851,7 @@ def api_search():
 # ---------------------------------------------------------------------------
 
 def _parse_news_dt(value):
-    """Parse ISO / datetime-local string ? aware datetime."""
+    """Parse ISO / datetime-local string -> aware datetime."""
     if not value:
         return datetime.now(timezone.utc)
     try:
@@ -1674,8 +1862,6 @@ def _parse_news_dt(value):
     except Exception:
         return datetime.now(timezone.utc)
 
-
-# AFTER - safe, handles None datetimes and missing columns
 
 @app.route('/admin/api/news-articles')
 @login_required
@@ -1731,7 +1917,7 @@ def api_add_news_article():
         excerpt       = (data.get('excerpt') or '').strip() or None,
         body          = data.get('body') or None,
         cover_image   = (data.get('cover_image') or '').strip() or None,
-        article_image = (data.get('article_image') or '').strip() or None,  # ? NEW
+        article_image = (data.get('article_image') or '').strip() or None,
         published_at  = _parse_news_dt(data.get('published_at')),
         is_published  = bool(data.get('is_published', False)),
         is_archived   = bool(data.get('is_archived', False)),
@@ -1767,7 +1953,7 @@ def api_update_news_article():
         article.body = data['body'] or None
     if 'cover_image' in data:
         article.cover_image = (data['cover_image'] or '').strip() or None
-    if 'article_image' in data:                                            # ? NEW
+    if 'article_image' in data:
         article.article_image = (data['article_image'] or '').strip() or None
     if 'published_at' in data:
         article.published_at = _parse_news_dt(data['published_at'])
@@ -1806,7 +1992,7 @@ def api_delete_news_article():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 def _parse_program_dt(value):
-    """Parse ISO / datetime-local string ? aware datetime."""
+    """Parse ISO / datetime-local string -> aware datetime."""
     if not value:
         return datetime.now(timezone.utc)
     try:
@@ -3137,6 +3323,11 @@ def delete_single_image():
 
 @app.route('/proxy/claude', methods=['POST', 'OPTIONS'])
 def proxy_claude():
+    """
+    NOTE: This route is currently unused by call_claude_api() / call_claude_api_stream(),
+    which both call the Anthropic SDK directly in-process. Kept here in case any other
+    caller still depends on it. Safe to remove later once confirmed nothing else hits it.
+    """
     if request.method == 'OPTIONS':
         return jsonify({}), 200
     secret = request.headers.get('X-Proxy-Secret', '')
