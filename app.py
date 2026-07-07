@@ -1690,7 +1690,7 @@ def api_search():
 
     # -- Run DB search first (Claude needs its context output) ----------------
     # But cap the live-fetch phase so Claude never waits too long for it.
-    website_search = search_website_content(query)
+    website_search = search_website_content(query, live_fetch=False)
 
     # -- Matched image (fast - pure in-memory loop) ---------------------------
     matched_image = ''
@@ -1713,7 +1713,7 @@ def api_search():
 
     claude_thread = threading.Thread(target=_call_claude, daemon=True)
     claude_thread.start()
-    claude_thread.join(timeout=28)   # hard ceiling - never block the request longer than 28 s
+    claude_thread.join(timeout=18)   # hard ceiling - never block the request longer than 28 s
 
     ai_response = ai_result_box[0]
 
